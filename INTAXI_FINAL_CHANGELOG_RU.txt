@@ -1,0 +1,222 @@
+INTAXI — ИТОГОВАЯ СВОДКА ПО ПОСЛЕДНЕМУ ПАКЕТУ ИЗМЕНЕНИЙ
+Дата сборки архива: 2026-04-22
+
+1. ЧТО ВХОДИТ В ЭТОТ ПАКЕТ
+- Полный исходный код фронтенда Mini App
+- Полный исходный код backend API
+- Полный исходный код Telegram bot
+- Основные конфигурационные файлы проекта
+- Актуальная сводка по внесённым изменениям и проверкам
+
+2. ЧТО ВКЛЮЧЕНО В АРХИВ
+- api/
+- intaxi_bot/
+- src/
+- public/ (если присутствует)
+- package.json
+- package-lock.json
+- next.config.ts
+- tsconfig.json
+- eslint.config.mjs
+- next-env.d.ts
+- эта сводка
+
+3. ГЛАВНЫЕ ПРАВИЛА И ТРЕБОВАНИЯ, КОТОРЫЕ БЫЛИ УЧТЕНЫ
+- Бот и Mini App должны работать как одно приложение по сути
+- Изменения в БД только additive, без удаления старых данных
+- Не ломать уже подтверждённые вещи:
+  * canonical Mini App host = app.intaxi.best
+  * bot -> Mini App deeplinks
+  * production API base URL
+  * profile sync
+  * language sync
+  * Telegram auth priority над stale dev session
+- Основной план охватывает bot + Mini App + backend + cleanup + карта + межгород + история + комиссия + кошелёк
+
+4. ЧТО СДЕЛАНО ПО BOT
+4.1. Start / onboarding / registration
+- Восстановлен и стабилизирован onboarding flow
+- Сохранена регистрация языка / страны / города
+- Добавлен privacy notice под приветствием / Bismillah
+- Не сломаны profile sync / language sync / auth priority
+
+4.2. Регистрация водителя
+- Убраны требования личных документов
+- Сделан runtime-flow только на 4 фото машины:
+  * перед с номером
+  * зад с номером
+  * левая сторона
+  * правая сторона
+- Сохранена локализация RU / UZ / EN / AR
+- Модерация использует именно эти фото
+
+4.3. Bot order/navigation cleanup
+- Убраны passenger-facing city driver offers в бот-потоке пассажира
+- Доработано Back-поведение в изменённых FSM-сценариях
+- Добавлен консервативный cleanup старых prompt / buttons / obsolete messages
+- Ошибки delete игнорируются тихо
+
+4.4. Passenger-facing accepted driver card
+- Добавлена отправка пассажиру карточки водителя после принятия
+- Используются доступные vehicle media
+- Есть backward compatibility для legacy media
+- Если часть фото отсутствует, карточка всё равно отправляется по доступным данным
+
+5. ЧТО СДЕЛАНО ПО BACKEND / API
+5.1. Auth / profile / sync
+- Работает Telegram auth
+- Поддержаны /me, /me/profile, /me/role, /me/vehicle
+- Сохранён приоритет Telegram auth над dev session
+
+5.2. Wallet / payments / finance
+- /wallet
+- /wallet/topup
+- /wallet/topup/history
+- /admin/payments/pending
+- /admin/payments/{id}/approve
+- /admin/payments/{id}/reject
+- Баланс / комиссия / free rides отражаются через backend
+
+5.3. Tariffs / pricing / dispatch
+- Добавлены тарифы по странам
+- Добавлен admin control тарифов
+- Реализованы endpoint'ы тарифа и runtime-логика системной цены
+- Поддержан fallback между own price и system price
+- Учтён расчёт по координатам и тарифный hint при отсутствии координат
+
+5.4. Driver online / location / dispatch runtime
+- /driver/online (GET/POST)
+- /driver/location (POST)
+- Добавлена онлайн-состояние водителя
+- Добавлено обновление локации
+- Добавлен dispatch/runtime search flow с радиусами и fallback логикой
+
+5.5. City order lifecycle
+- /city/orders
+- /city/offers
+- /city/offers/{order_id}
+- /city/my-orders
+- /city/orders/{order_id}/close
+- /city/orders/{order_id}/raise-price
+- /city/offers/{order_id}/accept
+- /city/trips/{trip_id}
+- /city/trips/{trip_id}/status
+- Улучшен acceptance flow
+- Усилен lifecycle заказа до завершения
+- Не сломан city finance flow
+
+5.6. Current trip / map / chat
+- /trip/current
+- /chat/{trip_id}/messages GET/POST
+- Текущая поездка отдаётся через backend
+- Поддержаны чат и current trip payload
+- Есть map_provider / map_embed_url / map_action_url / eta fields
+
+5.7. Intercity
+- /intercity/routes
+- /intercity/requests
+- /intercity/offers
+- /intercity/offers/{kind}/{item_id}
+- /intercity/my-routes
+- /intercity/my-requests
+- /intercity/routes/{route_id}/status
+- /intercity/requests/{request_id}/status
+- Реализованы route/request persistence и основные status flows
+- Добавлен pickup_mode
+- Вариант по умолчанию = ask_driver / уточнить у водителя
+- Поддержан чат для соответствующего сценария
+
+5.8. Full history
+- /history/all
+- В истории собраны:
+  * city_orders
+  * city_trips
+  * intercity_routes
+  * intercity_requests
+
+6. ЧТО СДЕЛАНО ПО MINI APP / FRONTEND
+6.1. Общая синхронизация
+- Сохранён production API base URL
+- Сохранены profile sync / language sync / Telegram auth priority
+- Удалены лишние emoji/icon-style элементы из Mini App labels, где это требовалось
+
+6.2. City UX
+- /city/my-orders превращён в лёгкую семантику истории
+- Убрана passenger-facing driver-offers семантика
+- Реализованы repeat route и swap points
+- История кликом подставляет from/to в create flow
+
+6.3. Profile / history
+- В профиль добавлена полная история
+- Есть city + intercity
+- Есть passenger + driver surfaces
+- Добавлены expandable details
+- Отображаются только реальные данные
+
+6.4. Intercity UX
+- Улучшены intercity CTA
+- Role behavior сделан зависящим от реально выбранной роли
+- Pickup mode протянут в UI
+- Для ask_driver сохранён вход в chat
+
+6.5. Live trip / map MVP
+- Встроенная карта в current trip page
+- Provider abstraction:
+  * UZ/TR -> Yandex
+  * SA/fallback -> Google
+- Поддержан safe fallback, если нет полного route/polyline richness
+- Поддержаны driver marker / pickup / destination / eta поля через payload
+
+7. ЧТО СДЕЛАНО ПО МОДЕЛЯМ / ДАННЫМ / ADDITIVE ИЗМЕНЕНИЯМ
+- Добавлены новые схемы / модели / поля без destructive удаления старых данных
+- Добавлена chat_messages_v1
+- Добавлен intercity_route_meta
+- Добавлены новые response/request schema для history, chat, tariffs, driver online, intercity, trip current
+
+8. ЧТО БЫЛО ДОПОЛНИТЕЛЬНО ВЫЯВЛЕНО И ИСПРАВЛЕНО В ПРОЦЕССЕ ВЫКАТКИ
+- Backend API на сервере успешно поднят
+- api.intaxi.best/openapi.json начал отдавать новый OpenAPI
+- Был исправлен импортный блокер по aiogram для API runtime
+- Был исправлен импортный блокер по ChatMessageV1 через обновление intaxi_bot внутри repo runtime
+- app.intaxi.best был переведён на новый Pages project final-intaxi-version
+
+9. ВАЖНОЕ ОПЕРАЦИОННОЕ ЗАМЕЧАНИЕ ПО CLOUDFLARE PAGES
+Код фронтенда переведён на новый Pages project, но для корректного runtime на app.intaxi.best нужно включить Pages/Workers compatibility flag:
+- nodejs_compat
+Для Production и Preview.
+Без этого Cloudflare Pages может показывать экран:
+- Node.JS Compatibility Error
+- no nodejs_compat compatibility flag set
+Это не проблема исходного кода архива, а настройка Cloudflare Pages project.
+
+10. ЧТО МОЖЕТ ПОТРЕБОВАТЬСЯ ПОСЛЕ РАСПАКОВКИ / ДЕПЛОЯ
+- Для backend: установить зависимости из api/requirements.txt
+- Для API runtime нужен aiogram>=3.7,<4 (уже добавлен в этот пакет)
+- Для Pages project final-intaxi-version включить nodejs_compat flag и сделать redeploy
+- Для production deploy фронтенда использовать main branch проекта final-intaxi-version
+
+11. КОРОТКИЙ СПИСОК КЛЮЧЕВЫХ НОВЫХ ФУНКЦИЙ
+- privacy notice в боте
+- водитель без документов, только 4 фото машины
+- accepted driver card media
+- wallet topup + history + admin payment review
+- country tariffs + admin tariff editing
+- driver online mode
+- driver location update
+- city pricing fallback own/system
+- dispatch/runtime improvements
+- current trip API
+- built-in chat API
+- intercity pickup mode
+- intercity route/request endpoints
+- full history endpoint
+- Mini App history / repeat route / swap points
+- live trip map payload
+- profile history surfaces
+
+12. КОРОТКО О ТОМ, ЧТО НЕ ЯВЛЯЕТСЯ ЧАСТЬЮ ИСХОДНОГО КОДА АРХИВА
+- systemd сервисы сервера
+- nginx конфиг сервера
+- Cloudflare DNS/Pages dashboard state
+- включение nodejs_compat в Cloudflare Pages
+Это операционные настройки среды, не исходники проекта.

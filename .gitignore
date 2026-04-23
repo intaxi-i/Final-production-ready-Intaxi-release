@@ -1,0 +1,26 @@
+node_modules
+.next
+out
+.env
+.env.local
+.env.production
+.vercel
+*.log
+
+# bot
+intaxi_bot/venv/
+intaxi_bot/.venv/
+intaxi_bot/__pycache__/
+intaxi_bot/*.pyc
+intaxi_bot/.env
+intaxi_bot/.env.*
+intaxi_bot/*.sqlite
+intaxi_bot/*.db
+intaxi_bot/logs/
+intaxi_bot/uploads/
+
+# local runtime/cache
+__pycache__/
+*.pyc
+db.sqlite3
+*.sqlite3

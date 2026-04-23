@@ -1,0 +1,26 @@
+INTAXI — СВЕРКА RELASE-ПАКЕТА С GITHUB-АРХИВОМ
+Дата: 2026-04-24
+
+База итогового пакета: intaxi_ready_for_upload_final.zip
+Источник для сверки: intaxi.zip (GitHub archive)
+
+Что подтверждено:
+- GitHub-архив НЕ является более свежим эталоном для релиза.
+- Основной релизный пакет содержит более новые рабочие правки по API, bot, Mini App, безопасности, чатам, current trip, профилю, геолокации и финансам.
+
+Что сознательно НЕ переносилось из GitHub-архива:
+- .git/
+- codex_assets/
+- intaxi_bot/db.sqlite3
+- intaxi_bot/driver_files/
+- intaxi_bot/secure_driver_files/
+Эти файлы не должны попадать в финальный пакет для выката.
+
+Что добавлено безопасно и точечно после сверки:
+- .gitattributes для LF-normalization
+- поддержка валюты KZT в frontend currencyForCountry()
+- поддержка KZT в bot strings currency maps
+- удалён build artifact tsconfig.tsbuildinfo
+
+Итог:
+Этот пакет остаётся основанным на последнем релизном архиве, а не на более старом GitHub-снимке.

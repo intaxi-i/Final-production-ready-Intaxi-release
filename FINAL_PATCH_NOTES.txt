@@ -1,0 +1,17 @@
+INTAXI FINAL PATCH NOTES
+Date: 2026-04-22
+
+Applied hardening before pre-release audit:
+- dev/session disabled outside development/local/test
+- chat access protected for city/intercity
+- explicit intercity chat-access grant added for ask_driver flow
+- unverified users cannot switch into driver mode
+- unverified users cannot create driver city offers or intercity routes
+- unverified users cannot use driver online/location endpoints
+- current trip page can open targeted intercity items by tripType+tripId
+- intercity action buttons hidden for non-owners
+- bot passenger city hub no longer shows driver offers shortcut
+- Next static export risk removed (output export + placeholder generateStaticParams removed)
+- additive startup schema upgrade added
+- Mini App language sync back to backend added
+- wallet topup now returns admin card number
