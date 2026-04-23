@@ -1,5 +1,6 @@
 import IntercityOfferDetailClient from "./IntercityOfferDetailClient";
 
+export const runtime = "edge";
 
 export default async function IntercityOfferDetailPage({
   params,
