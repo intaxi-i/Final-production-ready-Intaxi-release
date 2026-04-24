@@ -1,0 +1,11 @@
+{
+  "fiat": [
+    { "label": "UZCARD / HUMO", "value": "" },
+    { "label": "VISA / MASTER", "value": "" }
+  ],
+  "crypto": [
+    { "label": "Bitcoin", "value": "" },
+    { "label": "Ethereum", "value": "" },
+    { "label": "Solana", "value": "" }
+  ]
+}
