@@ -16,8 +16,10 @@ from app.handlers.order import router as order_router
 from app.handlers.admin import router as admin_router
 from app.handlers.driver_reg import router as driver_router
 from app.miniapp_routes import home_url
+from app.runtime_hotfixes import apply_runtime_hotfixes
 
 load_dotenv()
+apply_runtime_hotfixes()
 
 
 async def main():
