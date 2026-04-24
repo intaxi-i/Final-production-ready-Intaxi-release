@@ -133,6 +133,19 @@ body {
   align-items: center;
 }
 
+.actions-row {
+  flex-wrap: wrap;
+  align-items: stretch;
+}
+
+.actions-row > .button-main,
+.actions-row > .button-secondary,
+.actions-row > .button-danger,
+.actions-row > button {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+
 .menu-card-copy {
   min-width: 0;
 }
@@ -439,6 +452,14 @@ textarea.field {
   .grid-2,
   .info-grid {
     grid-template-columns: 1fr;
+  }
+
+  .actions-row > .button-main,
+  .actions-row > .button-secondary,
+  .actions-row > .button-danger,
+  .actions-row > button {
+    flex-basis: 100%;
+    width: 100%;
   }
 }
 
