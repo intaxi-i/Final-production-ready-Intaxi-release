@@ -3,8 +3,11 @@ from __future__ import annotations
 import os
 from functools import lru_cache
 
+from intaxi_bot.app.runtime_hotfixes import apply_runtime_hotfixes
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+apply_runtime_hotfixes()
 
 
 class Settings(BaseSettings):
