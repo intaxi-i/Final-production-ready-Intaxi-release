@@ -4,52 +4,22 @@ import { useEffect, useMemo, useState } from "react";
 import BottomNav from "@/components/BottomNav";
 import LocationFields from "@/components/LocationFields";
 import PageHeader from "@/components/PageHeader";
+import SupportToggle from "@/components/SupportToggle";
 import { useApp } from "@/context/AppContext";
 import { VEHICLE_CAPACITY_OPTIONS, VEHICLE_CATALOG, currencyForCountry } from "@/lib/constants";
-import { formatUzLocation, guessUzRegionFromCity } from "@/lib/locations";
+import { formatCountryLocation, guessRegionFromCity } from "@/lib/locations";
 import { api, HistoryResponse } from "@/lib/api";
 import { t } from "@/lib/i18n";
 
-const DONATION_WALLETS = {
-  fiat: [
-    { label: "UZCARD / HUMO", value: process.env.NEXT_PUBLIC_DONATE_FIAT_UZ || "8600310416548592" },
-    { label: "VISA / MASTER", value: process.env.NEXT_PUBLIC_DONATE_FIAT_GLOBAL || "4195250052390109" },
-  ],
-  crypto: [
-    { label: "Bitcoin", value: process.env.NEXT_PUBLIC_DONATE_BTC || "" },
-    { label: "Ethereum", value: process.env.NEXT_PUBLIC_DONATE_ETH || "" },
-    { label: "Solana", value: process.env.NEXT_PUBLIC_DONATE_SOL || "" },
-  ],
-};
+const REMINDER_KEY = "intaxi:quran-reminder";
 
 function selectLabel(lang: string) {
   const map: Record<string, string> = { ru: "Выберите", uz: "Tanlang", en: "Select", kz: "Таңдаңыз", ar: "اختر" };
   return map[lang] || map.ru;
 }
 
-function copyLabel(lang: string) {
-  const map: Record<string, string> = { ru: "Копировать", uz: "Nusxa", en: "Copy", kz: "Көшіру", ar: "نسخ" };
-  return map[lang] || map.ru;
-}
-
 function settingsLabel(lang: string) {
   const map: Record<string, string> = { ru: "Настройки", uz: "Sozlamalar", en: "Settings", kz: "Баптаулар", ar: "الإعدادات" };
-  return map[lang] || map.ru;
-}
-
-function donateTitle(lang: string) {
-  const map: Record<string, string> = { ru: "Поддержать проект", uz: "Loyihani qo‘llab-quvvatlash", en: "Support the project", kz: "Жобаны қолдау", ar: "دعم المشروع" };
-  return map[lang] || map.ru;
-}
-
-function donateText(lang: string) {
-  const map: Record<string, string> = {
-    ru: "Добровольная помощь на развитие продукта и покрытие расходов сервиса.",
-    uz: "Mahsulot rivoji va servis xarajatlari uchun ixtiyoriy yordam.",
-    en: "Voluntary support for product development and service costs.",
-    kz: "Өнімді дамыту мен сервистік шығындарға ерікті қолдау.",
-    ar: "دعم طوعي لتطوير المنتج وتغطية نفقات الخدمة.",
-  };
   return map[lang] || map.ru;
 }
 
@@ -67,10 +37,10 @@ export default function ProfilePage() {
   const [history, setHistory] = useState<HistoryResponse | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showVehicleEditor, setShowVehicleEditor] = useState(false);
+  const [quranReminder, setQuranReminder] = useState(false);
   const role = user?.active_role || "passenger";
   const selectText = selectLabel(lang);
   const currency = currencyForCountry(user?.country);
-  const visibleCryptoWallets = DONATION_WALLETS.crypto.filter((item) => item.value && !item.value.includes("ADD_YOUR"));
 
   useEffect(() => {
     if (!user) return;
@@ -80,10 +50,15 @@ export default function ProfilePage() {
     setPlate(user.vehicle?.plate || "");
     setColor(user.vehicle?.color || "");
     setCapacity(user.vehicle?.capacity || "");
-    const guessedRegion = guessUzRegionFromCity(user.city || "");
-    if (user.country === "uz" && guessedRegion) setRegionKey(guessedRegion);
+    const guessedRegion = guessRegionFromCity(user.country || "uz", user.city || "");
+    if ((user.country === "uz" || user.country === "kz") && guessedRegion) setRegionKey(guessedRegion);
     setCity(user.city || "");
   }, [user]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setQuranReminder(window.localStorage.getItem(REMINDER_KEY) === "1");
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -101,7 +76,7 @@ export default function ProfilePage() {
   }, [sessionToken, isReady]);
 
   const cityValue = useMemo(() => {
-    if (country === "uz" && regionKey && city) return formatUzLocation(regionKey, city, lang);
+    if ((country === "uz" || country === "kz") && regionKey && city) return formatCountryLocation(country, regionKey, city, lang);
     return city;
   }, [country, regionKey, city, lang]);
 
@@ -143,11 +118,12 @@ export default function ProfilePage() {
     }
   }
 
-  async function copy(value: string) {
-    if (!value || typeof navigator === "undefined" || !navigator.clipboard) return;
-    try {
-      await navigator.clipboard.writeText(value);
-    } catch {}
+  function toggleQuranReminder() {
+    const next = !quranReminder;
+    setQuranReminder(next);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(REMINDER_KEY, next ? "1" : "0");
+    }
   }
 
   return (
@@ -231,24 +207,15 @@ export default function ProfilePage() {
           </>
         ) : null}
 
+        <SupportToggle lang={lang} />
+
         <div className="card stack">
-          <div className="card-title">{donateTitle(lang)}</div>
-          <div className="muted">{donateText(lang)}</div>
-          <div className="info-grid">
-            {DONATION_WALLETS.fiat.map((item) => (
-              <div key={item.label} className="info-block">
-                <div className="info-label">{item.label}</div>
-                <div className="info-value" style={{ wordBreak: "break-all" }}>{item.value}</div>
-                <button type="button" className="button-secondary full" style={{ marginTop: 8 }} onClick={() => copy(item.value)}>{copyLabel(lang)}</button>
-              </div>
-            ))}
-            {visibleCryptoWallets.map((item) => (
-              <div key={item.label} className="info-block">
-                <div className="info-label">{item.label}</div>
-                <div className="info-value" style={{ wordBreak: "break-all" }}>{item.value}</div>
-                <button type="button" className="button-secondary full" style={{ marginTop: 8 }} onClick={() => copy(item.value)}>{copyLabel(lang)}</button>
-              </div>
-            ))}
+          <div className="list-row">
+            <div>
+              <div className="card-title">Qur'on eslatma</div>
+              <div className="muted">{lang === "ru" ? "Переключатель напоминания в самом конце профиля." : "Qur'on eslatma"}</div>
+            </div>
+            <button className="button-secondary" type="button" onClick={toggleQuranReminder}>{quranReminder ? "ON" : "OFF"}</button>
           </div>
         </div>
 
