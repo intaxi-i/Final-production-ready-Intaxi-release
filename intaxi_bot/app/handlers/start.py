@@ -6,6 +6,8 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 import app.database.requests as rq
 import app.keyboards as kb
+from app.hotfix_menu import home_webapp_menu
+from app.kazakhstan_locations import build_localities_keyboard as build_kz_localities_keyboard, build_regions_keyboard as build_kz_regions_keyboard, format_kz_location, get_locality_by_index as get_kz_locality_by_index
 from app.miniapp_routes import profile_url
 from app.strings import MESSAGES
 from app.uzbekistan_locations import build_regions_keyboard, build_localities_keyboard, format_uz_location, get_locality_by_index
@@ -24,6 +26,13 @@ PRIVACY_NOTICE_TEXTS = {
     'uz': 'Biz sizning shaxsiy hujjatlaringizni yig‘maymiz va ortiqcha shaxsiy ma’lumotlarni so‘ramaymiz. Xizmat ishlashi uchun faqat Telegram ilovaga taqdim etadigan ochiq ma’lumotlardan foydalaniladi.',
     'en': 'We do not collect your personal documents or request unnecessary personal data. The service uses only the public data that Telegram provides to the application.',
     'ar': 'نحن لا نجمع مستنداتك الشخصية ولا نطلب بيانات شخصية غير لازمة. ولتشغيل الخدمة نستخدم فقط البيانات العامة التي يوفّرها تيليجرام للتطبيق.',
+}
+
+COUNTRY_LABELS = {
+    'ru': {'uz': 'Узбекистан', 'tr': 'Турция', 'kz': 'Казахстан', 'sa': 'Саудовская Аравия'},
+    'uz': {'uz': 'O‘zbekiston', 'tr': 'Turkiya', 'kz': 'Qozog‘iston', 'sa': 'Saudiya Arabistoni'},
+    'en': {'uz': 'Uzbekistan', 'tr': 'Turkey', 'kz': 'Kazakhstan', 'sa': 'Saudi Arabia'},
+    'ar': {'uz': 'أوزبكستان', 'tr': 'تركيا', 'kz': 'كازاخستان', 'sa': 'السعودية'},
 }
 
 WELCOME = (
@@ -77,15 +86,11 @@ async def cmd_start(message: types.Message, state: FSMContext):
         return
     if user.language and user.country and user.city:
         await _cleanup_context(message.bot, user.tg_id, 'start')
-        is_admin = await rq.is_admin_user(message.from_user.id)
         sent = await message.answer(
             '🏠',
-            reply_markup=kb.main_menu(
+            reply_markup=home_webapp_menu(
                 user.language,
-                user_id=user.tg_id,
-                as_user=(not is_admin),
                 is_driver_mode=bool(user.is_verified and (user.active_role or 'driver') != 'passenger'),
-                is_admin=is_admin,
             ),
         )
         await _track(sent, 'anchor')
@@ -114,7 +119,7 @@ async def set_language(message: types.Message, state: FSMContext):
     sent = await message.answer(PRIVACY_NOTICE_TEXTS.get(lang, PRIVACY_NOTICE_TEXTS['ru']))
     await _track(sent, 'start')
     builder = InlineKeyboardBuilder()
-    for code, local_name in MESSAGES[lang].get('countries', {}).items():
+    for code, local_name in COUNTRY_LABELS.get(lang, COUNTRY_LABELS['ru']).items():
         builder.button(text=local_name, callback_data=f'country_{code}')
     builder.adjust(1)
     sent = await message.answer(MESSAGES[lang].get('select_country', 'Select country:'), reply_markup=builder.as_markup())
@@ -130,6 +135,12 @@ async def set_country(callback: types.CallbackQuery, state: FSMContext):
     await state.update_data(country=country_code)
     if country_code == 'uz':
         builder = build_regions_keyboard(lang, 'uzregion_')
+        await callback.message.edit_text(MESSAGES[lang].get('select_region', 'Select region:'), reply_markup=builder.as_markup())
+        await state.set_state(Reg.region)
+        await callback.answer()
+        return
+    if country_code == 'kz':
+        builder = build_kz_regions_keyboard(lang, 'kzregion_')
         await callback.message.edit_text(MESSAGES[lang].get('select_region', 'Select region:'), reply_markup=builder.as_markup())
         await state.set_state(Reg.region)
         await callback.answer()
@@ -159,6 +170,18 @@ async def set_uz_region(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
+@router.callback_query(F.data.startswith('kzregion_'), Reg.region)
+async def set_kz_region(callback: types.CallbackQuery, state: FSMContext):
+    region_key = callback.data.split('_', 1)[1]
+    data = await state.get_data()
+    lang = data['language']
+    await state.update_data(region=region_key)
+    builder = build_kz_localities_keyboard(region_key, lang, 'kzcity_')
+    await callback.message.edit_text(MESSAGES[lang].get('select_district_city', 'Select district or city:'), reply_markup=builder.as_markup())
+    await state.set_state(Reg.city)
+    await callback.answer()
+
+
 @router.callback_query(F.data.startswith('city_'), Reg.city)
 async def set_city(callback: types.CallbackQuery, state: FSMContext):
     city = callback.data.split('_', 1)[1]
@@ -168,15 +191,11 @@ async def set_city(callback: types.CallbackQuery, state: FSMContext):
     await state.clear()
     await callback.answer(MESSAGES[lang].get('reg_done', 'Done!'))
     user = await rq.get_or_create_user(callback.from_user.id, callback.from_user.full_name, callback.from_user.username)
-    is_admin = await rq.is_admin_user(callback.from_user.id)
     await callback.message.answer(
         MESSAGES[lang].get('reg_done', 'Done!'),
-        reply_markup=kb.main_menu(
+        reply_markup=home_webapp_menu(
             lang,
-            user_id=callback.from_user.id,
-            as_user=(not is_admin),
             is_driver_mode=bool(user.is_verified and (user.active_role or 'driver') != 'passenger'),
-            is_admin=is_admin,
         ),
     )
 
@@ -193,14 +212,31 @@ async def set_uz_city(callback: types.CallbackQuery, state: FSMContext):
     await state.clear()
     await callback.answer(MESSAGES[lang].get('reg_done', 'Done!'))
     user = await rq.get_or_create_user(callback.from_user.id, callback.from_user.full_name, callback.from_user.username)
-    is_admin = await rq.is_admin_user(callback.from_user.id)
     await callback.message.answer(
         MESSAGES[lang].get('reg_done', 'Done!'),
-        reply_markup=kb.main_menu(
+        reply_markup=home_webapp_menu(
             lang,
-            user_id=callback.from_user.id,
-            as_user=(not is_admin),
             is_driver_mode=bool(user.is_verified and (user.active_role or 'driver') != 'passenger'),
-            is_admin=is_admin,
+        ),
+    )
+
+
+@router.callback_query(F.data.startswith('kzcity_'), Reg.city)
+async def set_kz_city(callback: types.CallbackQuery, state: FSMContext):
+    payload = callback.data.split('_', 1)[1]
+    region_key, idx_raw = payload.split(':', 1)
+    data = await state.get_data()
+    lang = data['language']
+    locality = get_kz_locality_by_index(region_key, lang, int(idx_raw))
+    city_value = format_kz_location(region_key, locality, lang)
+    await rq.set_user_reg(callback.from_user.id, lang, data['country'], city_value)
+    await state.clear()
+    await callback.answer(MESSAGES[lang].get('reg_done', 'Done!'))
+    user = await rq.get_or_create_user(callback.from_user.id, callback.from_user.full_name, callback.from_user.username)
+    await callback.message.answer(
+        MESSAGES[lang].get('reg_done', 'Done!'),
+        reply_markup=home_webapp_menu(
+            lang,
+            is_driver_mode=bool(user.is_verified and (user.active_role or 'driver') != 'passenger'),
         ),
     )
