@@ -8,7 +8,7 @@ import PageHeader from "@/components/PageHeader";
 import { useApp } from "@/context/AppContext";
 import { api, TariffItem } from "@/lib/api";
 import { haversineKm } from "@/lib/geo";
-import { formatUzLocation, guessUzRegionFromCity } from "@/lib/locations";
+import { formatCountryLocation, guessRegionFromCity } from "@/lib/locations";
 import { t } from "@/lib/i18n";
 
 function swapLabel(lang: string) {
@@ -29,7 +29,7 @@ export default function CityCreatePage() {
   const [forcedRole, setForcedRole] = useState<"passenger" | "driver" | "">("");
   const role = forcedRole || (user?.active_role as "passenger" | "driver") || "passenger";
   const [country, setCountry] = useState(user?.country || "uz");
-  const [regionKey, setRegionKey] = useState(guessUzRegionFromCity(user?.city || ""));
+  const [regionKey, setRegionKey] = useState(guessRegionFromCity(user?.country || "uz", user?.city || ""));
   const [city, setCity] = useState(user?.city || "");
   const [fromAddress, setFromAddress] = useState("");
   const [toAddress, setToAddress] = useState("");
@@ -107,7 +107,7 @@ export default function CityCreatePage() {
   }, [createdOrderId]);
 
   const cityValue = useMemo(() => {
-    if (country === "uz" && regionKey && city) return formatUzLocation(regionKey, city, lang);
+    if ((country === "uz" || country === "kz") && regionKey && city) return formatCountryLocation(country, regionKey, city, lang);
     return city;
   }, [country, regionKey, city, lang]);
 
@@ -190,10 +190,10 @@ export default function CityCreatePage() {
             lng={fromLng}
             setLng={setFromLng}
             onResolved={({ countryCode, city: resolvedCity }) => {
-              if (countryCode === "uz" || countryCode === "tr" || countryCode === "sa") setCountry(countryCode);
+              if (countryCode === "uz" || countryCode === "tr" || countryCode === "sa" || countryCode === "kz") setCountry(countryCode);
               if (resolvedCity) {
-                if ((countryCode || country) === "uz") {
-                  const guessed = guessUzRegionFromCity(resolvedCity);
+                if ((countryCode || country) === "uz" || (countryCode || country) === "kz") {
+                  const guessed = guessRegionFromCity(countryCode || country, resolvedCity);
                   if (guessed) setRegionKey(guessed);
                 }
                 setCity(resolvedCity);
