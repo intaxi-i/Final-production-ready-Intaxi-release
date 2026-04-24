@@ -32,6 +32,22 @@ function cancelLabel(lang: string) {
   return "Cancel";
 }
 
+function vehicleDetailsLabel(lang: string) {
+  if (lang === "ru") return "Данные машины";
+  if (lang === "uz") return "Mashina ma'lumotlari";
+  if (lang === "ar") return "بيانات السيارة";
+  if (lang === "kz") return "Көлік деректері";
+  return "Vehicle details";
+}
+
+function nextPointLabel(lang: string) {
+  if (lang === "ru") return "Следующая точка";
+  if (lang === "uz") return "Keyingi nuqta";
+  if (lang === "ar") return "النقطة التالية";
+  if (lang === "kz") return "Келесі нүкте";
+  return "Next point";
+}
+
 export default function CurrentTripPage() {
   const { lang, sessionToken, isReady, user } = useApp();
   const [item, setItem] = useState<any | null>(null);
@@ -58,7 +74,9 @@ export default function CurrentTripPage() {
         const kind = queryTripType === "intercity_route" ? "route" : "request";
         const data = await api.intercityOfferDetail(sessionToken, kind, queryTripId);
         if (!data.item.is_mine && data.item.pickup_mode === "ask_driver") {
-          try { await api.grantIntercityChatAccess(sessionToken, kind, queryTripId); } catch {}
+          try {
+            await api.grantIntercityChatAccess(sessionToken, kind, queryTripId);
+          } catch {}
         }
         setItem({ ...data.item, trip_type: queryTripType });
         return;
@@ -105,7 +123,6 @@ export default function CurrentTripPage() {
   }, [item, lang]);
 
   const isDriver = item?.driver_tg_id && user?.tg_id === item.driver_tg_id;
-  const isIntercityOwner = Boolean(item && user?.tg_id === item.creator_tg_id);
   const isIntercityParticipant = Boolean(item && user?.tg_id && [item.creator_tg_id, item.accepted_by_tg_id].includes(user.tg_id));
   const intercityAccepted = Boolean(item?.status === "accepted" || item?.status === "in_progress");
 
@@ -152,14 +169,24 @@ export default function CurrentTripPage() {
                 <>
                   <div className="info-grid">
                     <div className="info-block"><div className="info-label">{t(lang as any, "otherSide")}</div><div className="info-value">{isDriver ? item.passenger_name || "—" : item.driver_name || "—"}</div></div>
-                    <div className="info-block"><div className="info-label">{t(lang as any, "car")}</div><div className="info-value">{item.vehicle?.brand || ""} {item.vehicle?.model || ""}</div></div>
+                    <div className="info-block"><div className="info-label">{vehicleDetailsLabel(lang)}</div><div className="info-value">{item.vehicle ? `${item.vehicle.brand || ""} ${item.vehicle.model || ""}` : "—"}</div></div>
+                    <div className="info-block"><div className="info-label">{t(lang as any, "vehiclePlate")}</div><div className="info-value">{item.vehicle?.plate || "—"}</div></div>
+                    <div className="info-block"><div className="info-label">{t(lang as any, "vehicleColor")}</div><div className="info-value">{item.vehicle?.color || "—"}</div></div>
                   </div>
+
+                  {item.status === "driver_arrived" || item.status === "in_progress" ? (
+                    <div className="info-block">
+                      <div className="info-label">{nextPointLabel(lang)}</div>
+                      <div className="info-value">{item.to_address || "—"}</div>
+                    </div>
+                  ) : null}
+
                   {isDriver ? (
                     <div className="actions-row">
-                      <button className="button-secondary" onClick={() => updateCityStatus("driver_on_way")}>{t(lang as any, "onWay")}</button>
-                      <button className="button-secondary" onClick={() => updateCityStatus("driver_arrived")}>{t(lang as any, "arrived")}</button>
-                      <button className="button-main" onClick={() => updateCityStatus("in_progress")}>{t(lang as any, "inProgress")}</button>
-                      <button className="button-main" onClick={() => updateCityStatus("completed")}>{t(lang as any, "completed")}</button>
+                      {(item.status === "accepted" || item.status === "driver_on_way") ? <button className="button-secondary" onClick={() => updateCityStatus("driver_on_way")}>{t(lang as any, "onWay")}</button> : null}
+                      {(item.status === "accepted" || item.status === "driver_on_way") ? <button className="button-secondary" onClick={() => updateCityStatus("driver_arrived")}>{t(lang as any, "arrived")}</button> : null}
+                      {item.status === "driver_arrived" ? <button className="button-main" onClick={() => updateCityStatus("in_progress")}>{t(lang as any, "inProgress")}</button> : null}
+                      {item.status === "in_progress" ? <button className="button-main" onClick={() => updateCityStatus("completed")}>{t(lang as any, "completed")}</button> : null}
                     </div>
                   ) : null}
                 </>
