@@ -26,20 +26,22 @@ export type ThemeMode = "light" | "dark";
 export const COUNTRY_OPTIONS = [
   { code: "uz", label: "Uzbekistan" },
   { code: "tr", label: "Turkey" },
+  { code: "kz", label: "Kazakhstan" },
   { code: "sa", label: "Saudi Arabia" },
 ] as const;
 
 export const DEFAULT_CITIES: Record<string, string[]> = {
   tr: ["Istanbul", "Ankara", "Izmir", "Antalya", "Bursa", "Adana", "Konya", "Gaziantep", "Mersin", "Kayseri", "Eskisehir", "Trabzon"],
+  kz: ["Astana", "Almaty", "Shymkent", "Karaganda", "Aktobe", "Atyrau", "Aktau", "Pavlodar", "Taraz", "Oskemen", "Semey", "Kostanay"],
   sa: ["Riyadh", "Jeddah", "Mecca", "Medina", "Dammam", "Taif", "Tabuk", "Abha", "Hail", "Jizan", "Najran", "Al Khobar"],
 };
 
 export const LANGUAGE_OPTIONS: { code: AppLanguage; label: string }[] = [
   { code: "uz", label: "O'zbekcha" },
-  { code: "kz", label: "\u049A\u0430\u0437\u0430\u049B\u0448\u0430" },
-  { code: "ru", label: "\u0420\u0443\u0441\u0441\u043A\u0438\u0439" },
+  { code: "kz", label: "Қазақша" },
+  { code: "ru", label: "Русский" },
   { code: "en", label: "English" },
-  { code: "ar", label: "\u0627\u0644\u0639\u0631\u0628\u064A\u0629" },
+  { code: "ar", label: "العربية" },
 ];
 
 export const THEME_PALETTE = {
@@ -75,8 +77,9 @@ export const THEME_PALETTE = {
 
 export function formatCountryLabel(code?: string) {
   const item = COUNTRY_OPTIONS.find((entry) => entry.code === code);
-  return item?.label || "\u2014";
+  return item?.label || "—";
 }
+
 export const VEHICLE_CAPACITY_OPTIONS = ["4", "6", "8+"];
 
 export const VEHICLE_CATALOG: Record<string, Record<string, string[]>> = {
@@ -96,6 +99,14 @@ export const VEHICLE_CATALOG: Record<string, Record<string, string[]>> = {
     Ford: ["Focus", "Tourneo Courier", "Transit"],
     Hyundai: ["i20", "Elantra", "Tucson"],
   },
+  kz: {
+    Toyota: ["Camry", "Corolla", "Land Cruiser", "RAV4", "Hiace"],
+    Hyundai: ["Elantra", "Sonata", "Tucson", "Santa Fe", "Staria"],
+    Kia: ["K5", "Cerato", "Sportage", "Carnival"],
+    Chevrolet: ["Cobalt", "Onix", "Malibu", "Tracker"],
+    Lexus: ["ES", "RX", "GX", "LX"],
+    Volkswagen: ["Polo", "Passat", "Tiguan", "Multivan"],
+  },
   sa: {
     Toyota: ["Camry", "Corolla", "Innova", "Hiace"],
     Hyundai: ["Accent", "Sonata", "Staria", "H1"],
@@ -105,9 +116,6 @@ export const VEHICLE_CATALOG: Record<string, Record<string, string[]>> = {
     Honda: ["Accord", "City", "CR-V"],
   },
 };
-
-
-
 
 export function currencyForCountry(code?: string | null) {
   const map: Record<string, string> = { uz: 'UZS', kz: 'KZT', tr: 'TRY', sa: 'SAR' };
