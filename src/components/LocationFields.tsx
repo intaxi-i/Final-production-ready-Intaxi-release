@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { COUNTRY_OPTIONS, DEFAULT_CITIES } from "@/lib/constants";
+import { COUNTRY_OPTIONS_EXTENDED } from "@/lib/country-config";
 import { resolveCurrentLocation } from "@/lib/geo";
-import { getLocalityOptions, getRegionOptions, guessUzRegionFromCity } from "@/lib/locations";
+import { getLocalityOptionsForCountry, getRegionOptionsForCountry, guessRegionFromCity } from "@/lib/locations";
 import { t } from "@/lib/i18n";
 
 type Props = {
@@ -36,8 +36,8 @@ export default function LocationFields({
   showCountry = true,
 }: Props) {
   const ui = useMemo(() => labels(lang), [lang]);
-  const regionOptions = getRegionOptions(lang);
-  const cityOptions = country === "uz" ? getLocalityOptions(regionKey) : DEFAULT_CITIES[country] || [];
+  const regionOptions = getRegionOptionsForCountry(country, lang);
+  const cityOptions = getLocalityOptionsForCountry(country, regionKey);
   const [busy, setBusy] = useState(false);
   const [detectedAddress, setDetectedAddress] = useState("");
   const [detectedCoords, setDetectedCoords] = useState("");
@@ -48,11 +48,11 @@ export default function LocationFields({
       const data = await resolveCurrentLocation();
       setDetectedAddress(data.address);
       setDetectedCoords(`${data.lat}, ${data.lng}`);
-      const nextCountry = data.countryCode === "uz" ? "uz" : data.countryCode === "tr" ? "tr" : data.countryCode === "sa" ? "sa" : country;
+      const nextCountry = data.countryCode === "uz" ? "uz" : data.countryCode === "tr" ? "tr" : data.countryCode === "sa" ? "sa" : data.countryCode === "kz" ? "kz" : country;
       setCountry?.(nextCountry);
       const guessedCity = data.city || city;
-      if (nextCountry === "uz") {
-        const guessedRegion = guessUzRegionFromCity(guessedCity || data.region || "");
+      if (nextCountry === "uz" || nextCountry === "kz") {
+        const guessedRegion = guessRegionFromCity(nextCountry, guessedCity || data.region || "");
         if (guessedRegion) setRegionKey(guessedRegion);
       } else {
         setRegionKey("");
@@ -91,7 +91,7 @@ export default function LocationFields({
               setCity("");
             }}
           >
-            {COUNTRY_OPTIONS.map((item) => (
+            {COUNTRY_OPTIONS_EXTENDED.map((item) => (
               <option key={item.code} value={item.code}>
                 {item.label}
               </option>
@@ -100,7 +100,7 @@ export default function LocationFields({
         </div>
       ) : null}
 
-      {country === "uz" ? (
+      {country === "uz" || country === "kz" ? (
         <div>
           <label className="field-label">{t(lang as any, "region")}</label>
           <select
