@@ -1,9 +1,13 @@
+import { DEFAULT_CITIES_EXTENDED } from "@/lib/country-config";
+import { KAZAKHSTAN_REGION_OPTIONS, formatKazakhstanLocation, getKazakhstanLocalities, getKazakhstanRegionOptions, guessKazakhstanRegionFromCity } from "@/lib/kazakhstan";
+
 export const UZBEKISTAN_REGIONS = {
   "karakalpakstan": {
     "ru": "Республика Каракалпакстан",
     "uz": "Qoraqalpog‘iston Respublikasi",
     "en": "Republic of Karakalpakstan",
     "ar": "جمهورية قرقلپاقستان",
+    "kz": "Қарақалпақстан Республикасы",
     "localities": [
       "Nukus",
       "Amudaryo",
@@ -27,6 +31,7 @@ export const UZBEKISTAN_REGIONS = {
     "uz": "Andijon вилояти",
     "en": "Andijan Region",
     "ar": "منطقة أنديجان",
+    "kz": "Әндіжан облысы",
     "localities": [
       "Andijon",
       "Andijon tumani",
@@ -51,6 +56,7 @@ export const UZBEKISTAN_REGIONS = {
     "uz": "Buxoro вилояти",
     "en": "Bukhara Region",
     "ar": "منطقة بخارى",
+    "kz": "Бұхара облысы",
     "localities": [
       "Buxoro",
       "Kogon",
@@ -72,6 +78,7 @@ export const UZBEKISTAN_REGIONS = {
     "uz": "Farg‘ona вилояти",
     "en": "Fergana Region",
     "ar": "منطقة فرغانة",
+    "kz": "Ферғана облысы",
     "localities": [
       "Farg'ona",
       "Qo'qon",
@@ -99,6 +106,7 @@ export const UZBEKISTAN_REGIONS = {
     "uz": "Jizzax вилояти",
     "en": "Jizzakh Region",
     "ar": "منطقة جيزخ",
+    "kz": "Жизақ облысы",
     "localities": [
       "Jizzax",
       "Arnasoy",
@@ -121,6 +129,7 @@ export const UZBEKISTAN_REGIONS = {
     "uz": "Qashqadaryo вилояти",
     "en": "Kashkadarya Region",
     "ar": "منطقة قشقداريا",
+    "kz": "Қашқадария облысы",
     "localities": [
       "Qarshi",
       "Shahrisabz",
@@ -143,6 +152,7 @@ export const UZBEKISTAN_REGIONS = {
     "uz": "Navoiy вилояти",
     "en": "Navoi Region",
     "ar": "منطقة نوائي",
+    "kz": "Науаи облысы",
     "localities": [
       "Navoiy",
       "Zarafshon",
@@ -161,6 +171,7 @@ export const UZBEKISTAN_REGIONS = {
     "uz": "Namangan вилояти",
     "en": "Namangan Region",
     "ar": "منطقة نمنغان",
+    "kz": "Наманган облысы",
     "localities": [
       "Namangan",
       "Chortoq",
@@ -181,6 +192,7 @@ export const UZBEKISTAN_REGIONS = {
     "uz": "Samarqand вилояти",
     "en": "Samarkand Region",
     "ar": "منطقة سمرقند",
+    "kz": "Самарқанд облысы",
     "localities": [
       "Samarqand",
       "Kattaqo'rg'on",
@@ -205,6 +217,7 @@ export const UZBEKISTAN_REGIONS = {
     "uz": "Surxondaryo вилояти",
     "en": "Surkhandarya Region",
     "ar": "منطقة سرخانداريا",
+    "kz": "Сурхандария облысы",
     "localities": [
       "Termiz",
       "Angor",
@@ -228,6 +241,7 @@ export const UZBEKISTAN_REGIONS = {
     "uz": "Sirdaryo вилояти",
     "en": "Syrdarya Region",
     "ar": "منطقة سيرداريا",
+    "kz": "Сырдария облысы",
     "localities": [
       "Guliston",
       "Yangiyer",
@@ -247,6 +261,7 @@ export const UZBEKISTAN_REGIONS = {
     "uz": "Toshkent вилояти",
     "en": "Tashkent Region",
     "ar": "منطقة طشقند",
+    "kz": "Ташкент облысы",
     "localities": [
       "Nurafshon",
       "Angren",
@@ -274,6 +289,7 @@ export const UZBEKISTAN_REGIONS = {
     "uz": "Toshkent shahri",
     "en": "Tashkent City",
     "ar": "مدينة طشقند",
+    "kz": "Ташкент қаласы",
     "localities": [
       "Bektemir",
       "Mirobod",
@@ -294,6 +310,7 @@ export const UZBEKISTAN_REGIONS = {
     "uz": "Xorazm вилояти",
     "en": "Khorezm Region",
     "ar": "منطقة خوارزم",
+    "kz": "Хорезм облысы",
     "localities": [
       "Urganch",
       "Xiva",
@@ -346,3 +363,29 @@ export function guessUzRegionFromCity(city: string) {
   }
   return "";
 }
+
+export function getRegionOptionsForCountry(country: string, lang: string) {
+  if (country === "kz") return getKazakhstanRegionOptions(lang);
+  if (country === "uz") return getRegionOptions(lang);
+  return [];
+}
+
+export function getLocalityOptionsForCountry(country: string, regionKey: string) {
+  if (country === "kz") return getKazakhstanLocalities(regionKey);
+  if (country === "uz") return getLocalityOptions(regionKey);
+  return DEFAULT_CITIES_EXTENDED[country] || [];
+}
+
+export function formatCountryLocation(country: string, regionKey: string, locality: string, lang = "ru") {
+  if (country === "kz") return formatKazakhstanLocation(regionKey, locality, lang);
+  if (country === "uz") return formatUzLocation(regionKey, locality, lang);
+  return locality;
+}
+
+export function guessRegionFromCity(country: string, city: string) {
+  if (country === "kz") return guessKazakhstanRegionFromCity(city);
+  if (country === "uz") return guessUzRegionFromCity(city);
+  return "";
+}
+
+export { KAZAKHSTAN_REGION_OPTIONS };
