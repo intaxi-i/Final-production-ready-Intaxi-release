@@ -11,12 +11,59 @@ import { haversineKm } from "@/lib/geo";
 import { formatCountryLocation, guessRegionFromCity } from "@/lib/locations";
 import { t } from "@/lib/i18n";
 
+const FALLBACK_TARIFFS: Record<string, TariffItem> = {
+  uz: { country: "uz", currency: "UZS", price_per_km: 2500 },
+  tr: { country: "tr", currency: "TRY", price_per_km: 45 },
+  kz: { country: "kz", currency: "KZT", price_per_km: 120 },
+  sa: { country: "sa", currency: "SAR", price_per_km: 2.5 },
+};
+
 function swapLabel(lang: string) {
   if (lang === "ru") return "Поменять точки";
   if (lang === "uz") return "Nuqtalarni almashtirish";
   if (lang === "ar") return "تبديل النقطتين";
   if (lang === "kz") return "Нүктелерді ауыстыру";
   return "Swap points";
+}
+
+function extraLabel(lang: string, open: boolean) {
+  if (lang === "ru") return open ? "Скрыть дополнительные настройки" : "Дополнительные настройки";
+  if (lang === "uz") return open ? "Qo‘shimcha sozlamalarni yashirish" : "Qo‘shimcha sozlamalar";
+  if (lang === "ar") return open ? "إخفاء الإعدادات الإضافية" : "إعدادات إضافية";
+  if (lang === "kz") return open ? "Қосымша баптауды жасыру" : "Қосымша баптаулар";
+  return open ? "Hide extra settings" : "Extra settings";
+}
+
+function manualAreaLabel(lang: string, open: boolean) {
+  if (lang === "ru") return open ? "Скрыть город и район" : "Указать город вручную";
+  if (lang === "uz") return open ? "Shahar va hududni yashirish" : "Shaharni qo‘lda ko‘rsatish";
+  if (lang === "ar") return open ? "إخفاء المدينة والمنطقة" : "تحديد المدينة يدويًا";
+  if (lang === "kz") return open ? "Қала мен аймақты жасыру" : "Қаланы қолмен көрсету";
+  return open ? "Hide city and area" : "Set city manually";
+}
+
+function searchingTitle(lang: string) {
+  if (lang === "ru") return "Ищем водителя";
+  if (lang === "uz") return "Haydovchini qidirmoqdamiz";
+  if (lang === "ar") return "جاري البحث عن سائق";
+  if (lang === "kz") return "Жүргізуші ізделіп жатыр";
+  return "Searching for driver";
+}
+
+function searchingSubtitle(lang: string) {
+  if (lang === "ru") return "Заказ создан. Сейчас система показывает ваш заказ ближайшим водителям.";
+  if (lang === "uz") return "Buyurtma yaratildi. Tizim hozir uni yaqin haydovchilarga ko‘rsatmoqda.";
+  if (lang === "ar") return "تم إنشاء الطلب. يعرض النظام طلبك الآن على السائقين القريبين.";
+  if (lang === "kz") return "Тапсырыс құрылды. Жүйе қазір оны жақын жүргізушілерге көрсетіп жатыр.";
+  return "Order created. The system is now showing it to nearby drivers.";
+}
+
+function destinationHint(lang: string) {
+  if (lang === "ru") return "Укажите конечный адрес текстом. Текущая геолокация для точки B не используется.";
+  if (lang === "uz") return "Yakuniy manzilni matn bilan kiriting. B nuqta uchun joriy geolokatsiya ishlatilmaydi.";
+  if (lang === "ar") return "أدخل عنوان الوصول نصيًا. لا يتم استخدام الموقع الحالي للنقطة B.";
+  if (lang === "kz") return "Соңғы мекенжайды мәтінмен енгізіңіз. B нүктесі үшін ағымдағы геолокация қолданылмайды.";
+  return "Enter destination as text. Current geolocation is not used for point B.";
 }
 
 function formatMoney(value: number | null, currency: string) {
@@ -48,7 +95,9 @@ export default function CityCreatePage() {
   const [createdOrderId, setCreatedOrderId] = useState<number | null>(null);
   const [driversSeen, setDriversSeen] = useState(0);
   const [secondsPassed, setSecondsPassed] = useState(0);
-  const [tariffs, setTariffs] = useState<Record<string, TariffItem>>({});
+  const [tariffs, setTariffs] = useState<Record<string, TariffItem>>(FALLBACK_TARIFFS);
+  const [showExtras, setShowExtras] = useState(false);
+  const [showManualArea, setShowManualArea] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -67,12 +116,14 @@ export default function CityCreatePage() {
       try {
         const data = await api.tariffs(sessionToken);
         if (cancelled) return;
-        const next: Record<string, TariffItem> = {};
+        const next: Record<string, TariffItem> = { ...FALLBACK_TARIFFS };
         data.items.forEach((item) => {
           next[item.country] = item;
         });
         setTariffs(next);
-      } catch {}
+      } catch {
+        if (!cancelled) setTariffs(FALLBACK_TARIFFS);
+      }
     }
     void loadTariffs();
     return () => {
@@ -81,14 +132,13 @@ export default function CityCreatePage() {
   }, [sessionToken]);
 
   useEffect(() => {
-    const tariff = tariffs[country];
-    if (!tariff) return;
+    const tariff = tariffs[country] || FALLBACK_TARIFFS[country] || FALLBACK_TARIFFS.uz;
     setCurrency(tariff.currency);
     setTariffHint(`~${tariff.price_per_km} ${tariff.currency}/km`);
   }, [country, tariffs]);
 
   useEffect(() => {
-    const tariff = tariffs[country];
+    const tariff = tariffs[country] || FALLBACK_TARIFFS[country] || FALLBACK_TARIFFS.uz;
     const ready = fromLat && fromLng && toLat && toLng && tariff;
     if (!ready) {
       setRecommendedPrice(null);
@@ -111,11 +161,13 @@ export default function CityCreatePage() {
     return city;
   }, [country, regionKey, city, lang]);
 
+  const searchDots = ".".repeat((secondsPassed % 3) + 1);
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!sessionToken) return;
-    if (!cityValue || !fromAddress.trim()) {
-      setMessage(lang === "ru" ? "Заполните город и точку отправления" : t(lang, "operationFailed"));
+    if (!cityValue && !fromAddress.trim()) {
+      setMessage(lang === "ru" ? "Укажите точку A или разрешите локацию" : t(lang, "operationFailed"));
       return;
     }
     if (role === "passenger" && !toAddress.trim()) {
@@ -126,7 +178,7 @@ export default function CityCreatePage() {
       const result = await api.createCityOrder(sessionToken, {
         role,
         country,
-        city: cityValue,
+        city: cityValue || city || user?.city || "",
         from_address: fromAddress.trim(),
         to_address: toAddress.trim(),
         seats: Number(seats || 1),
@@ -144,7 +196,7 @@ export default function CityCreatePage() {
       if (!price && result.recommended_price != null) setPrice(String(result.recommended_price));
       if (result.currency) setCurrency(result.currency);
       if (result.tariff_hint) setTariffHint(result.tariff_hint);
-      setMessage(lang === "ru" ? "Заказ/предложение создано" : t(lang, "postedSuccessfully"));
+      setMessage("");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : t(lang, "operationFailed"));
     }
@@ -178,8 +230,6 @@ export default function CityCreatePage() {
         {message ? <div className="notice">{message}</div> : null}
 
         <form className="card stack" onSubmit={handleSubmit}>
-          <LocationFields lang={lang} country={country} setCountry={setCountry} regionKey={regionKey} setRegionKey={setRegionKey} city={city} setCity={setCity} />
-
           <AddressField
             lang={lang}
             label={t(lang, "fromAddress")}
@@ -197,6 +247,7 @@ export default function CityCreatePage() {
                   if (guessed) setRegionKey(guessed);
                 }
                 setCity(resolvedCity);
+                setShowManualArea(false);
               }
             }}
           />
@@ -210,40 +261,63 @@ export default function CityCreatePage() {
             setLat={setToLat}
             lng={toLng}
             setLng={setToLng}
+            allowCurrentLocation={false}
+            manualHint={destinationHint(lang)}
           />
 
           <button type="button" className="button-secondary full" onClick={swapPoints}>{swapLabel(lang)}</button>
 
-          <div className="info-grid">
-            <div className="info-block">
-              <div className="info-label">{t(lang, "tripDistance")}</div>
-              <div className="info-value">{distanceKm != null ? `${distanceKm} km` : "—"}</div>
-            </div>
-            <div className="info-block">
-              <div className="info-label">{t(lang, "recommendedPrice")}</div>
-              <div className="info-value">{recommendedPrice != null ? formatMoney(recommendedPrice, currency) : tariffHint || "—"}</div>
-            </div>
-          </div>
-
-          <div className="grid-2">
-            <div>
-              <label className="field-label">{t(lang, "seats")}</label>
-              <input className="field" type="number" min="1" value={seats} onChange={(e) => setSeats(e.target.value)} />
-            </div>
-            <div>
-              <label className="field-label">{t(lang, "yourPrice")}</label>
-              <input className="field" type="number" min="0" value={price} onChange={(e) => setPrice(e.target.value)} />
-            </div>
-          </div>
-
-          <button type="button" className="button-secondary full" onClick={() => recommendedPrice != null ? setPrice(String(recommendedPrice)) : null}>
-            {t(lang, "useRecommendedPrice")}
+          <button type="button" className="button-secondary full" onClick={() => setShowManualArea((prev) => !prev)}>
+            {manualAreaLabel(lang, showManualArea)}
           </button>
 
-          <div>
-            <label className="field-label">{t(lang, "comment")}</label>
-            <textarea className="field" value={comment} onChange={(e) => setComment(e.target.value)} placeholder={t(lang, "writeComment")} />
-          </div>
+          {showManualArea ? (
+            <LocationFields lang={lang} country={country} setCountry={setCountry} regionKey={regionKey} setRegionKey={setRegionKey} city={city} setCity={setCity} collapsible />
+          ) : cityValue ? (
+            <div className="info-block">
+              <div className="info-label">{t(lang, "cityField")}</div>
+              <div className="info-value">{cityValue}</div>
+            </div>
+          ) : null}
+
+          <button type="button" className="button-secondary full" onClick={() => setShowExtras((prev) => !prev)}>
+            {extraLabel(lang, showExtras)}
+          </button>
+
+          {showExtras ? (
+            <>
+              <div className="info-grid">
+                <div className="info-block">
+                  <div className="info-label">{t(lang, "tripDistance")}</div>
+                  <div className="info-value">{distanceKm != null ? `${distanceKm} km` : "—"}</div>
+                </div>
+                <div className="info-block">
+                  <div className="info-label">{t(lang, "recommendedPrice")}</div>
+                  <div className="info-value">{recommendedPrice != null ? formatMoney(recommendedPrice, currency) : tariffHint || "—"}</div>
+                </div>
+              </div>
+
+              <div className="grid-2">
+                <div>
+                  <label className="field-label">{t(lang, "seats")}</label>
+                  <input className="field" type="number" min="1" value={seats} onChange={(e) => setSeats(e.target.value)} />
+                </div>
+                <div>
+                  <label className="field-label">{t(lang, "yourPrice")}</label>
+                  <input className="field" type="number" min="0" value={price} onChange={(e) => setPrice(e.target.value)} />
+                </div>
+              </div>
+
+              <button type="button" className="button-secondary full" onClick={() => recommendedPrice != null ? setPrice(String(recommendedPrice)) : null}>
+                {t(lang, "useRecommendedPrice")}
+              </button>
+
+              <div>
+                <label className="field-label">{t(lang, "comment")}</label>
+                <textarea className="field" value={comment} onChange={(e) => setComment(e.target.value)} placeholder={t(lang, "writeComment")} />
+              </div>
+            </>
+          ) : null}
 
           <button type="submit" className="button-main full" style={{ padding: "16px 14px", fontSize: "18px" }}>
             {role === "driver" ? t(lang, "createOffer") : t(lang, "createOrder")}
@@ -252,12 +326,14 @@ export default function CityCreatePage() {
 
         {role === "passenger" && createdOrderId ? (
           <div className="card stack">
-            <div className="card-title">{t(lang, "searchStarted")}</div>
+            <div className="card-title">{searchingTitle(lang)}{searchDots}</div>
+            <div className="muted">{searchingSubtitle(lang)}</div>
             <div className="info-grid">
               <div className="info-block"><div className="info-label">{t(lang, "driversSeen")}</div><div className="info-value">{driversSeen}</div></div>
               <div className="info-block"><div className="info-label">{t(lang, "recommendedPrice")}</div><div className="info-value">{price ? `${price} ${currency}` : formatMoney(recommendedPrice, currency)}</div></div>
             </div>
-            {secondsPassed >= 30 ? <div className="stack"><div className="notice">{t(lang, "raisePriceHint")}</div><button className="button-main full" onClick={raisePrice}>{t(lang, "raisePrice")}</button></div> : null}
+            <div className="muted">{secondsPassed < 30 ? `${secondsPassed}s` : t(lang, "raisePriceHint")}</div>
+            {secondsPassed >= 30 ? <button className="button-main full" onClick={raisePrice}>{t(lang, "raisePrice")}</button> : null}
           </div>
         ) : null}
       </div>
