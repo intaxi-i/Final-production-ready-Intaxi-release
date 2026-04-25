@@ -4,14 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import BottomNav from "@/components/BottomNav";
 import LocationFields from "@/components/LocationFields";
 import PageHeader from "@/components/PageHeader";
-import SupportToggle from "@/components/SupportToggle";
 import { useApp } from "@/context/AppContext";
 import { VEHICLE_CAPACITY_OPTIONS, VEHICLE_CATALOG, currencyForCountry } from "@/lib/constants";
 import { formatCountryLocation, guessRegionFromCity } from "@/lib/locations";
 import { api, HistoryResponse } from "@/lib/api";
 import { t } from "@/lib/i18n";
-
-const REMINDER_KEY = "intaxi:quran-reminder";
 
 function selectLabel(lang: string) {
   const map: Record<string, string> = { ru: "Выберите", uz: "Tanlang", en: "Select", kz: "Таңдаңыз", ar: "اختر" };
@@ -37,7 +34,6 @@ export default function ProfilePage() {
   const [history, setHistory] = useState<HistoryResponse | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showVehicleEditor, setShowVehicleEditor] = useState(false);
-  const [quranReminder, setQuranReminder] = useState(false);
   const role = user?.active_role || "passenger";
   const selectText = selectLabel(lang);
   const currency = currencyForCountry(user?.country);
@@ -56,11 +52,6 @@ export default function ProfilePage() {
   }, [user]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    setQuranReminder(window.localStorage.getItem(REMINDER_KEY) === "1");
-  }, []);
-
-  useEffect(() => {
     let cancelled = false;
     async function loadHistory() {
       if (!sessionToken || !isReady) return;
@@ -72,7 +63,9 @@ export default function ProfilePage() {
       }
     }
     void loadHistory();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [sessionToken, isReady]);
 
   const cityValue = useMemo(() => {
@@ -80,7 +73,7 @@ export default function ProfilePage() {
     return city;
   }, [country, regionKey, city, lang]);
 
-  const brandOptions = useMemo(() => Object.keys(VEHICLE_CATALOG[country] || {}), [country]);
+  const brandOptions = useMemo(() => Object.keys(VEHICLE_CATALOG[country] || VEHICLE_CATALOG.uz), [country]);
   const modelOptions = useMemo(() => (brand ? VEHICLE_CATALOG[country]?.[brand] || [] : []), [country, brand]);
 
   async function saveProfile() {
@@ -118,14 +111,6 @@ export default function ProfilePage() {
     }
   }
 
-  function toggleQuranReminder() {
-    const next = !quranReminder;
-    setQuranReminder(next);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(REMINDER_KEY, next ? "1" : "0");
-    }
-  }
-
   return (
     <main className="page">
       <div className="container stack">
@@ -160,7 +145,7 @@ export default function ProfilePage() {
           <>
             <div className="card stack">
               <div className="card-title">{t(lang, "sectionLocation")}</div>
-              <LocationFields lang={lang} country={country} setCountry={setCountry} regionKey={regionKey} setRegionKey={setRegionKey} city={city} setCity={setCity} />
+              <LocationFields lang={lang} country={country} setCountry={setCountry} regionKey={regionKey} setRegionKey={setRegionKey} city={city} setCity={setCity} collapsible />
               <button className="button-main full" onClick={saveProfile}>{saving === "profile" ? t(lang, "loading") : t(lang, "updateProfile")}</button>
             </div>
 
@@ -206,18 +191,6 @@ export default function ProfilePage() {
             ) : null}
           </>
         ) : null}
-
-        <SupportToggle lang={lang} />
-
-        <div className="card stack">
-          <div className="list-row">
-            <div>
-              <div className="card-title">Qur'on eslatma</div>
-              <div className="muted">{lang === "ru" ? "Переключатель напоминания в самом конце профиля." : "Qur'on eslatma"}</div>
-            </div>
-            <button className="button-secondary" type="button" onClick={toggleQuranReminder}>{quranReminder ? "ON" : "OFF"}</button>
-          </div>
-        </div>
 
         <div className="card stack">
           <div className="card-title">History</div>
