@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import BottomNav from "@/components/BottomNav";
 import PageHeader from "@/components/PageHeader";
+import SupportToggle from "@/components/SupportToggle";
 import { useApp } from "@/context/AppContext";
 import { api, WalletResponse, WalletTopupItem } from "@/lib/api";
 import { t } from "@/lib/i18n";
@@ -93,7 +94,6 @@ function walletUi(lang: string, currency: string) {
   };
   return map[lang] || map.ru;
 }
-
 
 export default function WalletPage() {
   const { lang, sessionToken, user, refreshUser, isReady } = useApp();
@@ -228,6 +228,8 @@ export default function WalletPage() {
           )}
         </div>
 
+        <SupportToggle lang={lang} />
+
         <div className="card stack">
           <div className="card-title">{t(lang, "topup")}</div>
 
@@ -251,6 +253,7 @@ export default function WalletPage() {
             >
               <option value="uz">Uzbekistan</option>
               <option value="tr">Turkey</option>
+              <option value="kz">Kazakhstan</option>
               <option value="sa">Saudi Arabia</option>
             </select>
           </div>
