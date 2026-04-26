@@ -1,5 +1,6 @@
 "use client";
 
+import type { MouseEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/context/AppContext";
@@ -22,7 +23,7 @@ export default function PageHeader({
   const { lang } = useApp();
   const router = useRouter();
 
-  function handleBack(event: React.MouseEvent<HTMLAnchorElement>) {
+  function handleBack(event: MouseEvent<HTMLAnchorElement>) {
     event.preventDefault();
     if (typeof window !== "undefined" && window.history.length > 1) {
       router.back();
