@@ -48,6 +48,22 @@ function nextPointLabel(lang: string) {
   return "Next point";
 }
 
+function noCurrentTripLabel(lang: string) {
+  if (lang === "ru") return "Сейчас нет активного заказа.";
+  if (lang === "uz") return "Hozir faol buyurtma yo‘q.";
+  if (lang === "ar") return "لا يوجد طلب نشط الآن.";
+  if (lang === "kz") return "Қазір белсенді тапсырыс жоқ.";
+  return "There is no active order right now.";
+}
+
+function routeSectionLabel(lang: string) {
+  if (lang === "ru") return "Маршрут и состояние поездки";
+  if (lang === "uz") return "Marshrut va safar holati";
+  if (lang === "ar") return "المسار وحالة الرحلة";
+  if (lang === "kz") return "Маршрут пен сапар күйі";
+  return "Route and trip status";
+}
+
 export default function CurrentTripPage() {
   const { lang, sessionToken, isReady, user } = useApp();
   const [item, setItem] = useState<any | null>(null);
@@ -115,7 +131,7 @@ export default function CurrentTripPage() {
   }
 
   const tripTitle = useMemo(() => {
-    if (!item) return t(lang as any, "noData");
+    if (!item) return noCurrentTripLabel(lang);
     if (item.trip_type === "city_trip" || item.trip_type === "city") {
       return `${item.city || ""}: ${item.from_address || ""}${item.to_address ? ` → ${item.to_address}` : ""}`;
     }
@@ -152,11 +168,14 @@ export default function CurrentTripPage() {
   return (
     <main className="page">
       <div className="container stack">
-        <PageHeader title={t(lang as any, "currentTrip")} subtitle={t(lang as any, "chat")} />
+        <PageHeader title={t(lang as any, "currentTrip")} subtitle={routeSectionLabel(lang)} />
 
         <div className="card stack">
           {!item ? (
-            <div className="muted">{t(lang as any, "noData")}</div>
+            <>
+              <div className="card-title">{noCurrentTripLabel(lang)}</div>
+              <div className="muted">{lang === "ru" ? "Когда заказ появится, здесь будут маршрут, статус, водитель, машина и карта." : t(lang as any, "noData")}</div>
+            </>
           ) : (
             <>
               <div className="card-title">{tripTitle}</div>
@@ -208,7 +227,7 @@ export default function CurrentTripPage() {
           )}
         </div>
 
-        <MapBox title={t(lang as any, "map")} fromLabel="A" toLabel="B" subtitle={item?.eta_min ? `${t(lang as any, "eta")}: ${item.eta_min} min` : t(lang as any, "waiting")} actionLabel={item?.map_action_url ? fallbackActionLabel(lang) : undefined} actionHref={item?.map_action_url} embedUrl={item?.map_embed_url} provider={item?.map_provider} />
+        {item ? <MapBox title={t(lang as any, "map")} fromLabel="A" toLabel="B" subtitle={item?.eta_min ? `${t(lang as any, "eta")}: ${item.eta_min} min` : t(lang as any, "waiting")} actionLabel={item?.map_action_url ? fallbackActionLabel(lang) : undefined} actionHref={item?.map_action_url} embedUrl={item?.map_embed_url} provider={item?.map_provider} /> : null}
 
         {tripId ? <TripChat tripId={tripId} tripType={tripType} /> : null}
       </div>
