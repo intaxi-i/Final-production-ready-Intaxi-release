@@ -46,16 +46,25 @@ export default function CityPage() {
 
   useEffect(() => {
     let cancelled = false;
+
     async function load() {
-      if (!sessionToken || role !== "driver") return;
+      if (!sessionToken || role !== "driver") {
+        if (!cancelled) setOnline(false);
+        return;
+      }
       try {
         const state = await api.driverOnline(sessionToken);
         if (!cancelled) setOnline(Boolean(state.is_online));
-      } catch {}
+      } catch {
+        if (!cancelled) setOnline(false);
+      }
     }
+
     void load();
+    const timer = window.setInterval(() => void load(), 8000);
     return () => {
       cancelled = true;
+      window.clearInterval(timer);
     };
   }, [sessionToken, role]);
 
