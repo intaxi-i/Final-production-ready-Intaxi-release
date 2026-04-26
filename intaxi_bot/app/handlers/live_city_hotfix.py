@@ -63,17 +63,23 @@ async def _notify_online_drivers(bot: Bot, order: CityOrderV1, runtime: CityOrde
     async with async_session() as session:
         query = (
             select(User)
-            .join(DriverOnlineState, DriverOnlineState.tg_id == User.tg_id)
+            .join(DriverOnlineState, DriverOnlineState.driver_tg_id == User.tg_id)
             .where(
                 User.is_verified == True,
                 DriverOnlineState.is_online == True,
-                DriverOnlineState.country == order.country,
-                DriverOnlineState.city == order.city,
                 User.tg_id != order.creator_tg_id,
             )
             .order_by(User.rating.desc(), User.rating_count.desc())
         )
+        if order.country:
+            query = query.where(DriverOnlineState.country == order.country)
+        if order.city:
+            query = query.where(DriverOnlineState.city == order.city)
         drivers = (await session.scalars(query)).all()
+        runtime_row = await session.scalar(select(CityOrderRuntime).where(CityOrderRuntime.order_id == order.id))
+        if runtime_row:
+            runtime_row.seen_by_drivers = len(drivers)
+            await session.commit()
     for driver in drivers:
         kbld = InlineKeyboardBuilder()
         kbld.button(text="✅ Принять", callback_data=f"lccacc_{order.id}")
