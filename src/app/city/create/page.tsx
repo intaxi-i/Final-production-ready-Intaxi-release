@@ -4,11 +4,13 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import AddressField from "@/components/AddressField";
 import BottomNav from "@/components/BottomNav";
 import LocationFields from "@/components/LocationFields";
+import MapPointPicker from "@/components/MapPointPicker";
 import PageHeader from "@/components/PageHeader";
 import { useApp } from "@/context/AppContext";
 import { api, TariffItem } from "@/lib/api";
 import { haversineKm } from "@/lib/geo";
 import { formatCountryLocation, guessRegionFromCity } from "@/lib/locations";
+import { APP_ROUTES } from "@/lib/constants";
 import { t } from "@/lib/i18n";
 
 const FALLBACK_TARIFFS: Record<string, TariffItem> = {
@@ -17,14 +19,6 @@ const FALLBACK_TARIFFS: Record<string, TariffItem> = {
   kz: { country: "kz", currency: "KZT", price_per_km: 120 },
   sa: { country: "sa", currency: "SAR", price_per_km: 2.5 },
 };
-
-function swapLabel(lang: string) {
-  if (lang === "ru") return "Поменять точки";
-  if (lang === "uz") return "Nuqtalarni almashtirish";
-  if (lang === "ar") return "تبديل النقطتين";
-  if (lang === "kz") return "Нүктелерді ауыстыру";
-  return "Swap points";
-}
 
 function extraLabel(lang: string, open: boolean) {
   if (lang === "ru") return open ? "Скрыть дополнительные настройки" : "Дополнительные настройки";
@@ -51,19 +45,75 @@ function searchingTitle(lang: string) {
 }
 
 function searchingSubtitle(lang: string) {
-  if (lang === "ru") return "Заказ создан. Сейчас система показывает ваш заказ ближайшим водителям.";
-  if (lang === "uz") return "Buyurtma yaratildi. Tizim hozir uni yaqin haydovchilarga ko‘rsatmoqda.";
-  if (lang === "ar") return "تم إنشاء الطلب. يعرض النظام طلبك الآن على السائقين القريبين.";
-  if (lang === "kz") return "Тапсырыс құрылды. Жүйе қазір оны жақын жүргізушілерге көрсетіп жатыр.";
-  return "Order created. The system is now showing it to nearby drivers.";
+  if (lang === "ru") return "Заказ создан. Система показывает его ближайшим активным водителям и постепенно расширяет круг поиска.";
+  if (lang === "uz") return "Buyurtma yaratildi. Tizim uni yaqin faol haydovchilarga ko‘rsatib, qidiruv doirasini kengaytiradi.";
+  if (lang === "ar") return "تم إنشاء الطلب. يعرضه النظام على أقرب السائقين النشطين ثم يوسّع دائرة البحث.";
+  if (lang === "kz") return "Тапсырыс құрылды. Жүйе оны жақын белсенді жүргізушілерге көрсетіп, іздеу аясын кеңейтеді.";
+  return "Order created. The system is showing it to nearby active drivers and expanding the search radius.";
 }
 
 function destinationHint(lang: string) {
-  if (lang === "ru") return "Укажите конечный адрес текстом. Текущая геолокация для точки B не используется.";
-  if (lang === "uz") return "Yakuniy manzilni matn bilan kiriting. B nuqta uchun joriy geolokatsiya ishlatilmaydi.";
-  if (lang === "ar") return "أدخل عنوان الوصول نصيًا. لا يتم استخدام الموقع الحالي للنقطة B.";
-  if (lang === "kz") return "Соңғы мекенжайды мәтінмен енгізіңіз. B нүктесі үшін ағымдағы геолокация қолданылмайды.";
-  return "Enter destination as text. Current geolocation is not used for point B.";
+  if (lang === "ru") return "Укажите конечный адрес текстом или выберите точку на карте. Текущая геолокация для точки B не используется.";
+  if (lang === "uz") return "Yakuniy manzilni yozing yoki xaritada nuqta tanlang. B nuqta uchun joriy geolokatsiya ishlatilmaydi.";
+  if (lang === "ar") return "أدخل عنوان الوصول أو اختر النقطة على الخريطة. لا يتم استخدام الموقع الحالي للنقطة B.";
+  if (lang === "kz") return "Соңғы мекенжайды жазыңыз немесе картадан нүкте таңдаңыз. B нүктесі үшін ағымдағы геолокация қолданылмайды.";
+  return "Enter destination or choose a point on the map. Current geolocation is not used for point B.";
+}
+
+function mapPickerText(lang: string) {
+  if (lang === "ru") return "Указать точку B на карте";
+  if (lang === "uz") return "B nuqtani xaritada tanlash";
+  if (lang === "ar") return "تحديد النقطة B على الخريطة";
+  if (lang === "kz") return "B нүктесін картадан таңдау";
+  return "Pick point B on map";
+}
+
+function mapPickerTitle(lang: string) {
+  if (lang === "ru") return "Конечная точка на карте";
+  if (lang === "uz") return "Xaritadagi manzil nuqtasi";
+  if (lang === "ar") return "نقطة الوصول على الخريطة";
+  if (lang === "kz") return "Картадағы соңғы нүкте";
+  return "Destination point on map";
+}
+
+function confirmPointText(lang: string) {
+  if (lang === "ru") return "Принять точку";
+  if (lang === "uz") return "Nuqtani qabul qilish";
+  if (lang === "ar") return "تأكيد النقطة";
+  if (lang === "kz") return "Нүктені қабылдау";
+  return "Confirm point";
+}
+
+function cancelPointText(lang: string) {
+  if (lang === "ru") return "Закрыть карту";
+  if (lang === "uz") return "Xaritani yopish";
+  if (lang === "ar") return "إغلاق الخريطة";
+  if (lang === "kz") return "Картаны жабу";
+  return "Close map";
+}
+
+function driverGuideTitle(lang: string) {
+  if (lang === "ru") return "Городской заказ создаёт только пассажир";
+  if (lang === "uz") return "Shahar buyurtmasini faqat yo‘lovchi yaratadi";
+  if (lang === "ar") return "طلب المدينة ينشئه الراكب فقط";
+  if (lang === "kz") return "Қалалық тапсырысты тек жолаушы жасайды";
+  return "Only a passenger creates a city order";
+}
+
+function driverGuideText(lang: string) {
+  if (lang === "ru") return "Если водитель хочет заказать такси для себя, нужно открыть профиль и переключить роль на пассажира.";
+  if (lang === "uz") return "Haydovchi o‘zi uchun taksi chaqirmoqchi bo‘lsa, profilga kirib rolni yo‘lovchiga almashtirishi kerak.";
+  if (lang === "ar") return "إذا أراد السائق طلب سيارة لنفسه، فعليه فتح الملف الشخصي وتبديل الدور إلى راكب.";
+  if (lang === "kz") return "Егер жүргізуші өзі үшін такси шақырғысы келсе, профильге кіріп рөлін жолаушыға ауыстыруы керек.";
+  return "If a driver wants to order a taxi, they need to switch the role to passenger in the profile.";
+}
+
+function openProfileText(lang: string) {
+  if (lang === "ru") return "Открыть профиль";
+  if (lang === "uz") return "Profilni ochish";
+  if (lang === "ar") return "فتح الملف الشخصي";
+  if (lang === "kz") return "Профильді ашу";
+  return "Open profile";
 }
 
 function formatMoney(value: number | null, currency: string) {
@@ -73,8 +123,7 @@ function formatMoney(value: number | null, currency: string) {
 
 export default function CityCreatePage() {
   const { lang, sessionToken, user } = useApp();
-  const [forcedRole, setForcedRole] = useState<"passenger" | "driver" | "">("");
-  const role = forcedRole || (user?.active_role as "passenger" | "driver") || "passenger";
+  const role = (user?.active_role as "passenger" | "driver") || "passenger";
   const [country, setCountry] = useState(user?.country || "uz");
   const [regionKey, setRegionKey] = useState(guessRegionFromCity(user?.country || "uz", user?.city || ""));
   const [city, setCity] = useState(user?.city || "");
@@ -101,8 +150,6 @@ export default function CityCreatePage() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const nextRole = params.get("role");
-    if (nextRole === "driver" || nextRole === "passenger") setForcedRole(nextRole);
     const from = params.get("from");
     const to = params.get("to");
     if (from) setFromAddress(from);
@@ -165,18 +212,18 @@ export default function CityCreatePage() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!sessionToken) return;
+    if (!sessionToken || role !== "passenger") return;
     if (!cityValue && !fromAddress.trim()) {
       setMessage(lang === "ru" ? "Укажите точку A или разрешите локацию" : t(lang, "operationFailed"));
       return;
     }
-    if (role === "passenger" && !toAddress.trim()) {
+    if (!toAddress.trim()) {
       setMessage(lang === "ru" ? "Укажите пункт назначения" : t(lang, "operationFailed"));
       return;
     }
     try {
       const result = await api.createCityOrder(sessionToken, {
-        role,
+        role: "passenger",
         country,
         city: cityValue || city || user?.city || "",
         from_address: fromAddress.trim(),
@@ -214,19 +261,26 @@ export default function CityCreatePage() {
     }
   }
 
-  function swapPoints() {
-    setFromAddress(toAddress);
-    setToAddress(fromAddress);
-    setFromLat(toLat);
-    setFromLng(toLng);
-    setToLat(fromLat);
-    setToLng(fromLng);
+  if (role === "driver") {
+    return (
+      <main className="page">
+        <div className="container stack">
+          <PageHeader title={driverGuideTitle(lang)} subtitle={driverGuideText(lang)} />
+          <div className="card stack">
+            <div className="card-title">{driverGuideTitle(lang)}</div>
+            <div className="muted">{driverGuideText(lang)}</div>
+            <a href={APP_ROUTES.profile} className="button-main full">{openProfileText(lang)}</a>
+          </div>
+        </div>
+        <BottomNav />
+      </main>
+    );
   }
 
   return (
     <main className="page">
       <div className="container stack">
-        <PageHeader title={role === "driver" ? t(lang, "createOffer") : t(lang, "createOrder")} subtitle={role === "driver" ? t(lang, "driverMode") : t(lang, "passengerMode")} />
+        <PageHeader title={t(lang, "createOrder")} subtitle={t(lang, "passengerMode")} />
         {message ? <div className="notice">{message}</div> : null}
 
         <form className="card stack" onSubmit={handleSubmit}>
@@ -265,7 +319,28 @@ export default function CityCreatePage() {
             manualHint={destinationHint(lang)}
           />
 
-          <button type="button" className="button-secondary full" onClick={swapPoints}>{swapLabel(lang)}</button>
+          <MapPointPicker
+            lang={lang}
+            triggerLabel={mapPickerText(lang)}
+            title={mapPickerTitle(lang)}
+            confirmLabel={confirmPointText(lang)}
+            cancelLabel={cancelPointText(lang)}
+            initialLat={toLat ? Number(toLat) : null}
+            initialLng={toLng ? Number(toLng) : null}
+            onConfirm={({ address, lat, lng, city: resolvedCity, region, countryCode }) => {
+              setToAddress(address);
+              setToLat(lat);
+              setToLng(lng);
+              if (countryCode === "uz" || countryCode === "tr" || countryCode === "sa" || countryCode === "kz") setCountry(countryCode);
+              if (resolvedCity) {
+                if ((countryCode || country) === "uz" || (countryCode || country) === "kz") {
+                  const guessed = guessRegionFromCity(countryCode || country, resolvedCity || region || "");
+                  if (guessed) setRegionKey(guessed);
+                }
+                setCity(resolvedCity);
+              }
+            }}
+          />
 
           <button type="button" className="button-secondary full" onClick={() => setShowManualArea((prev) => !prev)}>
             {manualAreaLabel(lang, showManualArea)}
@@ -320,11 +395,11 @@ export default function CityCreatePage() {
           ) : null}
 
           <button type="submit" className="button-main full" style={{ padding: "16px 14px", fontSize: "18px" }}>
-            {role === "driver" ? t(lang, "createOffer") : t(lang, "createOrder")}
+            {t(lang, "createOrder")}
           </button>
         </form>
 
-        {role === "passenger" && createdOrderId ? (
+        {createdOrderId ? (
           <div className="card stack">
             <div className="card-title">{searchingTitle(lang)}{searchDots}</div>
             <div className="muted">{searchingSubtitle(lang)}</div>
