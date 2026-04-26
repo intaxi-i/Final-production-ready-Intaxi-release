@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useApp } from "@/context/AppContext";
 import { APP_ROUTES } from "@/lib/constants";
 import { t } from "@/lib/i18n";
@@ -19,10 +20,20 @@ export default function PageHeader({
   highlightText,
 }: Props) {
   const { lang } = useApp();
+  const router = useRouter();
+
+  function handleBack(event: React.MouseEvent<HTMLAnchorElement>) {
+    event.preventDefault();
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+      return;
+    }
+    router.push(backHref);
+  }
 
   return (
     <div className="page-header">
-      <Link href={backHref} className="back-link">
+      <Link href={backHref} className="back-link" onClick={handleBack}>
         ← {t(lang, "back")}
       </Link>
       <h1 className="section-title">{title}</h1>
