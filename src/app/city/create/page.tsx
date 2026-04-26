@@ -152,9 +152,26 @@ export default function CityCreatePage() {
     const params = new URLSearchParams(window.location.search);
     const from = params.get("from");
     const to = params.get("to");
+    const nextCountry = params.get("country");
+    const nextCity = params.get("city");
+    const nextSeats = params.get("seats");
+    const nextPrice = params.get("price");
+    const nextComment = params.get("comment");
     if (from) setFromAddress(from);
     if (to) setToAddress(to);
-  }, []);
+    if (nextCountry && ["uz", "tr", "kz", "sa"].includes(nextCountry)) setCountry(nextCountry);
+    if (nextCity) {
+      setCity(nextCity);
+      const guessedRegion = guessRegionFromCity(nextCountry || user?.country || "uz", nextCity);
+      if (guessedRegion) setRegionKey(guessedRegion);
+    }
+    if (nextSeats) setSeats(nextSeats);
+    if (nextPrice) setPrice(nextPrice);
+    if (nextComment) {
+      setComment(nextComment);
+      setShowExtras(true);
+    }
+  }, [user?.country]);
 
   useEffect(() => {
     let cancelled = false;
