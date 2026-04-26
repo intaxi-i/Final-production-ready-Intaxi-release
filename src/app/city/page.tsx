@@ -10,11 +10,19 @@ import { t } from "@/lib/i18n";
 import { api } from "@/lib/api";
 
 function onlineLabel(lang: string, value: boolean) {
-  if (lang === "ru") return value ? "Онлайн включен" : "Онлайн выключен";
-  if (lang === "uz") return value ? "On line yoqilgan" : "On line o‘chiq";
-  if (lang === "ar") return value ? "متصل الآن" : "غير متصل";
-  if (lang === "kz") return value ? "Онлайн қосулы" : "Онлайн өшірулі";
-  return value ? "Online enabled" : "Online disabled";
+  if (lang === "ru") return value ? "Статус водителя: активен" : "Статус водителя: неактивен";
+  if (lang === "uz") return value ? "Haydovchi holati: faol" : "Haydovchi holati: nofaol";
+  if (lang === "ar") return value ? "حالة السائق: نشط" : "حالة السائق: غير نشط";
+  if (lang === "kz") return value ? "Жүргізуші мәртебесі: белсенді" : "Жүргізуші мәртебесі: белсенді емес";
+  return value ? "Driver status: active" : "Driver status: inactive";
+}
+
+function onlineHint(lang: string, value: boolean) {
+  if (lang === "ru") return value ? "Вы получаете ближайшие городские заказы." : "Включите активность, чтобы получать ближайшие заказы.";
+  if (lang === "uz") return value ? "Yaqin shahar buyurtmalarini qabul qilasiz." : "Yaqin buyurtmalarni olish uchun faollikni yoqing.";
+  if (lang === "ar") return value ? "أنت تتلقى الطلبات القريبة داخل المدينة." : "فعّل النشاط لتلقي أقرب الطلبات.";
+  if (lang === "kz") return value ? "Сіз жақын қалалық тапсырыстарды алып тұрсыз." : "Жақын тапсырыстарды алу үшін белсенділікті қосыңыз.";
+  return value ? "You are receiving nearby city orders." : "Turn activity on to receive nearby orders.";
 }
 
 export default function CityPage() {
@@ -57,16 +65,18 @@ export default function CityPage() {
 
         {role === "driver" ? (
           <>
-            <ActionCard href={`${APP_ROUTES.cityOffers}?kind=passenger`} title={t(lang, "cityOrdersPassengers")} text={onlineLabel(lang, online)} />
-            <button className="button-secondary full" onClick={toggleOnline}>{onlineLabel(lang, online)}</button>
-            <ActionCard href={`${APP_ROUTES.cityCreate}?role=driver`} title={t(lang, "createOffer")} text={t(lang, "status")} />
+            <div className="card stack">
+              <div className="card-title">{onlineLabel(lang, online)}</div>
+              <div className="muted">{onlineHint(lang, online)}</div>
+              <button className="button-secondary full" onClick={toggleOnline}>{onlineLabel(lang, online)}</button>
+            </div>
+            <ActionCard href={`${APP_ROUTES.cityOffers}?kind=passenger`} title={t(lang, "cityOrdersPassengers")} text={t(lang, "availableOffers")} />
             <ActionCard href={APP_ROUTES.cityMyOrders} title={t(lang, "cityMyOrders")} text={t(lang, "status")} />
             <ActionCard href={APP_ROUTES.currentTrip} title={t(lang, "currentTrip")} text={t(lang, "chat")} />
           </>
         ) : (
           <>
             <ActionCard href={`${APP_ROUTES.cityCreate}?role=passenger`} title={t(lang, "fastOrder")} text={t(lang, "cityMode")} />
-            <ActionCard href={`${APP_ROUTES.cityOffers}?kind=driver`} title={t(lang, "availableOffers")} text={t(lang, "cityOffersDrivers")} />
             <ActionCard href={APP_ROUTES.cityMyOrders} title={t(lang, "cityMyOrders")} text={t(lang, "status")} />
             <ActionCard href={APP_ROUTES.currentTrip} title={t(lang, "currentTrip")} text={t(lang, "chat")} />
           </>
