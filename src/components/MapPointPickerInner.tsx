@@ -1,6 +1,6 @@
 "use client";
 
-import { MapContainer, Marker, TileLayer, useMapEvents } from "react-leaflet";
+import { CircleMarker, MapContainer, TileLayer, useMapEvents } from "react-leaflet";
 import type { LatLngExpression } from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -27,7 +27,9 @@ export default function MapPointPickerInner({ center, picked, onPick }: Props) {
     <MapContainer center={mapCenter} zoom={13} style={{ width: "100%", height: "100%" }}>
       <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap contributors" />
       <PickerEvents onPick={onPick} />
-      {markerPosition ? <Marker position={markerPosition} /> : null}
+      {markerPosition ? (
+        <CircleMarker center={markerPosition} radius={10} pathOptions={{ color: "#0ea5e9", fillColor: "#38bdf8", fillOpacity: 0.9 }} />
+      ) : null}
     </MapContainer>
   );
 }
