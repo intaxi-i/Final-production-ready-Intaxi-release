@@ -25,6 +25,19 @@ function swapLabel(lang: string) {
   return "Swap points";
 }
 
+function statusHint(lang: string, item: CityOrder) {
+  if (item.active_trip_id) {
+    if (lang === "ru") return "Водитель найден. Откройте текущую поездку.";
+    return t(lang, "openTrip");
+  }
+  if (item.status === "active") {
+    if (lang === "ru") return `Поиск водителя активен. Заказ уже показан ${item.seen_by_drivers ?? 0} водителям.`;
+    return `${t(lang, "driversSeen")}: ${item.seen_by_drivers ?? 0}`;
+  }
+  if (lang === "ru") return `Статус заказа: ${item.status || "—"}`;
+  return `${t(lang, "status")}: ${item.status || "—"}`;
+}
+
 export default function CityMyOrdersPage() {
   const { lang, sessionToken, isReady } = useApp();
   const [items, setItems] = useState<CityOrder[]>([]);
@@ -33,7 +46,7 @@ export default function CityMyOrdersPage() {
     if (!isReady || !sessionToken) return;
     try {
       const data = await api.myCityOrders(sessionToken);
-      setItems(data.items);
+      setItems((data.items || []).filter((item) => item.role === "passenger"));
     } catch {
       setItems([]);
     }
@@ -41,6 +54,8 @@ export default function CityMyOrdersPage() {
 
   useEffect(() => {
     void load();
+    const timer = window.setInterval(() => void load(), 8000);
+    return () => window.clearInterval(timer);
   }, [load]);
 
   async function handleClose(id: number) {
@@ -53,7 +68,7 @@ export default function CityMyOrdersPage() {
 
   function buildRepeatHref(item: CityOrder, swapped = false) {
     const params = new URLSearchParams();
-    params.set("role", item.role);
+    params.set("role", "passenger");
     if (item.country) params.set("country", item.country);
     if (item.city) params.set("city", item.city);
     params.set("from", swapped ? (item.to_address || "") : item.from_address);
@@ -67,39 +82,27 @@ export default function CityMyOrdersPage() {
   return (
     <main className="page">
       <div className="container stack">
-        <PageHeader title={t(lang, "cityMyOrders")} subtitle={t(lang, "status")} />
+        <PageHeader title={t(lang, "cityMyOrders")} subtitle={lang === "ru" ? "Ваши городские заказы и поиск водителя" : t(lang, "status")} />
         <div className="card">
           {items.length === 0 ? (
-            <div className="muted">{t(lang, "noOrders")}</div>
+            <div className="muted">{lang === "ru" ? "У вас пока нет активных городских заказов." : t(lang, "noOrders")}</div>
           ) : (
             items.map((item) => (
               <div key={item.id} className="list-item">
                 <div className="list-row">
                   <div className="card-title">{item.city}</div>
-                  <span className={`pill ${item.role === "driver" ? "role-driver" : "role-passenger"}`}>
-                    {item.role === "driver" ? t(lang, "driverMode") : t(lang, "passengerMode")}
-                  </span>
+                  <span className="pill role-passenger">{t(lang, "passengerMode")}</span>
                 </div>
                 <div className="menu-card-text">{item.from_address}{item.to_address ? ` → ${item.to_address}` : ""}</div>
-                <div className="menu-card-text">{t(lang, "status")}: {item.status}</div>
+                <div className="menu-card-text">{statusHint(lang, item)}</div>
                 <div className="actions-row" style={{ marginTop: 12 }}>
                   {item.active_trip_id ? (
-                    <Link href={`${APP_ROUTES.currentTrip}?tripType=city_trip&tripId=${item.active_trip_id}`} className="button-main">
-                      {t(lang, "openTrip")}
-                    </Link>
+                    <Link href={`${APP_ROUTES.currentTrip}?tripType=city_trip&tripId=${item.active_trip_id}`} className="button-main">{t(lang, "openTrip")}</Link>
                   ) : null}
-                  <Link href={buildRepeatHref(item, false)} className="button-secondary">
-                    {repeatLabel(lang)}
-                  </Link>
-                  {item.to_address ? (
-                    <Link href={buildRepeatHref(item, true)} className="button-secondary">
-                      {swapLabel(lang)}
-                    </Link>
-                  ) : null}
+                  <Link href={buildRepeatHref(item, false)} className="button-secondary">{repeatLabel(lang)}</Link>
+                  {item.to_address ? <Link href={buildRepeatHref(item, true)} className="button-secondary">{swapLabel(lang)}</Link> : null}
                   {item.status !== "closed" && !item.active_trip_id ? (
-                    <button className="button-danger" onClick={() => handleClose(item.id)}>
-                      {t(lang, "close")}
-                    </button>
+                    <button className="button-danger" onClick={() => handleClose(item.id)}>{t(lang, "close")}</button>
                   ) : null}
                 </div>
               </div>
