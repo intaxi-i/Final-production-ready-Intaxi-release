@@ -10,8 +10,16 @@ import { api, CityOrder } from "@/lib/api";
 import { APP_ROUTES } from "@/lib/constants";
 import { t } from "@/lib/i18n";
 
+function emptyText(lang: string) {
+  if (lang === "ru") return "Карточка заказа сейчас недоступна.";
+  if (lang === "uz") return "Buyurtma kartasi hozircha mavjud emas.";
+  if (lang === "ar") return "بطاقة الطلب غير متاحة الآن.";
+  if (lang === "kz") return "Тапсырыс картасы қазір қолжетімсіз.";
+  return "Order card is unavailable right now.";
+}
+
 export default function CityOfferDetailClient({ id }: { id: string }) {
-  const { lang, sessionToken, isReady } = useApp();
+  const { lang, sessionToken, isReady, user } = useApp();
   const [item, setItem] = useState<CityOrder | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -28,6 +36,8 @@ export default function CityOfferDetailClient({ id }: { id: string }) {
 
   useEffect(() => {
     void load();
+    const timer = window.setInterval(() => void load(), 8000);
+    return () => window.clearInterval(timer);
   }, [load]);
 
   async function acceptOffer() {
@@ -42,120 +52,50 @@ export default function CityOfferDetailClient({ id }: { id: string }) {
     }
   }
 
-  const canAccept =
+  const canAccept = Boolean(
     item &&
-    !item.is_mine &&
-    !item.active_trip_id &&
-    item.status === "active";
+      user?.active_role === "driver" &&
+      item.role === "passenger" &&
+      !item.is_mine &&
+      !item.active_trip_id &&
+      item.status === "active"
+  );
 
   return (
     <main className="page">
       <div className="container stack">
-        <PageHeader title={t(lang, "routeCard")} subtitle={t(lang, "cityMode")} />
+        <PageHeader title={t(lang, "routeCard")} subtitle={lang === "ru" ? "Городской заказ и принятие водителем" : t(lang, "cityMode")} />
 
         {!item ? (
-          <div className="card">{t(lang, "loading")}</div>
+          <div className="card">{emptyText(lang)}</div>
         ) : (
           <>
             <div className="card stack">
               <div className="list-row">
                 <div className="card-title">{item.city}</div>
-                <span
-                  className={`pill ${
-                    item.role === "driver" ? "role-driver" : "role-passenger"
-                  }`}
-                >
-                  {item.role === "driver"
-                    ? t(lang, "driverMode")
-                    : t(lang, "passengerMode")}
+                <span className={`pill ${item.role === "driver" ? "role-driver" : "role-passenger"}`}>
+                  {item.role === "driver" ? t(lang, "driverMode") : t(lang, "passengerMode")}
                 </span>
               </div>
 
               <div className="info-grid">
-                <div className="info-block">
-                  <div className="info-label">{t(lang, "fromAddress")}</div>
-                  <div className="info-value">{item.from_address}</div>
-                </div>
-
-                <div className="info-block">
-                  <div className="info-label">{t(lang, "toAddress")}</div>
-                  <div className="info-value">{item.to_address || "—"}</div>
-                </div>
-
-                <div className="info-block">
-                  <div className="info-label">{t(lang, "price")}</div>
-                  <div className="info-value">{item.price}</div>
-                </div>
-
-                <div className="info-block">
-                  <div className="info-label">{t(lang, "tripDistance")}</div>
-                  <div className="info-value">
-                    {item.estimated_distance_km ?? "—"} km
-                  </div>
-                </div>
-
-                <div className="info-block">
-                  <div className="info-label">{t(lang, "driverDistance")}</div>
-                  <div className="info-value">
-                    {item.driver_distance_km ?? "—"} km
-                  </div>
-                </div>
-
-                <div className="info-block">
-                  <div className="info-label">{t(lang, "eta")}</div>
-                  <div className="info-value">{item.driver_eta_min ?? "—"} min</div>
-                </div>
+                <div className="info-block"><div className="info-label">{t(lang, "fromAddress")}</div><div className="info-value">{item.from_address}</div></div>
+                <div className="info-block"><div className="info-label">{t(lang, "toAddress")}</div><div className="info-value">{item.to_address || "—"}</div></div>
+                <div className="info-block"><div className="info-label">{t(lang, "price")}</div><div className="info-value">{item.price}</div></div>
+                <div className="info-block"><div className="info-label">{t(lang, "tripDistance")}</div><div className="info-value">{item.estimated_distance_km ?? "—"} km</div></div>
+                <div className="info-block"><div className="info-label">{t(lang, "driversSeen")}</div><div className="info-value">{item.seen_by_drivers ?? 0}</div></div>
+                <div className="info-block"><div className="info-label">{t(lang, "eta")}</div><div className="info-value">{item.driver_eta_min ?? item.estimated_trip_min ?? "—"} min</div></div>
               </div>
 
-              {item.role === "driver" && item.vehicle ? (
-                <div className="info-grid">
-                  <div className="info-block">
-                    <div className="info-label">{t(lang, "otherSide")}</div>
-                    <div className="info-value">{item.creator_name || "—"}</div>
-                  </div>
-
-                  <div className="info-block">
-                    <div className="info-label">{t(lang, "car")}</div>
-                    <div className="info-value">
-                      {item.vehicle.brand || ""} {item.vehicle.model || ""}
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-
-              {item.comment ? (
-                <div className="info-block">
-                  <div className="info-label">{t(lang, "comment")}</div>
-                  <div className="info-value">{item.comment}</div>
-                </div>
-              ) : null}
+              {item.comment ? <div className="info-block"><div className="info-label">{t(lang, "comment")}</div><div className="info-value">{item.comment}</div></div> : null}
 
               <div className="actions-row">
-                {item.active_trip_id ? (
-                  <Link
-                    href={`${APP_ROUTES.currentTrip}?tripType=city_trip&tripId=${item.active_trip_id}`}
-                    className="button-main"
-                  >
-                    {t(lang, "openTrip")}
-                  </Link>
-                ) : null}
-
-                {canAccept ? (
-                  <button className="button-main" onClick={acceptOffer}>
-                    {loading ? t(lang, "loading") : t(lang, "acceptOffer")}
-                  </button>
-                ) : null}
+                {item.active_trip_id ? <Link href={`${APP_ROUTES.currentTrip}?tripType=city_trip&tripId=${item.active_trip_id}`} className="button-main">{t(lang, "openTrip")}</Link> : null}
+                {canAccept ? <button className="button-main" onClick={acceptOffer}>{loading ? t(lang, "loading") : t(lang, "acceptOffer")}</button> : null}
               </div>
             </div>
 
-            <MapBox
-              title={t(lang, "map")}
-              fromLabel="A"
-              toLabel="B"
-              subtitle={`${t(lang, "tripDistance")}: ${
-                item.estimated_distance_km ?? "—"
-              } km · ${t(lang, "eta")}: ${item.estimated_trip_min ?? "—"} min`}
-            />
+            <MapBox title={t(lang, "map")} fromLabel="A" toLabel="B" subtitle={`${t(lang, "tripDistance")}: ${item.estimated_distance_km ?? "—"} km · ${t(lang, "eta")}: ${item.estimated_trip_min ?? "—"} min`} />
           </>
         )}
       </div>
