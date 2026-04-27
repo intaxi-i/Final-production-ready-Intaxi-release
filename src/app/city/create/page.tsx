@@ -144,6 +144,7 @@ export default function CityCreatePage() {
   const [createdOrderId, setCreatedOrderId] = useState<number | null>(null);
   const [driversSeen, setDriversSeen] = useState(0);
   const [secondsPassed, setSecondsPassed] = useState(0);
+  const [searchStatus, setSearchStatus] = useState("");
   const [tariffs, setTariffs] = useState<Record<string, TariffItem>>(FALLBACK_TARIFFS);
   const [showExtras, setShowExtras] = useState(false);
   const [showManualArea, setShowManualArea] = useState(false);
@@ -220,6 +221,33 @@ export default function CityCreatePage() {
     return () => window.clearInterval(timer);
   }, [createdOrderId]);
 
+  useEffect(() => {
+    if (!createdOrderId || !sessionToken) return;
+    let cancelled = false;
+
+    async function pollOrder() {
+      try {
+        const data = await api.myCityOrders(sessionToken);
+        if (cancelled) return;
+        const current = (data.items || []).find((item) => item.id === createdOrderId);
+        if (!current) return;
+        setDriversSeen(current.seen_by_drivers ?? 0);
+        setSearchStatus(current.status || "");
+        if (current.price) setPrice(String(current.price));
+        if (current.active_trip_id) {
+          window.location.href = `${APP_ROUTES.currentTrip}?tripType=city_trip&tripId=${current.active_trip_id}`;
+        }
+      } catch {}
+    }
+
+    void pollOrder();
+    const timer = window.setInterval(() => void pollOrder(), 6000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [createdOrderId, sessionToken]);
+
   const cityValue = useMemo(() => {
     if ((country === "uz" || country === "kz") && regionKey && city) return formatCountryLocation(country, regionKey, city, lang);
     return city;
@@ -256,6 +284,7 @@ export default function CityCreatePage() {
       });
       setCreatedOrderId(result.id);
       setDriversSeen(result.seen_by_drivers || 0);
+      setSearchStatus(result.status || "active");
       setSecondsPassed(0);
       if (!price && result.recommended_price != null) setPrice(String(result.recommended_price));
       if (result.currency) setCurrency(result.currency);
@@ -422,6 +451,7 @@ export default function CityCreatePage() {
             <div className="muted">{searchingSubtitle(lang)}</div>
             <div className="info-grid">
               <div className="info-block"><div className="info-label">{t(lang, "driversSeen")}</div><div className="info-value">{driversSeen}</div></div>
+              <div className="info-block"><div className="info-label">{t(lang, "status")}</div><div className="info-value">{searchStatus || "active"}</div></div>
               <div className="info-block"><div className="info-label">{t(lang, "recommendedPrice")}</div><div className="info-value">{price ? `${price} ${currency}` : formatMoney(recommendedPrice, currency)}</div></div>
             </div>
             <div className="muted">{secondsPassed < 30 ? `${secondsPassed}s` : t(lang, "raisePriceHint")}</div>
