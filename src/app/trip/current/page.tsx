@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import BottomNav from "@/components/BottomNav";
 import MapBox from "@/components/MapBox";
@@ -8,6 +9,7 @@ import TripChat from "@/components/TripChat";
 import { useApp } from "@/context/AppContext";
 import { api } from "@/lib/api";
 import { getCurrentPosition } from "@/lib/geo";
+import { APP_ROUTES } from "@/lib/constants";
 import { t } from "@/lib/i18n";
 
 function fallbackActionLabel(lang: string): string {
@@ -62,6 +64,15 @@ function routeSectionLabel(lang: string) {
   if (lang === "ar") return "المسار وحالة الرحلة";
   if (lang === "kz") return "Маршрут пен сапар күйі";
   return "Route and trip status";
+}
+
+function noCurrentTripHint(lang: string, role?: string | null) {
+  if (role === "driver") {
+    if (lang === "ru") return "Когда заказ появится, здесь будут маршрут, пассажир, карта и кнопки статуса поездки.";
+    return t(lang as any, "noData");
+  }
+  if (lang === "ru") return "Когда водитель примет заказ, здесь появятся маршрут, машина, карта и чат.";
+  return t(lang as any, "noData");
 }
 
 export default function CurrentTripPage() {
@@ -174,7 +185,17 @@ export default function CurrentTripPage() {
           {!item ? (
             <>
               <div className="card-title">{noCurrentTripLabel(lang)}</div>
-              <div className="muted">{lang === "ru" ? "Когда заказ появится, здесь будут маршрут, статус, водитель, машина и карта." : t(lang as any, "noData")}</div>
+              <div className="muted">{noCurrentTripHint(lang, user?.active_role)}</div>
+              <div className="actions-row">
+                {user?.active_role === "driver" ? (
+                  <Link href={APP_ROUTES.cityOffers} className="button-main">{t(lang as any, "cityOrdersPassengers")}</Link>
+                ) : (
+                  <Link href={APP_ROUTES.cityCreate} className="button-main">{t(lang as any, "createOrder")}</Link>
+                )}
+                <Link href={user?.active_role === "driver" ? APP_ROUTES.cityOffers : APP_ROUTES.cityMyOrders} className="button-secondary">
+                  {user?.active_role === "driver" ? t(lang as any, "availableOffers") : t(lang as any, "cityMyOrders")}
+                </Link>
+              </div>
             </>
           ) : (
             <>
