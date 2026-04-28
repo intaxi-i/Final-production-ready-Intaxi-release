@@ -12,13 +12,15 @@ def home_webapp_menu(lang: str, *, is_driver_mode: bool = False) -> ReplyKeyboar
     profile_text = m.get('btn_profile', '👤 Profile')
     wallet_text = m.get('btn_wallet', '💰 Wallet')
     feedback_text = m.get('btn_feedback', '💬 Feedback')
+    current_order_text = m.get('btn_current_order', '📌 Текущий заказ')
 
     return ReplyKeyboardMarkup(
         keyboard=[
             [
-                KeyboardButton(text=city_text, web_app=types.WebAppInfo(url=city_main_url('passenger'))),
+                KeyboardButton(text=city_text, web_app=types.WebAppInfo(url=city_main_url('driver' if is_driver_mode else 'passenger'))),
                 KeyboardButton(text=intercity_text, web_app=types.WebAppInfo(url=intercity_main_url('driver' if is_driver_mode else 'passenger'))),
             ],
+            [KeyboardButton(text=current_order_text)],
             [KeyboardButton(text=profile_text), KeyboardButton(text=wallet_text)],
             [KeyboardButton(text=feedback_text)],
         ],
