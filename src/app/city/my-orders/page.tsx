@@ -46,7 +46,12 @@ export default function CityMyOrdersPage() {
     if (!isReady || !sessionToken) return;
     try {
       const data = await api.myCityOrders(sessionToken);
-      setItems((data.items || []).filter((item) => item.role === "passenger"));
+      const next = (data.items || []).filter((item) => item.role === "passenger");
+      setItems(next);
+      const activeTrip = next.find((item) => item.active_trip_id);
+      if (activeTrip?.active_trip_id) {
+        window.location.href = `${APP_ROUTES.currentTrip}?tripType=city_trip&tripId=${activeTrip.active_trip_id}`;
+      }
     } catch {
       setItems([]);
     }
@@ -85,7 +90,7 @@ export default function CityMyOrdersPage() {
         <PageHeader title={t(lang, "cityMyOrders")} subtitle={lang === "ru" ? "Ваши городские заказы и поиск водителя" : t(lang, "status")} />
         <div className="card">
           {items.length === 0 ? (
-            <div className="muted">{lang === "ru" ? "У вас пока нет активных городских заказов." : t(lang, "noOrders")}</div>
+            <div className="muted">{lang === "ru" ? "У вас пока нет активных городских заказов. Здесь появится поиск водителя и повторная активация маршрута." : t(lang, "noOrders")}</div>
           ) : (
             items.map((item) => (
               <div key={item.id} className="list-item">
