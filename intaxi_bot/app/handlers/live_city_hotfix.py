@@ -28,7 +28,7 @@ class CityCreateFlow(StatesGroup):
 def _match_button(message_text: str | None, key: str) -> bool:
     if not message_text:
         return False
-    for lang, msgs in MESSAGES.items():
+    for _, msgs in MESSAGES.items():
         if message_text == msgs.get(key):
             return True
     return False
@@ -128,6 +128,29 @@ async def _send_trip_cards(bot: Bot, trip: CityTripV1):
         pass
 
 
+async def _notify_trip_status(bot: Bot, trip: CityTripV1, action: str):
+    if action == 'onway':
+        passenger_text = f"🚘 Водитель выехал к вам.\n\nМини App: {_current_trip_link(trip.id)}"
+        driver_text = f"🚘 Статус поездки обновлён: водитель в пути.\n\nМини App: {_current_trip_link(trip.id)}"
+    elif action == 'arrived':
+        passenger_text = f"📍 Водитель прибыл.\n\nТочка встречи: {trip.from_address or '—'}\nMini App: {_current_trip_link(trip.id)}"
+        driver_text = f"📍 Вы прибыли.\n\nСледующая точка: {trip.to_address or '—'}\nMini App: {_current_trip_link(trip.id)}"
+    elif action == 'start':
+        passenger_text = f"▶️ Поездка началась.\n\nСледующая точка: {trip.to_address or '—'}\nMini App: {_current_trip_link(trip.id)}"
+        driver_text = f"▶️ Поездка началась.\n\nСледующая точка: {trip.to_address or '—'}\nMini App: {_current_trip_link(trip.id)}"
+    else:
+        passenger_text = f"✅ Поездка завершена.\n\nСпасибо, что воспользовались Intaxi."
+        driver_text = f"✅ Поездка завершена."
+    try:
+        await bot.send_message(trip.passenger_tg_id, passenger_text, reply_markup=_trip_status_kb(trip.id, trip.status))
+    except Exception:
+        pass
+    try:
+        await bot.send_message(trip.driver_tg_id, driver_text, reply_markup=_trip_status_kb(trip.id, trip.status))
+    except Exception:
+        pass
+
+
 @router.message(lambda message: _match_button(message.text, 'btn_fast_order'))
 async def hotfix_city_create_start(message: types.Message, state: FSMContext):
     user = await rq.get_or_create_user(message.from_user.id, message.from_user.full_name, message.from_user.username)
@@ -159,6 +182,8 @@ async def hotfix_city_pickup(message: types.Message, state: FSMContext):
 
 @router.message(CityCreateFlow.destination)
 async def hotfix_city_destination(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    lang = data.get('lang', 'ru')
     destination = (message.text or '').strip()
     to_lat = None
     to_lng = None
@@ -167,7 +192,7 @@ async def hotfix_city_destination(message: types.Message, state: FSMContext):
         to_lng = float(message.location.longitude)
         destination = f"{to_lat:.6f},{to_lng:.6f}"
     if not destination:
-        await message.answer('Напишите конечный адрес текстом или отправьте точку без кнопки текущей геолокации.', reply_markup=kb.destination_input_kb('ru'))
+        await message.answer('Напишите конечный адрес текстом или отправьте точку без кнопки текущей геолокации.', reply_markup=kb.destination_input_kb(lang))
         return
     await state.update_data(to_address=destination, to_lat=to_lat, to_lng=to_lng)
     await message.answer('Сколько пассажиров?', reply_markup=types.ReplyKeyboardRemove())
@@ -338,8 +363,4 @@ async def hotfix_trip_status(callback: types.CallbackQuery, bot: Bot):
         await session.commit()
         await session.refresh(trip)
     await callback.answer('Статус обновлён')
-    if action == 'arrived':
-        try:
-            await bot.send_message(callback.from_user.id, f'Следующая точка: {trip.to_address or "—"}\nMini App: {_current_trip_link(trip.id)}', reply_markup=_trip_status_kb(trip.id, trip.status))
-        except Exception:
-            pass
+    await _notify_trip_status(bot, trip, action)
