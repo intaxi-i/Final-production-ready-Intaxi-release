@@ -11,6 +11,14 @@ def _country_code_with_kz(address: dict[str, Any]) -> str:
     return code if code in {"uz", "tr", "kz", "sa"} else "uz"
 
 
+def _patch_city_api() -> None:
+    try:
+        module = importlib.import_module("api.city_flow_runtime_patch")
+        module.install_city_flow_runtime_patch()
+    except Exception:
+        return
+
+
 def _patch_requests() -> None:
     for module_name in ("app.database.requests", "intaxi_bot.app.database.requests"):
         try:
@@ -32,6 +40,7 @@ def _patch_profile() -> None:
 
 
 def apply_runtime_hotfixes() -> None:
+    _patch_city_api()
     _patch_requests()
     _patch_profile()
 
