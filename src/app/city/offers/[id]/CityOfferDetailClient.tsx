@@ -29,6 +29,9 @@ export default function CityOfferDetailClient({ id }: { id: string }) {
     try {
       const data = await api.cityOfferDetail(sessionToken, Number(id));
       setItem(data.item);
+      if (data.item.active_trip_id) {
+        window.location.href = `${APP_ROUTES.currentTrip}?tripType=city_trip&tripId=${data.item.active_trip_id}`;
+      }
     } catch {
       setItem(null);
     }
@@ -88,6 +91,7 @@ export default function CityOfferDetailClient({ id }: { id: string }) {
               </div>
 
               {item.comment ? <div className="info-block"><div className="info-label">{t(lang, "comment")}</div><div className="info-value">{item.comment}</div></div> : null}
+              {canAccept ? <div className="muted">{lang === "ru" ? "Если заказ ещё свободен, вы можете принять его и сразу перейти в текущую поездку." : t(lang, "acceptOffer")}</div> : null}
 
               <div className="actions-row">
                 {item.active_trip_id ? <Link href={`${APP_ROUTES.currentTrip}?tripType=city_trip&tripId=${item.active_trip_id}`} className="button-main">{t(lang, "openTrip")}</Link> : null}
