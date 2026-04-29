@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date
+
 from sqlalchemy import BigInteger, Date, ForeignKey, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -18,8 +20,8 @@ class IntercityRequest(TimestampMixin, Base):
     to_city_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("cities_v2.id"))
     from_text: Mapped[str] = mapped_column(String(255), nullable=False)
     to_text: Mapped[str] = mapped_column(String(255), nullable=False)
-    date: Mapped[object | None] = mapped_column(Date)
-    time: Mapped[str | None] = mapped_column(String(32))
+    ride_date: Mapped[date | None] = mapped_column(Date)
+    ride_time: Mapped[str | None] = mapped_column(String(32))
     seats: Mapped[int] = mapped_column(BigInteger, default=1, nullable=False)
     passenger_price: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False)
     recommended_price: Mapped[float | None] = mapped_column(Numeric(14, 2))
@@ -39,8 +41,8 @@ class IntercityRoute(TimestampMixin, Base):
     to_city_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("cities_v2.id"))
     from_text: Mapped[str] = mapped_column(String(255), nullable=False)
     to_text: Mapped[str] = mapped_column(String(255), nullable=False)
-    date: Mapped[object | None] = mapped_column(Date)
-    time: Mapped[str | None] = mapped_column(String(32))
+    ride_date: Mapped[date | None] = mapped_column(Date)
+    ride_time: Mapped[str | None] = mapped_column(String(32))
     seats_available: Mapped[int] = mapped_column(BigInteger, default=1, nullable=False)
     price_per_seat: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False)
     currency: Mapped[str] = mapped_column(String(8), nullable=False)
