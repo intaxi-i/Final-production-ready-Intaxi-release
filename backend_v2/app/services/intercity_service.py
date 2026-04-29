@@ -31,9 +31,9 @@ class IntercityService:
         comment: str | None = None,
     ) -> IntercityRequest:
         if passenger.is_blocked:
-            raise_domain("user_blocked", "Blocked user cannot create intercity request", 403)
+            raise_domain("user_blocked", "User cannot create intercity request", 403)
         if mode == "women" and (passenger.profile_gender != "woman" or not passenger.is_adult_confirmed):
-            raise_domain("women_mode_not_allowed", "User is not eligible for women mode", 403)
+            raise_domain("women_mode_not_allowed", "User is not eligible for this mode", 403)
         if passenger_price <= 0:
             raise_domain("invalid_price", "Passenger price must be positive")
         row = IntercityRequest(
@@ -44,8 +44,8 @@ class IntercityService:
             to_city_id=to_city_id,
             from_text=from_text,
             to_text=to_text,
-            date=ride_date,
-            time=ride_time,
+            ride_date=ride_date,
+            ride_time=ride_time,
             seats=max(1, int(seats or 1)),
             passenger_price=float(passenger_price),
             currency=currency,
@@ -80,9 +80,9 @@ class IntercityService:
             raise_domain("driver_not_approved", "Only approved drivers can create intercity route", 403)
         if mode == "women":
             if driver.profile_gender != "woman" or not driver.is_adult_confirmed:
-                raise_domain("women_mode_not_allowed", "Driver is not eligible for women mode", 403)
+                raise_domain("women_mode_not_allowed", "Driver is not eligible for this mode", 403)
             if not profile.is_woman_driver_verified or profile.woman_driver_status != "approved":
-                raise_domain("woman_driver_not_approved", "Woman driver mode is not approved", 403)
+                raise_domain("woman_driver_not_approved", "Driver mode is not approved", 403)
         if price_per_seat <= 0:
             raise_domain("invalid_price", "Route price must be positive")
         row = IntercityRoute(
@@ -93,8 +93,8 @@ class IntercityService:
             to_city_id=to_city_id,
             from_text=from_text,
             to_text=to_text,
-            date=ride_date,
-            time=ride_time,
+            ride_date=ride_date,
+            ride_time=ride_time,
             seats_available=max(1, int(seats_available or 1)),
             price_per_seat=float(price_per_seat),
             currency=currency,
