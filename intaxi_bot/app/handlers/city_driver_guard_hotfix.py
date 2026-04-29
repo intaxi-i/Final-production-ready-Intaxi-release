@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from aiogram import Router, types
+from aiogram.dispatcher.event.bases import SkipHandler
 from aiogram.fsm.context import FSMContext
 
 import app.database.requests as rq
-import app.keyboards as kb
 from app.handlers.live_city_hotfix import CityCreateFlow
 from app.hotfix_menu import home_webapp_menu
 from app.miniapp_routes import city_main_url, profile_url
@@ -39,48 +39,26 @@ def _driver_mode(user) -> bool:
 
 def _guide(lang: str) -> tuple[str, str, str]:
     if lang == 'uz':
-        return (
-            'Haydovchi uchun tez buyurtma o‘chirilgan.',
-            'Agar haydovchi o‘zi uchun taksi chaqirmoqchi bo‘lsa, profilga kirib rolni yo‘lovchiga almashtirishi kerak.',
-            'Profilni ochish',
-        )
-    if lang == 'ar':
-        return (
-            'تم إيقاف الطلب السريع للسائق.',
-            'إذا أراد السائق طلب سيارة لنفسه، فعليه فتح الملف الشخصي وتبديل الدور إلى راكب.',
-            'فتح الملف الشخصي',
-        )
+        return ('Haydovchi uchun tez buyurtma ochirilgan.', 'Profilga kirib rolni yolovchiga almashtiring.', 'Profilni ochish')
     if lang == 'kz':
-        return (
-            'Жүргізушіге жылдам тапсырыс өшірілген.',
-            'Егер жүргізуші өзі үшін такси шақырғысы келсе, профильге кіріп рөлін жолаушыға ауыстыруы керек.',
-            'Профильді ашу',
-        )
+        return ('Jurgizushige jyldam tapsyrys oshirilgen.', 'Profilge kirip roldi jolaushyga auystyrynyz.', 'Profildi ashu')
     if lang == 'en':
-        return (
-            'Fast order is disabled for drivers.',
-            'If a driver wants to order a taxi, they need to open the profile and switch the role to passenger.',
-            'Open profile',
-        )
-    return (
-        'Быстрый заказ для водителя отключён.',
-        'Если водитель хочет заказать такси для себя, нужно открыть профиль и переключить роль на пассажира.',
-        'Открыть профиль',
-    )
+        return ('Fast order is disabled for drivers.', 'Open profile and switch role to passenger.', 'Open profile')
+    return ('Быстрый заказ для водителя отключён.', 'Откройте профиль и переключите роль на пассажира.', 'Открыть профиль')
 
 
 @router.message(lambda message: _match_button(message.text, 'btn_fast_order'))
 async def prevent_driver_fast_order(message: types.Message, state: FSMContext):
     user = await rq.get_or_create_user(message.from_user.id, message.from_user.full_name, message.from_user.username)
     if not _driver_mode(user):
-        return
+        raise SkipHandler()
     await state.clear()
     lang = user.language or 'ru'
     title, text, button = _guide(lang)
     markup = types.InlineKeyboardMarkup(
         inline_keyboard=[
             [types.InlineKeyboardButton(text=button, web_app=types.WebAppInfo(url=profile_url()))],
-            [types.InlineKeyboardButton(text='📱 Mini App', web_app=types.WebAppInfo(url=city_main_url('driver')))],
+            [types.InlineKeyboardButton(text='Mini App', web_app=types.WebAppInfo(url=city_main_url('driver')))],
         ]
     )
     await message.answer(f'{title}\n\n{text}', reply_markup=markup)
@@ -94,8 +72,8 @@ async def prevent_driver_fast_order(message: types.Message, state: FSMContext):
 @router.message(CityCreateFlow.offer_price)
 async def cancel_live_city_flow(message: types.Message, state: FSMContext):
     if (message.text or '') not in CANCEL_TEXTS:
-        return
+        raise SkipHandler()
     user = await rq.get_or_create_user(message.from_user.id, message.from_user.full_name, message.from_user.username)
     lang = user.language or 'ru'
     await state.clear()
-    await message.answer('✅ Отменено.', reply_markup=home_webapp_menu(lang, is_driver_mode=_driver_mode(user)))
+    await message.answer('Отменено.', reply_markup=home_webapp_menu(lang, is_driver_mode=_driver_mode(user)))
