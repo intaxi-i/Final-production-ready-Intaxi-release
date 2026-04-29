@@ -1,7 +1,9 @@
 from app.models.admin import AdminAuditLog
 from app.models.city import CityCounteroffer, CityOrder, CityTrip
-from app.models.country import City, CommissionRule, Country
+from app.models.commission import CommissionRule
+from app.models.country import City, Country
 from app.models.driver import DriverOnlineState, DriverPaymentMethod, DriverProfile, Vehicle
+from app.models.events import DomainEvent
 from app.models.money import PaymentTopupRequest, Wallet, WalletLedgerEntry
 from app.models.support import Rating, SupportTicket
 from app.models.user import User
@@ -14,6 +16,7 @@ __all__ = [
     "CityTrip",
     "CommissionRule",
     "Country",
+    "DomainEvent",
     "DriverOnlineState",
     "DriverPaymentMethod",
     "DriverProfile",
