@@ -39,7 +39,7 @@ async def _driver_has_live_trip(models, session, driver_tg_id: int) -> bool:
     return trip is not None
 
 
-async def _active_driver_count(req, models, session, *, country: str | None, city: str | None, from_lat: float | None = None, from_lng: float | None = None) -> int:
+async def _active_driver_count(models, session, *, country: str | None, city: str | None) -> int:
     rows = (await session.scalars(select(models.DriverOnlineState).where(models.DriverOnlineState.is_online == True))).all()
     count = 0
     for row in rows:
@@ -52,16 +52,6 @@ async def _active_driver_count(req, models, session, *, country: str | None, cit
             continue
         count += 1
     return count
-
-
-async def _tariff_for_country(req, session, country: str | None) -> tuple[str, float]:
-    normalized = _clean(country) or "uz"
-    row = await session.scalar(select(session.bind.sync_engine.engine if False else req.TariffSetting).where(req.TariffSetting.country == normalized)) if False else None
-    tariff_helper = getattr(req, "_tariff_for_country", None)
-    if tariff_helper:
-        return await tariff_helper(session, normalized)
-    currency, value = getattr(req, "DEFAULT_TARIFFS", {}).get(normalized, ("USD", 0.0))
-    return currency, float(value or 0)
 
 
 def patch_requests_module(module_name: str) -> None:
@@ -82,7 +72,6 @@ def patch_requests_module(module_name: str) -> None:
     CityOrderV1 = models.CityOrderV1
     CityOrderRuntime = models.CityOrderRuntime
     CityTripV1 = models.CityTripV1
-    DriverOnlineState = models.DriverOnlineState
     haversine_km = req.haversine_km
     original_get_current_trip = getattr(req, "get_current_trip_for_user", None)
 
@@ -115,7 +104,7 @@ def patch_requests_module(module_name: str) -> None:
             order = CityOrderV1(creator_tg_id=creator_tg_id, role="passenger", country=normalized_country, city=normalized_city, from_address=from_address, to_address=to_address, seats=max(1, int(seats or 1)), price=final_price, comment=comment or "", status="active")
             session.add(order)
             await session.flush()
-            seen = await _active_driver_count(req, models, session, country=normalized_country, city=normalized_city, from_lat=from_lat, from_lng=from_lng)
+            seen = await _active_driver_count(models, session, country=normalized_country, city=normalized_city)
             runtime = CityOrderRuntime(order_id=order.id, currency=currency, tariff_hint=f"{currency} {tariff_per_km}/km", recommended_price=recommended_price, system_price=recommended_price, from_lat=from_lat, from_lng=from_lng, to_lat=to_lat, to_lng=to_lng, estimated_distance_km=dist_km, estimated_trip_min=eta, dispatch_stage="active_drivers" if seen else "manual_list", seen_by_drivers=int(seen))
             session.add(runtime)
             await session.commit()
