@@ -19,6 +19,16 @@ def _patch_city_api() -> None:
         return
 
 
+def _patch_city_helpers() -> None:
+    for module_name in ("app.database.city_flow_helper_patch", "intaxi_bot.app.database.city_flow_helper_patch"):
+        try:
+            module = importlib.import_module(module_name)
+            module.install_city_flow_helper_patch()
+            return
+        except Exception:
+            continue
+
+
 def _patch_requests() -> None:
     for module_name in ("app.database.requests", "intaxi_bot.app.database.requests"):
         try:
@@ -41,6 +51,7 @@ def _patch_profile() -> None:
 
 def apply_runtime_hotfixes() -> None:
     _patch_city_api()
+    _patch_city_helpers()
     _patch_requests()
     _patch_profile()
 
