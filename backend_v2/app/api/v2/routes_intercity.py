@@ -98,9 +98,9 @@ async def intercity_offers(
     routes = (await session.scalars(select(IntercityRoute).where(IntercityRoute.status == "active", IntercityRoute.driver_user_id != current_user.id).order_by(IntercityRoute.id.desc()).limit(50))).all()
     result: list[IntercityOfferRead] = []
     for row in requests:
-        result.append(IntercityOfferRead(kind="request", id=row.id, mode=row.mode, country_code=row.country_code, from_text=row.from_text, to_text=row.to_text, date=str(row.date) if row.date else None, time=row.time, seats=row.seats, price=float(row.passenger_price), currency=row.currency, status=row.status))
+        result.append(IntercityOfferRead(kind="request", id=row.id, mode=row.mode, country_code=row.country_code, from_text=row.from_text, to_text=row.to_text, date=str(row.ride_date) if row.ride_date else None, time=row.ride_time, seats=row.seats, price=float(row.passenger_price), currency=row.currency, status=row.status))
     for row in routes:
-        result.append(IntercityOfferRead(kind="route", id=row.id, mode=row.mode, country_code=row.country_code, from_text=row.from_text, to_text=row.to_text, date=str(row.date) if row.date else None, time=row.time, seats=row.seats_available, price=float(row.price_per_seat), currency=row.currency, status=row.status))
+        result.append(IntercityOfferRead(kind="route", id=row.id, mode=row.mode, country_code=row.country_code, from_text=row.from_text, to_text=row.to_text, date=str(row.ride_date) if row.ride_date else None, time=row.ride_time, seats=row.seats_available, price=float(row.price_per_seat), currency=row.currency, status=row.status))
     return result
 
 
