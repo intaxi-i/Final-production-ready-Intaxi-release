@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from aiogram import Router, types
+from aiogram.dispatcher.event.bases import SkipHandler
 from aiogram.fsm.context import FSMContext
 
 import app.database.requests as rq
@@ -73,7 +74,7 @@ def _guide(lang: str) -> tuple[str, str, str]:
 async def prevent_driver_fast_order(message: types.Message, state: FSMContext):
     user = await rq.get_or_create_user(message.from_user.id, message.from_user.full_name, message.from_user.username)
     if not _driver_mode(user):
-        return
+        raise SkipHandler()
     await state.clear()
     lang = user.language or 'ru'
     title, text, button = _guide(lang)
@@ -94,7 +95,7 @@ async def prevent_driver_fast_order(message: types.Message, state: FSMContext):
 @router.message(CityCreateFlow.offer_price)
 async def cancel_live_city_flow(message: types.Message, state: FSMContext):
     if (message.text or '') not in CANCEL_TEXTS:
-        return
+        raise SkipHandler()
     user = await rq.get_or_create_user(message.from_user.id, message.from_user.full_name, message.from_user.username)
     lang = user.language or 'ru'
     await state.clear()
