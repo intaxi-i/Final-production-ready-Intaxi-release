@@ -2,6 +2,7 @@ from app.models.admin import AdminAuditLog
 from app.models.city import CityCounteroffer, CityOrder, CityTrip
 from app.models.commission import CommissionRule
 from app.models.country import City, Country
+from app.models.donation import DonationPaymentSetting
 from app.models.driver import DriverOnlineState, DriverPaymentMethod, DriverProfile, Vehicle
 from app.models.events import DomainEvent
 from app.models.intercity import IntercityRequest, IntercityRoute, IntercityTrip
@@ -18,6 +19,7 @@ __all__ = [
     "CommissionRule",
     "Country",
     "DomainEvent",
+    "DonationPaymentSetting",
     "DriverOnlineState",
     "DriverPaymentMethod",
     "DriverProfile",
