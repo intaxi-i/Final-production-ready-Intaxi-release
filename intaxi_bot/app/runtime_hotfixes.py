@@ -13,7 +13,7 @@ def _country_code_with_kz(address: dict[str, Any]) -> str:
 
 def _patch_city_api() -> None:
     try:
-        module = importlib.import_module("api.city_flow_runtime_patch")
+        module = importlib.import_module("api.city_flow_runtime_patch_v2")
         module.install_city_flow_runtime_patch()
     except Exception:
         return
