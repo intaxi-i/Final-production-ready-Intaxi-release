@@ -1,4 +1,32 @@
 export type RideMode = 'regular' | 'women';
+export type UserRole = 'passenger' | 'driver' | 'admin';
+export type ProfileGender = 'woman' | 'man' | 'unspecified';
+
+export type UserMe = {
+  id: number;
+  tg_id: number | null;
+  phone: string | null;
+  full_name: string;
+  username: string | null;
+  language: string;
+  country_code: string | null;
+  city_id: number | null;
+  active_role: UserRole | null;
+  is_blocked: boolean;
+  profile_gender: ProfileGender;
+  is_adult_confirmed: boolean;
+  rating: number;
+  rating_count: number;
+};
+
+export type DriverOnlineState = {
+  is_online: boolean;
+  is_busy: boolean;
+  country_code: string | null;
+  city_id: number | null;
+  lat: number | null;
+  lng: number | null;
+};
 
 export type CityOrder = {
   id: number;
