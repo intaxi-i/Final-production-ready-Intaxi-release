@@ -17,6 +17,10 @@ from app.schemas.driver import (
     DriverOnlineUpdate,
     DriverPaymentMethodCreate,
     DriverPaymentMethodRead,
+    DriverProfileCreate,
+    DriverProfileRead,
+    VehicleCreate,
+    VehicleRead,
 )
 
 router = APIRouter(prefix="/driver", tags=["driver"])
@@ -29,6 +33,92 @@ def _mask_card(card_number: str | None) -> str | None:
     if len(digits) < 8:
         return '****'
     return f"{digits[:4]}********{digits[-4:]}"
+
+
+@router.get("/profile", response_model=DriverProfileRead | None)
+async def get_driver_profile(
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> DriverProfileRead | None:
+    row = await session.scalar(select(DriverProfile).where(DriverProfile.user_id == current_user.id))
+    return DriverProfileRead.model_validate(row) if row else None
+
+
+@router.post("/profile", response_model=DriverProfileRead)
+async def submit_driver_profile(
+    payload: DriverProfileCreate,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> DriverProfileRead:
+    if current_user.is_blocked:
+        raise_domain("user_blocked", "Blocked user cannot submit driver profile", 403)
+    if payload.request_woman_mode and (current_user.profile_gender != "woman" or not current_user.is_adult_confirmed):
+        raise_domain("women_mode_not_allowed", "User is not eligible for women driver mode", 403)
+    row = await session.scalar(select(DriverProfile).where(DriverProfile.user_id == current_user.id))
+    if not row:
+        row = DriverProfile(user_id=current_user.id, country_code=payload.country_code.lower())
+        session.add(row)
+    row.country_code = payload.country_code.lower()
+    row.city_id = payload.city_id
+    row.license_number = payload.license_number
+    row.license_photo_file_id = payload.license_photo_file_id
+    row.identity_photo_file_id = payload.identity_photo_file_id
+    row.selfie_file_id = payload.selfie_file_id
+    row.status = "pending"
+    row.submitted_at = datetime.now(timezone.utc)
+    row.rejection_reason = None
+    if payload.request_woman_mode:
+        row.woman_driver_status = "pending"
+    current_user.active_role = "driver"
+    await session.commit()
+    await session.refresh(row)
+    return DriverProfileRead.model_validate(row)
+
+
+@router.get("/vehicles", response_model=list[VehicleRead])
+async def list_vehicles(
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[VehicleRead]:
+    rows = (
+        await session.scalars(
+            select(Vehicle)
+            .where(Vehicle.driver_user_id == current_user.id)
+            .order_by(Vehicle.id.desc())
+        )
+    ).all()
+    return [VehicleRead.model_validate(row) for row in rows]
+
+
+@router.post("/vehicles", response_model=VehicleRead)
+async def submit_vehicle(
+    payload: VehicleCreate,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> VehicleRead:
+    profile = await session.scalar(select(DriverProfile).where(DriverProfile.user_id == current_user.id))
+    if not profile:
+        raise_domain("driver_profile_required", "Submit driver profile before vehicle", 409)
+    row = Vehicle(
+        driver_user_id=current_user.id,
+        country_code=payload.country_code.lower(),
+        brand=payload.brand,
+        model=payload.model,
+        year=payload.year,
+        color=payload.color,
+        plate=payload.plate,
+        capacity=payload.capacity,
+        vehicle_class=payload.vehicle_class,
+        photo_front_file_id=payload.photo_front_file_id,
+        photo_back_file_id=payload.photo_back_file_id,
+        photo_inside_file_id=payload.photo_inside_file_id,
+        tech_passport_file_id=payload.tech_passport_file_id,
+        status="pending",
+    )
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+    return VehicleRead.model_validate(row)
 
 
 @router.get("/online", response_model=DriverOnlineRead)
