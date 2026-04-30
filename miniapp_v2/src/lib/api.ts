@@ -1,9 +1,12 @@
 import type {
   CityOrder,
   CityTrip,
+  CommissionRule,
   DonationPaymentSetting,
   DriverOnlineState,
   DriverPaymentMethod,
+  PendingDriverProfile,
+  PendingPayment,
   RideMode,
   UserMe,
   UserRole,
@@ -84,17 +87,11 @@ export async function getMe(): Promise<UserMe> {
 }
 
 export async function updateMe(input: UserProfileInput): Promise<UserMe> {
-  return request<UserMe>('/api/v2/user/me', {
-    method: 'PATCH',
-    body: JSON.stringify(input),
-  });
+  return request<UserMe>('/api/v2/user/me', { method: 'PATCH', body: JSON.stringify(input) });
 }
 
 export async function updateRole(activeRole: UserRole): Promise<UserMe> {
-  return request<UserMe>('/api/v2/user/role', {
-    method: 'PATCH',
-    body: JSON.stringify({ active_role: activeRole }),
-  });
+  return request<UserMe>('/api/v2/user/role', { method: 'PATCH', body: JSON.stringify({ active_role: activeRole }) });
 }
 
 export async function getDriverOnline(): Promise<DriverOnlineState> {
@@ -102,10 +99,7 @@ export async function getDriverOnline(): Promise<DriverOnlineState> {
 }
 
 export async function setDriverOnline(input: { is_online: boolean; country_code?: string | null; city_id?: number | null }): Promise<DriverOnlineState> {
-  return request<DriverOnlineState>('/api/v2/driver/online', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  });
+  return request<DriverOnlineState>('/api/v2/driver/online', { method: 'POST', body: JSON.stringify(input) });
 }
 
 export type DriverPaymentMethodInput = {
@@ -121,17 +115,11 @@ export async function listMyDriverPaymentMethods(): Promise<DriverPaymentMethod[
 }
 
 export async function createDriverPaymentMethod(input: DriverPaymentMethodInput): Promise<DriverPaymentMethod> {
-  return request<DriverPaymentMethod>('/api/v2/driver/payment-methods', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  });
+  return request<DriverPaymentMethod>('/api/v2/driver/payment-methods', { method: 'POST', body: JSON.stringify(input) });
 }
 
 export async function createCityOrder(input: CreateCityOrderInput): Promise<CityOrder> {
-  const data = await request<{ order: CityOrder }>('/api/v2/city/orders', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  });
+  const data = await request<{ order: CityOrder }>('/api/v2/city/orders', { method: 'POST', body: JSON.stringify(input) });
   return data.order;
 }
 
@@ -140,17 +128,11 @@ export async function listMyCityOrders(): Promise<CityOrder[]> {
 }
 
 export async function raiseCityOrderPrice(orderId: number, price: number): Promise<CityOrder> {
-  return request<CityOrder>(`/api/v2/city/orders/${orderId}/raise-price`, {
-    method: 'POST',
-    body: JSON.stringify({ price }),
-  });
+  return request<CityOrder>(`/api/v2/city/orders/${orderId}/raise-price`, { method: 'POST', body: JSON.stringify({ price }) });
 }
 
 export async function cancelCityOrder(orderId: number, reason?: string): Promise<CityOrder> {
-  return request<CityOrder>(`/api/v2/city/orders/${orderId}/cancel`, {
-    method: 'POST',
-    body: JSON.stringify({ reason: reason || null }),
-  });
+  return request<CityOrder>(`/api/v2/city/orders/${orderId}/cancel`, { method: 'POST', body: JSON.stringify({ reason: reason || null }) });
 }
 
 export async function listAvailableCityOrders(): Promise<CityOrder[]> {
@@ -167,10 +149,7 @@ export async function getCurrentCityTrip(): Promise<CityTrip | null> {
 }
 
 export async function updateCityTripStatus(tripId: number, status: string): Promise<CityTrip> {
-  return request<CityTrip>(`/api/v2/city/trips/${tripId}/status`, {
-    method: 'POST',
-    body: JSON.stringify({ status }),
-  });
+  return request<CityTrip>(`/api/v2/city/trips/${tripId}/status`, { method: 'POST', body: JSON.stringify({ status }) });
 }
 
 export async function getDriverPaymentMethodsForTrip(tripId: number): Promise<DriverPaymentMethod[]> {
@@ -190,18 +169,53 @@ export async function listAdminDonationPaymentSettings(): Promise<DonationPaymen
 }
 
 export async function createAdminDonationPaymentSetting(input: DonationPaymentSettingInput): Promise<DonationPaymentSetting> {
-  return request<DonationPaymentSetting>('/api/v2/admin/donation-payment-settings', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  });
+  return request<DonationPaymentSetting>('/api/v2/admin/donation-payment-settings', { method: 'POST', body: JSON.stringify(input) });
 }
 
-export async function updateAdminDonationPaymentSetting(
-  id: number,
-  input: Partial<DonationPaymentSettingInput>,
-): Promise<DonationPaymentSetting> {
-  return request<DonationPaymentSetting>(`/api/v2/admin/donation-payment-settings/${id}`, {
-    method: 'PATCH',
-    body: JSON.stringify(input),
+export async function updateAdminDonationPaymentSetting(id: number, input: Partial<DonationPaymentSettingInput>): Promise<DonationPaymentSetting> {
+  return request<DonationPaymentSetting>(`/api/v2/admin/donation-payment-settings/${id}`, { method: 'PATCH', body: JSON.stringify(input) });
+}
+
+export async function listPendingDrivers(): Promise<PendingDriverProfile[]> {
+  return request<PendingDriverProfile[]>('/api/v2/admin/drivers/pending');
+}
+
+export async function approveDriverProfile(id: number): Promise<{ id: number; status: string }> {
+  return request<{ id: number; status: string }>(`/api/v2/admin/drivers/${id}/approve`, { method: 'POST' });
+}
+
+export async function rejectDriverProfile(id: number, reason?: string): Promise<{ id: number; status: string }> {
+  const query = reason ? `?reason=${encodeURIComponent(reason)}` : '';
+  return request<{ id: number; status: string }>(`/api/v2/admin/drivers/${id}/reject${query}`, { method: 'POST' });
+}
+
+export async function approveWomanDriverProfile(id: number): Promise<{ id: number; woman_driver_status: string }> {
+  return request<{ id: number; woman_driver_status: string }>(`/api/v2/admin/drivers/${id}/approve-woman-mode`, { method: 'POST' });
+}
+
+export async function listCommissionRules(): Promise<CommissionRule[]> {
+  return request<CommissionRule[]>('/api/v2/admin/commission-rules');
+}
+
+export async function createCommissionRule(input: { scope_type: string; scope_id: string; commission_percent: number; free_first_rides: number }): Promise<CommissionRule> {
+  const params = new URLSearchParams({
+    scope_type: input.scope_type,
+    scope_id: input.scope_id,
+    commission_percent: String(input.commission_percent),
+    free_first_rides: String(input.free_first_rides),
   });
+  return request<CommissionRule>(`/api/v2/admin/commission-rules?${params.toString()}`, { method: 'POST' });
+}
+
+export async function listPendingPayments(): Promise<PendingPayment[]> {
+  return request<PendingPayment[]>('/api/v2/admin/payments/pending');
+}
+
+export async function approvePayment(id: number): Promise<{ id: number; status: string }> {
+  return request<{ id: number; status: string }>(`/api/v2/admin/payments/${id}/approve`, { method: 'POST' });
+}
+
+export async function rejectPayment(id: number, reason?: string): Promise<{ id: number; status: string }> {
+  const query = reason ? `?reason=${encodeURIComponent(reason)}` : '';
+  return request<{ id: number; status: string }>(`/api/v2/admin/payments/${id}/reject${query}`, { method: 'POST' });
 }
