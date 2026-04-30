@@ -6,7 +6,7 @@ from sqlalchemy import BigInteger, DateTime, ForeignKey, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
-from app.models.base_mixins import TimestampMixin
+from app.models.base_mixins import TimestampMixin, utcnow
 
 
 class Wallet(Base):
@@ -16,7 +16,7 @@ class Wallet(Base):
     balance: Mapped[float] = mapped_column(Numeric(14, 2), default=0, nullable=False)
     hold_balance: Mapped[float] = mapped_column(Numeric(14, 2), default=0, nullable=False)
     currency: Mapped[str | None] = mapped_column(String(8))
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
 
     user = relationship("User", back_populates="wallet")
 
@@ -37,7 +37,7 @@ class WalletLedgerEntry(Base):
     created_by_user_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("users_v2.id"))
     created_by_admin_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("users_v2.id"))
     comment: Mapped[str | None] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
 
 
 class PaymentTopupRequest(TimestampMixin, Base):
