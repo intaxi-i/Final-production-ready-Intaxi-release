@@ -139,6 +139,20 @@ export async function listMyCityOrders(): Promise<CityOrder[]> {
   return request<CityOrder[]>('/api/v2/city/orders/my');
 }
 
+export async function raiseCityOrderPrice(orderId: number, price: number): Promise<CityOrder> {
+  return request<CityOrder>(`/api/v2/city/orders/${orderId}/raise-price`, {
+    method: 'POST',
+    body: JSON.stringify({ price }),
+  });
+}
+
+export async function cancelCityOrder(orderId: number, reason?: string): Promise<CityOrder> {
+  return request<CityOrder>(`/api/v2/city/orders/${orderId}/cancel`, {
+    method: 'POST',
+    body: JSON.stringify({ reason: reason || null }),
+  });
+}
+
 export async function listAvailableCityOrders(): Promise<CityOrder[]> {
   return request<CityOrder[]>('/api/v2/city/orders/available');
 }
