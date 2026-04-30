@@ -6,6 +6,7 @@ from sqlalchemy import BigInteger, DateTime, JSON, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+from app.models.base_mixins import utcnow
 
 
 class DomainEvent(Base):
@@ -17,4 +18,4 @@ class DomainEvent(Base):
     entity_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     payload_json: Mapped[dict] = mapped_column(JSON, nullable=False)
     processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
