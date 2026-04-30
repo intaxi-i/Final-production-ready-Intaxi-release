@@ -82,7 +82,21 @@ Rules:
 - access must be checked by trip participant relationship;
 - admin can view/edit/disable driver payment details if needed.
 
-## 6. Women mode
+## 6. Donation payment settings
+
+Cards and digital-asset wallet details used for donations/supporting the project must be managed from admin panel.
+
+Rules:
+
+- admin can add/edit/disable donation payment settings;
+- supported method types include card, bank transfer and digital asset wallet;
+- settings can be global or country/currency-specific;
+- public UI must show only active settings;
+- admin changes must be auditable;
+- sensitive full values must not be displayed in lists; show masked/preview values instead;
+- donation settings are separate from driver payment details and from wallet/topup logic.
+
+## 7. Women mode
 
 Women mode is included from V2, not postponed.
 
@@ -111,7 +125,7 @@ Women mode matching rules:
 - only women drivers can see women-mode orders;
 - only women passengers can create women-mode orders.
 
-## 7. City and intercity priority
+## 8. City and intercity priority
 
 City flow must be built perfectly first because it is the core flow.
 
@@ -126,7 +140,7 @@ The architecture must support both from the beginning:
 - shared support/rating;
 - separate city/intercity order and trip logic.
 
-## 8. Rewrite policy
+## 9. Rewrite policy
 
 Default approach: clean rebuild.
 
@@ -148,7 +162,7 @@ Not allowed:
 - hardcoded commission;
 - hardcoded country-specific business rules scattered across files.
 
-## 9. Build principle
+## 10. Build principle
 
 Build as one system:
 
