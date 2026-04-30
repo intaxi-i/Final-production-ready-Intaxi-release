@@ -19,6 +19,7 @@ from app.schemas.donation import (
     DonationPaymentSettingRead,
     DonationPaymentSettingUpdate,
 )
+from app.services.admin_audit_service import AdminAuditService
 from app.services.wallet_service import WalletService
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -61,8 +62,10 @@ async def approve_driver(driver_profile_id: int, session: AsyncSession = Depends
     row = await session.scalar(select(DriverProfile).where(DriverProfile.id == driver_profile_id))
     if not row:
         raise_domain("driver_profile_not_found", "Driver profile not found", 404)
+    before = {"status": row.status, "reviewed_by_admin_id": row.reviewed_by_admin_id}
     row.status = "approved"
     row.reviewed_by_admin_id = admin.id
+    await AdminAuditService().write(session, admin=admin, action="driver_profile.approve", entity_type="driver_profile", entity_id=row.id, before=before, after={"status": row.status, "reviewed_by_admin_id": row.reviewed_by_admin_id})
     await session.commit()
     return {"id": row.id, "status": row.status}
 
@@ -70,6 +73,7 @@ async def approve_driver(driver_profile_id: int, session: AsyncSession = Depends
 @router.post("/payments/{payment_id}/approve", response_model=dict)
 async def approve_payment(payment_id: int, session: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)) -> dict:
     row = await WalletService().approve_topup(session, topup_id=payment_id, admin=admin)
+    await AdminAuditService().write(session, admin=admin, action="payment_topup.approve", entity_type="payment_topup", entity_id=row.id, after={"status": row.status, "amount": float(row.amount), "currency": row.currency})
     await session.commit()
     return {"id": row.id, "status": row.status}
 
@@ -84,6 +88,8 @@ async def list_commission_rules(session: AsyncSession = Depends(get_db), admin: 
 async def create_commission_rule(scope_type: str, scope_id: str, commission_percent: float = 0, free_first_rides: int = 0, session: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)) -> dict:
     row = CommissionRule(scope_type=scope_type, scope_id=scope_id, commission_percent=commission_percent, free_first_rides=free_first_rides, is_active=True, created_by_admin_id=admin.id, updated_by_admin_id=admin.id)
     session.add(row)
+    await session.flush()
+    await AdminAuditService().write(session, admin=admin, action="commission_rule.create", entity_type="commission_rule", entity_id=row.id, after={"scope_type": row.scope_type, "scope_id": row.scope_id, "commission_percent": float(row.commission_percent), "free_first_rides": row.free_first_rides, "is_active": row.is_active})
     await session.commit()
     await session.refresh(row)
     return {"id": row.id, "scope_type": row.scope_type, "scope_id": row.scope_id, "commission_percent": float(row.commission_percent)}
@@ -117,6 +123,8 @@ async def create_donation_payment_setting(payload: DonationPaymentSettingCreate,
         updated_by_admin_id=admin.id,
     )
     session.add(row)
+    await session.flush()
+    await AdminAuditService().write(session, admin=admin, action="donation_payment_setting.create", entity_type="donation_payment_setting", entity_id=row.id, after={"method_type": row.method_type, "title": row.title, "country_code": row.country_code, "currency": row.currency, "is_active": row.is_active})
     await session.commit()
     await session.refresh(row)
     return DonationPaymentSettingRead.model_validate(row)
@@ -127,6 +135,7 @@ async def update_donation_payment_setting(setting_id: int, payload: DonationPaym
     row = await session.scalar(select(DonationPaymentSetting).where(DonationPaymentSetting.id == setting_id))
     if not row:
         raise_domain("donation_payment_setting_not_found", "Donation payment setting not found", 404)
+    before = {"title": row.title, "country_code": row.country_code, "currency": row.currency, "is_active": row.is_active, "sort_order": row.sort_order}
     data = payload.model_dump(exclude_unset=True)
     for field in ["title", "currency", "card_holder_name", "bank_name", "digital_asset_network", "instructions", "extra_json", "sort_order", "is_active"]:
         if field in data:
@@ -142,6 +151,9 @@ async def update_donation_payment_setting(setting_id: int, payload: DonationPaym
     if "is_active" in data and data["is_active"] is False:
         row.disabled_at = datetime.now(timezone.utc)
     row.updated_by_admin_id = admin.id
+    await session.flush()
+    after = {"title": row.title, "country_code": row.country_code, "currency": row.currency, "is_active": row.is_active, "sort_order": row.sort_order}
+    await AdminAuditService().write(session, admin=admin, action="donation_payment_setting.update", entity_type="donation_payment_setting", entity_id=row.id, before=before, after=after)
     await session.commit()
     await session.refresh(row)
     return DonationPaymentSettingRead.model_validate(row)
