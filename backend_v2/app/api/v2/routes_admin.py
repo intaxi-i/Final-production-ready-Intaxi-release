@@ -19,6 +19,7 @@ from app.schemas.donation import (
     DonationPaymentSettingRead,
     DonationPaymentSettingUpdate,
 )
+from app.schemas.wallet import TopupRead
 from app.services.admin_audit_service import AdminAuditService
 from app.services.wallet_service import WalletService
 
@@ -99,6 +100,19 @@ async def approve_woman_driver(driver_profile_id: int, session: AsyncSession = D
     await AdminAuditService().write(session, admin=admin, action="driver_profile.approve_woman_mode", entity_type="driver_profile", entity_id=row.id, before=before, after={"is_woman_driver_verified": row.is_woman_driver_verified, "woman_driver_status": row.woman_driver_status})
     await session.commit()
     return {"id": row.id, "woman_driver_status": row.woman_driver_status}
+
+
+@router.get("/payments/pending", response_model=list[TopupRead])
+async def pending_payments(session: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)) -> list[TopupRead]:
+    rows = (
+        await session.scalars(
+            select(PaymentTopupRequest)
+            .where(PaymentTopupRequest.status == "pending")
+            .order_by(PaymentTopupRequest.id.desc())
+            .limit(100)
+        )
+    ).all()
+    return [TopupRead.model_validate(row) for row in rows]
 
 
 @router.post("/payments/{payment_id}/approve", response_model=dict)
