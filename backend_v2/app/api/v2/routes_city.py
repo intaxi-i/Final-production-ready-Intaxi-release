@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,6 +26,10 @@ from app.services.city_order_service import CityOrderService
 from app.services.city_trip_service import CityTripService
 
 router = APIRouter(prefix="/city", tags=["city"])
+
+
+class CancelOrderRequest(BaseModel):
+    reason: str | None = None
 
 
 @router.post("/orders", response_model=CityOrderCreateResponse)
@@ -116,6 +121,24 @@ async def raise_city_order_price(
         order_id=order_id,
         passenger=current_user,
         price=payload.price,
+    )
+    await session.commit()
+    await session.refresh(order)
+    return CityOrderRead.model_validate(order)
+
+
+@router.post("/orders/{order_id}/cancel", response_model=CityOrderRead)
+async def cancel_city_order(
+    order_id: int,
+    payload: CancelOrderRequest,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> CityOrderRead:
+    order = await CityOrderService().cancel_order(
+        session,
+        order_id=order_id,
+        user=current_user,
+        reason=payload.reason,
     )
     await session.commit()
     await session.refresh(order)
