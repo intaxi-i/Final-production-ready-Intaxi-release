@@ -52,6 +52,21 @@ export type CreateCityOrderInput = {
   passenger_price: number;
 };
 
+export type DonationPaymentSettingInput = {
+  method_type: string;
+  title: string;
+  country_code?: string | null;
+  currency?: string | null;
+  card_number?: string | null;
+  card_holder_name?: string | null;
+  bank_name?: string | null;
+  digital_asset_network?: string | null;
+  digital_asset_address?: string | null;
+  instructions?: string | null;
+  sort_order?: number;
+  is_active?: boolean;
+};
+
 export async function createCityOrder(input: CreateCityOrderInput): Promise<CityOrder> {
   const data = await request<{ order: CityOrder }>('/api/v2/city/orders', {
     method: 'POST',
@@ -94,4 +109,25 @@ export async function listDonationPaymentSettings(countryCode?: string, currency
   if (currency) params.set('currency', currency);
   const query = params.toString();
   return request<DonationPaymentSetting[]>(`/api/v2/public/donation-payment-settings${query ? `?${query}` : ''}`, {}, false);
+}
+
+export async function listAdminDonationPaymentSettings(): Promise<DonationPaymentSetting[]> {
+  return request<DonationPaymentSetting[]>('/api/v2/admin/donation-payment-settings');
+}
+
+export async function createAdminDonationPaymentSetting(input: DonationPaymentSettingInput): Promise<DonationPaymentSetting> {
+  return request<DonationPaymentSetting>('/api/v2/admin/donation-payment-settings', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateAdminDonationPaymentSetting(
+  id: number,
+  input: Partial<DonationPaymentSettingInput>,
+): Promise<DonationPaymentSetting> {
+  return request<DonationPaymentSetting>(`/api/v2/admin/donation-payment-settings/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
 }
