@@ -111,7 +111,15 @@ async def approve_payment(payment_id: int, session: AsyncSession = Depends(get_d
 
 @router.post("/payments/{payment_id}/reject", response_model=dict)
 async def reject_payment(payment_id: int, reason: str | None = None, session: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)) -> dict:
-    row = await WalletService().reject_topup(session, topup_id=payment_id, admin=admin, reason=reason)
+    row = await session.scalar(select(PaymentTopupRequest).where(PaymentTopupRequest.id == payment_id))
+    if not row:
+        raise_domain("topup_not_found", "Topup request not found", 404)
+    if row.status != "pending":
+        raise_domain("topup_not_pending", "Topup request is not pending", 409)
+    row.status = "rejected"
+    row.reviewed_by_admin_id = admin.id
+    row.reviewed_at = datetime.now(timezone.utc)
+    row.rejection_reason = reason
     await AdminAuditService().write(session, admin=admin, action="payment_topup.reject", entity_type="payment_topup", entity_id=row.id, after={"status": row.status, "reason": reason})
     await session.commit()
     return {"id": row.id, "status": row.status}
