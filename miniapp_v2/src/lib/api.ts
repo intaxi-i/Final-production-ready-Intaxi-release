@@ -2,8 +2,11 @@ import type {
   CityOrder,
   CityTrip,
   DonationPaymentSetting,
+  DriverOnlineState,
   DriverPaymentMethod,
   RideMode,
+  UserMe,
+  UserRole,
 } from './types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_INTAXI_API_BASE_URL || 'http://localhost:8000';
@@ -66,6 +69,63 @@ export type DonationPaymentSettingInput = {
   sort_order?: number;
   is_active?: boolean;
 };
+
+export type UserProfileInput = {
+  full_name?: string;
+  language?: string;
+  country_code?: string | null;
+  city_id?: number | null;
+  profile_gender?: 'woman' | 'man' | 'unspecified';
+  is_adult_confirmed?: boolean;
+};
+
+export async function getMe(): Promise<UserMe> {
+  return request<UserMe>('/api/v2/user/me');
+}
+
+export async function updateMe(input: UserProfileInput): Promise<UserMe> {
+  return request<UserMe>('/api/v2/user/me', {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateRole(activeRole: UserRole): Promise<UserMe> {
+  return request<UserMe>('/api/v2/user/role', {
+    method: 'PATCH',
+    body: JSON.stringify({ active_role: activeRole }),
+  });
+}
+
+export async function getDriverOnline(): Promise<DriverOnlineState> {
+  return request<DriverOnlineState>('/api/v2/driver/online');
+}
+
+export async function setDriverOnline(input: { is_online: boolean; country_code?: string | null; city_id?: number | null }): Promise<DriverOnlineState> {
+  return request<DriverOnlineState>('/api/v2/driver/online', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export type DriverPaymentMethodInput = {
+  country_code: string;
+  method_type?: string;
+  card_number?: string | null;
+  card_holder_name?: string | null;
+  bank_name?: string | null;
+};
+
+export async function listMyDriverPaymentMethods(): Promise<DriverPaymentMethod[]> {
+  return request<DriverPaymentMethod[]>('/api/v2/driver/payment-methods');
+}
+
+export async function createDriverPaymentMethod(input: DriverPaymentMethodInput): Promise<DriverPaymentMethod> {
+  return request<DriverPaymentMethod>('/api/v2/driver/payment-methods', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
 
 export async function createCityOrder(input: CreateCityOrderInput): Promise<CityOrder> {
   const data = await request<{ order: CityOrder }>('/api/v2/city/orders', {
