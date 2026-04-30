@@ -10,6 +10,7 @@ from app.api.v2.routes_driver import router as driver_router
 from app.api.v2.routes_intercity import router as intercity_router
 from app.api.v2.routes_public import router as public_router
 from app.api.v2.routes_user import router as user_router
+from app.api.v2.routes_wallet import router as balance_router
 from app.core.config import get_settings
 from app.core.errors import DomainError
 
@@ -42,6 +43,7 @@ async def health() -> dict[str, str]:
 app.include_router(user_router, prefix=settings.api_prefix)
 app.include_router(city_router, prefix=settings.api_prefix)
 app.include_router(driver_router, prefix=settings.api_prefix)
+app.include_router(balance_router, prefix=settings.api_prefix)
 app.include_router(intercity_router, prefix=settings.api_prefix)
 app.include_router(admin_router, prefix=settings.api_prefix)
 app.include_router(public_router, prefix=settings.api_prefix)
