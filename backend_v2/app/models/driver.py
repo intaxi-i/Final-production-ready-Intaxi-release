@@ -3,10 +3,10 @@ from __future__ import annotations
 from datetime import datetime
 
 from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Numeric, String, Text
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
-from app.models.base_mixins import TimestampMixin
+from app.models.base_mixins import TimestampMixin, utcnow
 
 
 class DriverProfile(TimestampMixin, Base):
@@ -28,8 +28,6 @@ class DriverProfile(TimestampMixin, Base):
     reviewed_by_admin_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("users_v2.id"))
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     rejection_reason: Mapped[str | None] = mapped_column(Text)
-
-    user = relationship("User", foreign_keys=[user_id], back_populates="driver_profile")
 
 
 class Vehicle(TimestampMixin, Base):
@@ -68,7 +66,7 @@ class DriverOnlineState(Base):
     last_location_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     shift_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     shift_minutes_today: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
 
 
 class DriverPaymentMethod(TimestampMixin, Base):
