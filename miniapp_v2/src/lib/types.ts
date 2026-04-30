@@ -28,6 +28,31 @@ export type DriverOnlineState = {
   lng: number | null;
 };
 
+export type PendingDriverProfile = {
+  id: number;
+  user_id: number;
+  country_code: string;
+  city_id: number | null;
+  woman_driver_status: string;
+};
+
+export type PendingPayment = {
+  id: number;
+  driver_user_id: number;
+  amount: number;
+  currency: string;
+  status: string;
+};
+
+export type CommissionRule = {
+  id: number;
+  scope_type: string;
+  scope_id: string;
+  commission_percent: number;
+  free_first_rides: number;
+  is_active: boolean;
+};
+
 export type CityOrder = {
   id: number;
   mode: RideMode;
