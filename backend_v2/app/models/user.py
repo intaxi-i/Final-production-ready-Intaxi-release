@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Numeric, String, Text
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
 from app.models.base_mixins import TimestampMixin
@@ -28,6 +28,3 @@ class User(TimestampMixin, Base):
     rating: Mapped[float] = mapped_column(Numeric(3, 2), default=0, nullable=False)
     rating_count: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-
-    driver_profile = relationship("DriverProfile", back_populates="user", uselist=False)
-    wallet = relationship("Wallet", back_populates="user", uselist=False)
