@@ -4,6 +4,7 @@ from fastapi import Depends, Header
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.errors import raise_domain
 from app.models.user import User
@@ -15,9 +16,8 @@ async def get_current_user(
 ) -> User:
     """Temporary V2 auth dependency.
 
-    Production implementation must validate Telegram init data / session token.
     During early V2 development this accepts `Bearer dev:<user_id>`.
-    It is blocked automatically when APP_ENV is production by the auth layer to be added later.
+    Production rejects development tokens until Telegram WebApp/session auth is implemented.
     """
     if not authorization:
         raise_domain("missing_authorization", "Missing Authorization header", 401)
@@ -25,16 +25,19 @@ async def get_current_user(
     if len(parts) != 2 or parts[0].lower() != "bearer":
         raise_domain("invalid_authorization", "Invalid Authorization header", 401)
     token = parts[1].strip()
-    if not token.startswith("dev:"):
-        raise_domain("unsupported_auth_token", "Only development auth token is available in V2 skeleton", 401)
-    try:
-        user_id = int(token.split(":", 1)[1])
-    except Exception:
-        raise_domain("invalid_auth_token", "Invalid development token", 401)
-    user = await session.scalar(select(User).where(User.id == user_id))
-    if not user:
-        raise_domain("user_not_found", "User not found", 401)
-    return user
+    settings = get_settings()
+    if token.startswith("dev:"):
+        if settings.is_production:
+            raise_domain("dev_auth_disabled", "Development auth is disabled in production", 401)
+        try:
+            user_id = int(token.split(":", 1)[1])
+        except Exception:
+            raise_domain("invalid_auth_token", "Invalid development token", 401)
+        user = await session.scalar(select(User).where(User.id == user_id))
+        if not user:
+            raise_domain("user_not_found", "User not found", 401)
+        return user
+    raise_domain("unsupported_auth_token", "Real session auth is not implemented yet", 401)
 
 
 async def require_admin(current_user: User = Depends(get_current_user)) -> User:
