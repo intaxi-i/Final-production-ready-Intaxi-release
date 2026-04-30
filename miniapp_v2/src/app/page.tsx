@@ -1,10 +1,14 @@
 import Link from 'next/link';
 
 const links = [
+  ['Профиль', '/profile'],
   ['Создать city-заказ', '/city/create'],
+  ['Мои city-заказы', '/city/my-orders'],
+  ['Водитель online', '/driver/online'],
   ['Доступные city-заказы', '/city/offers'],
+  ['Реквизиты водителя', '/driver/payment-methods'],
   ['Текущая поездка', '/trip/current'],
-  ['Донаты / поддержка', '/donate'],
+  ['Поддержка проекта', '/donate'],
   ['Админ-панель', '/admin'],
 ];
 
