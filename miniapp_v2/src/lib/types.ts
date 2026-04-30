@@ -28,6 +28,65 @@ export type DriverOnlineState = {
   lng: number | null;
 };
 
+export type DriverProfile = {
+  id: number;
+  user_id: number;
+  status: string;
+  country_code: string;
+  city_id: number | null;
+  license_number: string | null;
+  is_woman_driver_verified: boolean;
+  woman_driver_status: string;
+  rejection_reason: string | null;
+};
+
+export type Vehicle = {
+  id: number;
+  driver_user_id: number;
+  country_code: string;
+  brand: string;
+  model: string;
+  year: number | null;
+  color: string | null;
+  plate: string;
+  capacity: number;
+  vehicle_class: string;
+  status: string;
+  rejection_reason: string | null;
+};
+
+export type Wallet = {
+  user_id: number;
+  balance: number;
+  hold_balance: number;
+  currency: string | null;
+};
+
+export type Topup = {
+  id: number;
+  driver_user_id: number;
+  amount: number;
+  currency: string;
+  method: string;
+  receipt_file_id: string | null;
+  status: string;
+  rejection_reason: string | null;
+};
+
+export type SupportTicket = {
+  id: number;
+  created_by_user_id: number;
+  assigned_admin_id: number | null;
+  related_type: string | null;
+  related_id: number | null;
+  ticket_type: string;
+  priority: string;
+  status: string;
+  subject: string | null;
+  message: string;
+  admin_notes: string | null;
+};
+
 export type PendingDriverProfile = {
   id: number;
   user_id: number;
