@@ -54,7 +54,7 @@ async def admin_dashboard(session: AsyncSession = Depends(get_db), admin: User =
 @router.get("/drivers/pending", response_model=list[dict])
 async def pending_drivers(session: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)) -> list[dict]:
     rows = (await session.scalars(select(DriverProfile).where(DriverProfile.status == "pending"))).all()
-    return [{"id": row.id, "user_id": row.user_id, "country_code": row.country_code, "city_id": row.city_id} for row in rows]
+    return [{"id": row.id, "user_id": row.user_id, "country_code": row.country_code, "city_id": row.city_id, "woman_driver_status": row.woman_driver_status} for row in rows]
 
 
 @router.post("/drivers/{driver_profile_id}/approve", response_model=dict)
@@ -65,15 +65,54 @@ async def approve_driver(driver_profile_id: int, session: AsyncSession = Depends
     before = {"status": row.status, "reviewed_by_admin_id": row.reviewed_by_admin_id}
     row.status = "approved"
     row.reviewed_by_admin_id = admin.id
+    row.reviewed_at = datetime.now(timezone.utc)
     await AdminAuditService().write(session, admin=admin, action="driver_profile.approve", entity_type="driver_profile", entity_id=row.id, before=before, after={"status": row.status, "reviewed_by_admin_id": row.reviewed_by_admin_id})
     await session.commit()
     return {"id": row.id, "status": row.status}
+
+
+@router.post("/drivers/{driver_profile_id}/reject", response_model=dict)
+async def reject_driver(driver_profile_id: int, reason: str | None = None, session: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)) -> dict:
+    row = await session.scalar(select(DriverProfile).where(DriverProfile.id == driver_profile_id))
+    if not row:
+        raise_domain("driver_profile_not_found", "Driver profile not found", 404)
+    before = {"status": row.status, "reviewed_by_admin_id": row.reviewed_by_admin_id, "rejection_reason": row.rejection_reason}
+    row.status = "rejected"
+    row.reviewed_by_admin_id = admin.id
+    row.reviewed_at = datetime.now(timezone.utc)
+    row.rejection_reason = reason
+    await AdminAuditService().write(session, admin=admin, action="driver_profile.reject", entity_type="driver_profile", entity_id=row.id, before=before, after={"status": row.status, "reviewed_by_admin_id": row.reviewed_by_admin_id, "rejection_reason": row.rejection_reason})
+    await session.commit()
+    return {"id": row.id, "status": row.status}
+
+
+@router.post("/drivers/{driver_profile_id}/approve-woman-mode", response_model=dict)
+async def approve_woman_driver(driver_profile_id: int, session: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)) -> dict:
+    row = await session.scalar(select(DriverProfile).where(DriverProfile.id == driver_profile_id))
+    if not row:
+        raise_domain("driver_profile_not_found", "Driver profile not found", 404)
+    before = {"is_woman_driver_verified": row.is_woman_driver_verified, "woman_driver_status": row.woman_driver_status}
+    row.is_woman_driver_verified = True
+    row.woman_driver_status = "approved"
+    row.reviewed_by_admin_id = admin.id
+    row.reviewed_at = datetime.now(timezone.utc)
+    await AdminAuditService().write(session, admin=admin, action="driver_profile.approve_woman_mode", entity_type="driver_profile", entity_id=row.id, before=before, after={"is_woman_driver_verified": row.is_woman_driver_verified, "woman_driver_status": row.woman_driver_status})
+    await session.commit()
+    return {"id": row.id, "woman_driver_status": row.woman_driver_status}
 
 
 @router.post("/payments/{payment_id}/approve", response_model=dict)
 async def approve_payment(payment_id: int, session: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)) -> dict:
     row = await WalletService().approve_topup(session, topup_id=payment_id, admin=admin)
     await AdminAuditService().write(session, admin=admin, action="payment_topup.approve", entity_type="payment_topup", entity_id=row.id, after={"status": row.status, "amount": float(row.amount), "currency": row.currency})
+    await session.commit()
+    return {"id": row.id, "status": row.status}
+
+
+@router.post("/payments/{payment_id}/reject", response_model=dict)
+async def reject_payment(payment_id: int, reason: str | None = None, session: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)) -> dict:
+    row = await WalletService().reject_topup(session, topup_id=payment_id, admin=admin, reason=reason)
+    await AdminAuditService().write(session, admin=admin, action="payment_topup.reject", entity_type="payment_topup", entity_id=row.id, after={"status": row.status, "reason": reason})
     await session.commit()
     return {"id": row.id, "status": row.status}
 
