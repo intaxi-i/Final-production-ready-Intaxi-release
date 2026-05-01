@@ -4,7 +4,7 @@ type Dict = Record<string, string>;
 
 export const messages: Record<AppLanguage, Dict> = {
   ru: {
-    appName: 'Intaxi', home: 'Главная', profile: 'Профиль', city: 'Город', intercity: 'Межгород', wallet: 'Баланс', support: 'Поддержка', admin: 'Админ', back: 'Назад',
+    appName: 'Intaxi', home: 'Главная', profile: 'Профиль', city: 'Город', intercity: 'Межгород', wallet: 'Баланс', support: 'Поддержка', admin: 'Админ', back: 'Назад', country: 'Страна', region: 'Область / регион', cityField: 'Город / район', chooseRegion: 'Выберите область', chooseCity: 'Выберите город / район',
     createOrder: 'Создать заказ', myOrders: 'Мои заказы', availableOffers: 'Доступные заказы', currentTrip: 'Текущая поездка', passengerMode: 'Режим пассажира', driverMode: 'Режим водителя',
     fromAddress: 'Адрес откуда', toAddress: 'Адрес куда', seats: 'Места', price: 'Цена', yourPrice: 'Ваша цена', recommendedPrice: 'Рекомендованная цена', useRecommendedPrice: 'Поставить рекомендованную цену', comment: 'Комментарий', writeComment: 'Дополнительная информация',
     status: 'Статус', loading: 'Загрузка...', noData: 'Пока нет данных', noOrders: 'Заказы не найдены', noOffers: 'Заказы не найдены', save: 'Сохранить', submit: 'Отправить', updatedSuccessfully: 'Изменения сохранены', operationFailed: 'Не удалось выполнить действие',
@@ -12,7 +12,7 @@ export const messages: Record<AppLanguage, Dict> = {
     driverOnline: 'Водитель online', driverRegister: 'Регистрация водителя', paymentMethods: 'Реквизиты', account: 'Аккаунт', donate: 'Поддержать проект',
   },
   uz: {
-    appName: 'Intaxi', home: 'Bosh sahifa', profile: 'Profil', city: 'Shahar', intercity: 'Shaharlararo', wallet: 'Balans', support: 'Yordam', admin: 'Admin', back: 'Orqaga',
+    appName: 'Intaxi', home: 'Bosh sahifa', profile: 'Profil', city: 'Shahar', intercity: 'Shaharlararo', wallet: 'Balans', support: 'Yordam', admin: 'Admin', back: 'Orqaga', country: 'Davlat', region: 'Viloyat / hudud', cityField: 'Shahar / tuman', chooseRegion: 'Viloyatni tanlang', chooseCity: 'Shahar / tumanni tanlang',
     createOrder: 'Buyurtma yaratish', myOrders: 'Mening buyurtmalarim', availableOffers: 'Mavjud buyurtmalar', currentTrip: 'Joriy safar', passengerMode: 'Yo‘lovchi rejimi', driverMode: 'Haydovchi rejimi',
     fromAddress: 'Qayerdan manzil', toAddress: 'Qayerga manzil', seats: 'Joylar', price: 'Narx', yourPrice: 'Sizning narxingiz', recommendedPrice: 'Tavsiya narx', useRecommendedPrice: 'Tavsiya narxni qo‘yish', comment: 'Izoh', writeComment: 'Qo‘shimcha ma’lumot',
     status: 'Holat', loading: 'Yuklanmoqda...', noData: 'Hozircha ma’lumot yo‘q', noOrders: 'Buyurtma topilmadi', noOffers: 'Buyurtma topilmadi', save: 'Saqlash', submit: 'Yuborish', updatedSuccessfully: 'O‘zgarishlar saqlandi', operationFailed: 'Amal bajarilmadi',
@@ -20,7 +20,7 @@ export const messages: Record<AppLanguage, Dict> = {
     driverOnline: 'Haydovchi online', driverRegister: 'Haydovchi ro‘yxati', paymentMethods: 'Rekvizitlar', account: 'Akkaunt', donate: 'Loyihani qo‘llab-quvvatlash',
   },
   kz: {
-    appName: 'Intaxi', home: 'Басты бет', profile: 'Профиль', city: 'Қала', intercity: 'Қалааралық', wallet: 'Баланс', support: 'Қолдау', admin: 'Админ', back: 'Артқа',
+    appName: 'Intaxi', home: 'Басты бет', profile: 'Профиль', city: 'Қала', intercity: 'Қалааралық', wallet: 'Баланс', support: 'Қолдау', admin: 'Админ', back: 'Артқа', country: 'Ел', region: 'Облыс / өңір', cityField: 'Қала / аудан', chooseRegion: 'Облысты таңдаңыз', chooseCity: 'Қала / ауданды таңдаңыз',
     createOrder: 'Тапсырыс құру', myOrders: 'Менің тапсырыстарым', availableOffers: 'Қолжетімді тапсырыстар', currentTrip: 'Ағымдағы сапар', passengerMode: 'Жолаушы режимі', driverMode: 'Жүргізуші режимі',
     fromAddress: 'Қайдан мекенжай', toAddress: 'Қайда мекенжай', seats: 'Орындар', price: 'Баға', yourPrice: 'Сіздің бағаңыз', recommendedPrice: 'Ұсынылған баға', useRecommendedPrice: 'Ұсынылған бағаны қою', comment: 'Түсініктеме', writeComment: 'Қосымша ақпарат',
     status: 'Күйі', loading: 'Жүктелуде...', noData: 'Әзірге мәлімет жоқ', noOrders: 'Тапсырыс жоқ', noOffers: 'Тапсырыс жоқ', save: 'Сақтау', submit: 'Жіберу', updatedSuccessfully: 'Өзгерістер сақталды', operationFailed: 'Әрекет орындалмады',
@@ -28,7 +28,7 @@ export const messages: Record<AppLanguage, Dict> = {
     driverOnline: 'Жүргізуші online', driverRegister: 'Жүргізуші тіркеуі', paymentMethods: 'Реквизиттер', account: 'Аккаунт', donate: 'Жобаны қолдау',
   },
   en: {
-    appName: 'Intaxi', home: 'Home', profile: 'Profile', city: 'City', intercity: 'Intercity', wallet: 'Balance', support: 'Support', admin: 'Admin', back: 'Back',
+    appName: 'Intaxi', home: 'Home', profile: 'Profile', city: 'City', intercity: 'Intercity', wallet: 'Balance', support: 'Support', admin: 'Admin', back: 'Back', country: 'Country', region: 'Region', cityField: 'City / district', chooseRegion: 'Choose region', chooseCity: 'Choose city / district',
     createOrder: 'Create order', myOrders: 'My orders', availableOffers: 'Available orders', currentTrip: 'Current trip', passengerMode: 'Passenger mode', driverMode: 'Driver mode',
     fromAddress: 'Pickup address', toAddress: 'Destination address', seats: 'Seats', price: 'Price', yourPrice: 'Your price', recommendedPrice: 'Recommended price', useRecommendedPrice: 'Use recommended price', comment: 'Comment', writeComment: 'Additional information',
     status: 'Status', loading: 'Loading...', noData: 'No data yet', noOrders: 'No orders found', noOffers: 'No orders found', save: 'Save', submit: 'Submit', updatedSuccessfully: 'Changes saved', operationFailed: 'Action failed',
