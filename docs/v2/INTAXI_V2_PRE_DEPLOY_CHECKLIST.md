@@ -52,6 +52,10 @@ Implemented:
 - authenticated API clients using X-Telegram-Init-Data with dev fallback only outside production
 - profile page
 - stronger city create UX: waiting state, polling, driversSeen, raise-price flow, comment submission
+- address field with current geolocation and manual coordinates
+- Leaflet map point picker for pickup/destination
+- reverse geocoding and coordinate payload submission
+- compact country/region/city location directories
 - passenger my city orders page
 - driver online page
 - driver registration page
@@ -69,9 +73,8 @@ Implemented:
 
 Still required before public launch:
 
-- real map picker port/refactor into V2
-- real location permissions and provider selection
-- mobile QA on Telegram WebApp
+- expand location directories to full production coverage for all target countries
+- mobile QA on Telegram WebApp, including location permission prompts
 - Mini App Docker build on VPS/CI
 
 ## Bot V2 readiness
