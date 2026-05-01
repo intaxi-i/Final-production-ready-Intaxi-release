@@ -87,6 +87,7 @@ class CityOrderService:
             estimated_duration_min=estimate.duration_min,
             status="active",
             seen_by_drivers=len(drivers),
+            comment=comment,
         )
         session.add(order)
         await session.flush()
