@@ -7,8 +7,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.errors import raise_domain
+from app.core.protected_values import mask_card, protect_value
 from app.models.driver import DriverOnlineState, DriverPaymentMethod, DriverProfile, Vehicle
 from app.models.user import User
 from app.schemas.driver import (
@@ -26,13 +28,8 @@ from app.schemas.driver import (
 router = APIRouter(prefix="/driver", tags=["driver"])
 
 
-def _mask_card(card_number: str | None) -> str | None:
-    if not card_number:
-        return None
-    digits = ''.join(ch for ch in card_number if ch.isdigit())
-    if len(digits) < 8:
-        return '****'
-    return f"{digits[:4]}********{digits[-4:]}"
+def _secret_key() -> str:
+    return get_settings().session_secret
 
 
 @router.get("/profile", response_model=DriverProfileRead | None)
@@ -214,8 +211,8 @@ async def create_driver_payment_method(
         driver_user_id=current_user.id,
         country_code=payload.country_code.lower(),
         method_type=payload.method_type,
-        card_number_masked=_mask_card(payload.card_number),
-        card_number_encrypted=payload.card_number,
+        card_number_masked=mask_card(payload.card_number),
+        card_number_encrypted=protect_value(payload.card_number, key=_secret_key()),
         card_holder_name=payload.card_holder_name,
         bank_name=payload.bank_name,
         is_active=True,
