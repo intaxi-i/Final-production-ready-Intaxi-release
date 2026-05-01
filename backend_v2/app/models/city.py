@@ -33,6 +33,7 @@ class CityOrder(TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String(32), default="active", nullable=False, index=True)
     seen_by_drivers: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     accepted_trip_id: Mapped[int | None] = mapped_column(BigInteger, index=True)
+    comment: Mapped[str | None] = mapped_column(Text)
     cancel_reason: Mapped[str | None] = mapped_column(Text)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
