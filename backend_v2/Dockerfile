@@ -10,12 +10,12 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml ./
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir fastapi uvicorn[standard] pydantic pydantic-settings sqlalchemy[asyncio] asyncpg alembic python-dotenv
-
 COPY app ./app
 COPY alembic ./alembic
 COPY alembic.ini ./alembic.ini
+
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir .
 
 EXPOSE 8000
 
