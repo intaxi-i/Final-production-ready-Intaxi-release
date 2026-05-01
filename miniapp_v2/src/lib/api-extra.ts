@@ -1,4 +1,5 @@
 import { ApiError } from './api';
+import { getTelegramInitData } from './telegram';
 import type { DriverProfile, SupportTicket, Topup, Vehicle, Wallet } from './types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_INTAXI_API_BASE_URL || 'http://localhost:8000';
@@ -7,7 +8,14 @@ const DEV_USER_TOKEN = process.env.NEXT_PUBLIC_INTAXI_DEV_USER_TOKEN || 'dev:1';
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set('Content-Type', 'application/json');
-  headers.set('Authorization', `Bearer ${DEV_USER_TOKEN}`);
+  const initData = getTelegramInitData();
+  if (initData) {
+    headers.set('X-Telegram-Init-Data', initData);
+  } else if (process.env.NODE_ENV !== 'production') {
+    const devUserId = DEV_USER_TOKEN.replace('dev:', '');
+    headers.set('Authorization', `Bearer ${DEV_USER_TOKEN}`);
+    headers.set('X-Dev-User-Id', devUserId);
+  }
   const response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers, cache: 'no-store' });
   const data = await response.json().catch(() => null);
   if (!response.ok) {
