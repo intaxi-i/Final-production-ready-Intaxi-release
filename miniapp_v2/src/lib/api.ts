@@ -1,3 +1,4 @@
+import { getTelegramInitData } from './telegram';
 import type {
   CityOrder,
   CityTrip,
@@ -31,7 +32,14 @@ async function request<T>(path: string, init: RequestInit = {}, authenticated = 
   const headers = new Headers(init.headers);
   headers.set('Content-Type', 'application/json');
   if (authenticated) {
-    headers.set('Authorization', `Bearer ${DEV_USER_TOKEN}`);
+    const initData = getTelegramInitData();
+    if (initData) {
+      headers.set('X-Telegram-Init-Data', initData);
+    } else if (process.env.NODE_ENV !== 'production') {
+      const devUserId = DEV_USER_TOKEN.replace('dev:', '');
+      headers.set('Authorization', `Bearer ${DEV_USER_TOKEN}`);
+      headers.set('X-Dev-User-Id', devUserId);
+    }
   }
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
