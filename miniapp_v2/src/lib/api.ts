@@ -61,7 +61,11 @@ export type CreateCityOrderInput = {
   country_code: string;
   city_id?: number | null;
   pickup_address: string;
+  pickup_lat?: number | null;
+  pickup_lng?: number | null;
   destination_address: string;
+  destination_lat?: number | null;
+  destination_lng?: number | null;
   seats: number;
   passenger_price: number;
   comment?: string | null;
