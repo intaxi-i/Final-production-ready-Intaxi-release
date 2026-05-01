@@ -36,6 +36,7 @@ class CityOrderRead(BaseModel):
     status: str
     seen_by_drivers: int
     accepted_trip_id: int | None = None
+    comment: str | None = None
 
     model_config = {"from_attributes": True}
 
