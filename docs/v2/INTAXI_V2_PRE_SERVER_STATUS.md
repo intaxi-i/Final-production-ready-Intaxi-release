@@ -33,12 +33,18 @@ Backend V2 includes:
 - admin seed command
 - backend metadata check command
 - Telegram WebApp initData verification helper
-- protected value helper
+- Telegram WebApp auth wired into backend dependency
+- development auth disabled in production
+- Fernet-based protected value helper
+- protected writes for driver card values
+- protected writes for support/donation card and digital asset values
+- tests for Telegram auth verification
+- tests for protected values
 
 Mini App V2 includes:
 
 - profile
-- city create
+- stronger city create UX ported from legacy: waiting state, polling, driversSeen, raise-price flow
 - city my orders
 - city offers
 - current trip
@@ -54,6 +60,9 @@ Mini App V2 includes:
 - admin commission
 - admin support payment settings
 - Telegram WebApp helper
+- authenticated API clients using X-Telegram-Init-Data with dev fallback only outside production
+- PageHeader and BottomNav UX ported from legacy
+- compact ru/uz/kz/en i18n layer for V2 screens
 
 Bot V2 includes:
 
@@ -78,6 +87,13 @@ cd backend_v2
 python -m app.cli.check_backend
 ```
 
+Backend test run:
+
+```bash
+cd backend_v2
+pytest
+```
+
 ## Server run requirements
 
 Run on VPS:
@@ -93,6 +109,7 @@ docker compose up -d --build
 docker compose exec backend python -m compileall app
 docker compose exec backend python -m app.cli.check_backend
 docker compose exec backend alembic upgrade head
+docker compose exec backend pytest
 curl http://127.0.0.1:8000/health
 ```
 
@@ -103,26 +120,27 @@ cd /opt/intaxi/repo/miniapp_v2
 docker build -t intaxi-miniapp-v2 .
 ```
 
-## Important unresolved items
+## Still required on VPS / CI
 
-The GitHub connector blocked direct edits to the main backend auth dependency and main Mini App API client auth header. Because of that:
+These items cannot be honestly marked complete until they are run on the actual server or CI:
 
-- Telegram initData verification helper exists.
-- Telegram Mini App helper exists.
-- Final dependency swap still must be applied in backend route auth.
-- Main Mini App API client still needs to send Telegram initData to backend for all authenticated requests.
+- PostgreSQL Alembic upgrade against the real VPS database
+- backend pytest run inside the backend container
+- Mini App Docker build
+- HTTPS through Nginx/Cloudflare for api.intaxi.best
+- one full city smoke flow against the real database
 
 ## Public launch status
 
 Ready for server trial: yes.
 
-Ready for public launch: no.
+Ready for public launch: not yet.
 
 Before public launch:
 
-1. Apply final Telegram auth dependency swap.
-2. Wire protected value helper into all payment setting writes.
-3. Run PostgreSQL Alembic upgrade on VPS.
-4. Run Mini App Docker build.
-5. Enable HTTPS for api.intaxi.best.
-6. Verify one full city flow on real PostgreSQL.
+1. Run PostgreSQL Alembic upgrade on VPS.
+2. Run backend tests on VPS/CI.
+3. Run Mini App Docker build.
+4. Enable HTTPS for api.intaxi.best.
+5. Verify one full city flow on real PostgreSQL.
+6. Replace any development test data and rotate secrets before exposing public traffic.
