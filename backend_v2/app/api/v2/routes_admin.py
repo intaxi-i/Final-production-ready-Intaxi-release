@@ -7,8 +7,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import require_admin
+from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.errors import raise_domain
+from app.core.protected_values import mask_card, preview_value, protect_value
 from app.models.commission import CommissionRule
 from app.models.donation import DonationPaymentSetting
 from app.models.driver import DriverProfile
@@ -26,22 +28,8 @@ from app.services.wallet_service import WalletService
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
-def _mask_card(card_number: str | None) -> str | None:
-    if not card_number:
-        return None
-    digits = ''.join(ch for ch in card_number if ch.isdigit())
-    if len(digits) < 8:
-        return '****'
-    return f"{digits[:4]}********{digits[-4:]}"
-
-
-def _preview_secret(value: str | None) -> str | None:
-    if not value:
-        return None
-    clean = value.strip()
-    if len(clean) <= 12:
-        return clean[:4] + '****'
-    return f"{clean[:6]}...{clean[-6:]}"
+def _secret_key() -> str:
+    return get_settings().session_secret
 
 
 @router.get("/dashboard", response_model=dict)
@@ -164,18 +152,19 @@ async def list_donation_payment_settings(session: AsyncSession = Depends(get_db)
 
 @router.post("/donation-payment-settings", response_model=DonationPaymentSettingRead)
 async def create_donation_payment_setting(payload: DonationPaymentSettingCreate, session: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)) -> DonationPaymentSettingRead:
+    secret_key = _secret_key()
     row = DonationPaymentSetting(
         method_type=payload.method_type,
         title=payload.title,
         country_code=payload.country_code.lower() if payload.country_code else None,
         currency=payload.currency,
-        card_number_masked=_mask_card(payload.card_number),
-        card_number_secret=payload.card_number,
+        card_number_masked=mask_card(payload.card_number),
+        card_number_secret=protect_value(payload.card_number, key=secret_key),
         card_holder_name=payload.card_holder_name,
         bank_name=payload.bank_name,
         digital_asset_network=payload.digital_asset_network,
-        digital_asset_address_secret=payload.digital_asset_address,
-        digital_asset_address_preview=_preview_secret(payload.digital_asset_address),
+        digital_asset_address_secret=protect_value(payload.digital_asset_address, key=secret_key),
+        digital_asset_address_preview=preview_value(payload.digital_asset_address, left=6, right=6),
         instructions=payload.instructions,
         extra_json=payload.extra_json,
         sort_order=payload.sort_order,
@@ -203,12 +192,13 @@ async def update_donation_payment_setting(setting_id: int, payload: DonationPaym
             setattr(row, field, data[field])
     if "country_code" in data:
         row.country_code = data["country_code"].lower() if data["country_code"] else None
+    secret_key = _secret_key()
     if "card_number" in data:
-        row.card_number_masked = _mask_card(data["card_number"])
-        row.card_number_secret = data["card_number"]
+        row.card_number_masked = mask_card(data["card_number"])
+        row.card_number_secret = protect_value(data["card_number"], key=secret_key)
     if "digital_asset_address" in data:
-        row.digital_asset_address_secret = data["digital_asset_address"]
-        row.digital_asset_address_preview = _preview_secret(data["digital_asset_address"])
+        row.digital_asset_address_secret = protect_value(data["digital_asset_address"], key=secret_key)
+        row.digital_asset_address_preview = preview_value(data["digital_asset_address"], left=6, right=6)
     if "is_active" in data and data["is_active"] is False:
         row.disabled_at = datetime.now(timezone.utc)
     row.updated_by_admin_id = admin.id
