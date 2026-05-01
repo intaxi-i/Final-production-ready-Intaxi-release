@@ -90,6 +90,7 @@ export default function CityCreatePage() {
         destination_address: destination.trim(),
         seats: Number(seats || 1),
         passenger_price: Number(price || recommendedPrice),
+        comment: comment.trim() || null,
       });
       setCreated(order);
       setDriversSeen(order.seen_by_drivers || 0);
