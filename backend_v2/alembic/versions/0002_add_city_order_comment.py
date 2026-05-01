@@ -15,9 +15,17 @@ branch_labels = None
 depends_on = None
 
 
+def _has_column(table_name: str, column_name: str) -> bool:
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    return any(column["name"] == column_name for column in inspector.get_columns(table_name))
+
+
 def upgrade() -> None:
-    op.add_column("city_orders_v2", sa.Column("comment", sa.Text(), nullable=True))
+    if not _has_column("city_orders_v2", "comment"):
+        op.add_column("city_orders_v2", sa.Column("comment", sa.Text(), nullable=True))
 
 
 def downgrade() -> None:
-    op.drop_column("city_orders_v2", "comment")
+    if _has_column("city_orders_v2", "comment"):
+        op.drop_column("city_orders_v2", "comment")
