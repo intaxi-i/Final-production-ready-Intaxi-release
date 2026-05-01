@@ -64,6 +64,7 @@ export type CreateCityOrderInput = {
   destination_address: string;
   seats: number;
   passenger_price: number;
+  comment?: string | null;
 };
 
 export type DonationPaymentSettingInput = {
