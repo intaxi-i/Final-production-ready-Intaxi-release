@@ -3,7 +3,7 @@ export interface RegionInfo {
   uz: string;
   en: string;
   kz: string;
-  localities: readonly string[]; // Добавлено readonly
+  localities: readonly string[];
 }
 
 export type RegionRecord = Record<string, RegionInfo>;
@@ -58,4 +58,33 @@ export function getRegions(country: string): RegionRecord {
 export function getAllLocalities(country: string): string[] {
   const regions = getRegions(country);
   return Object.values(regions).flatMap((r) => [...r.localities]);
+}
+
+// ФУНКЦИИ, КОТОРЫЕ ТРЕБУЕТ КОМПОНЕНТ LocationFields.tsx
+
+export function getLocalityOptionsForCountry(country: string) {
+  const regions = getRegions(country);
+  return Object.values(regions).flatMap((reg) => 
+    reg.localities.map(loc => ({
+      value: loc,
+      label: loc
+    }))
+  );
+}
+
+export function getRegionOptionsForCountry(country: string, lang: string = 'ru') {
+  const regions = getRegions(country);
+  return Object.entries(regions).map(([key, reg]) => ({
+    value: key,
+    label: (reg as any)[lang] || reg.ru
+  }));
+}
+
+export function guessRegionFromCity(city: string | null, country: string): string | null {
+  if (!city) return null;
+  const regions = getRegions(country);
+  for (const [regKey, regInfo] of Object.entries(regions)) {
+    if (regInfo.localities.includes(city)) return regKey;
+  }
+  return null;
 }
