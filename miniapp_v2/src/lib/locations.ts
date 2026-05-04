@@ -36,7 +36,7 @@ export const UZBEKISTAN_REGIONS = {
   tashkent: {
     ru: 'Ташкент',
     uz: 'Toshkent',
-    en: 'Tashkent',
+    en: 'Toshkent',
     kz: 'Ташкент',
     localities: ['Tashkent'],
   },
@@ -60,10 +60,19 @@ export function getAllLocalities(country: string): string[] {
   return Object.values(regions).flatMap((r) => [...r.localities]);
 }
 
-// ФУНКЦИИ, КОТОРЫЕ ТРЕБУЕТ КОМПОНЕНТ LocationFields.tsx
-
-export function getLocalityOptionsForCountry(country: string) {
+// ИСПРАВЛЕННАЯ ФУНКЦИЯ: теперь принимает два аргумента
+export function getLocalityOptionsForCountry(country: string, regionKey?: string | null) {
   const regions = getRegions(country);
+  
+  // Если передан регион, берем города только из него
+  if (regionKey && regions[regionKey]) {
+    return regions[regionKey].localities.map(loc => ({
+      value: loc,
+      label: loc
+    }));
+  }
+
+  // Если регион не указан, возвращаем все города страны
   return Object.values(regions).flatMap((reg) => 
     reg.localities.map(loc => ({
       value: loc,
