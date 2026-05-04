@@ -1,19 +1,17 @@
-'use client';
-
-import { useMemo, useState } from 'react';
-import { COUNTRY_OPTIONS_EXTENDED } from '@/lib/country-config';
+import React, { useMemo, useState } from 'react';
 import { resolveCurrentLocation } from '@/lib/geo';
 import { getLocalityOptionsForCountry, getRegionOptionsForCountry, guessRegionFromCity } from '@/lib/locations';
+import { COUNTRY_OPTIONS_EXTENDED } from '@/lib/country-config';
 import { t } from '@/lib/i18n';
 
 type Props = {
   lang: string;
   country: string;
-  setCountry?: (value: string) => void;
+  setCountry?: (val: string) => void;
   regionKey: string;
-  setRegionKey: (value: string) => void;
+  setRegionKey: (val: string) => void;
   city: string;
-  setCity: (value: string) => void;
+  setCity: (val: string) => void;
   showCountry?: boolean;
   collapsible?: boolean;
 };
@@ -42,7 +40,7 @@ export function LocationFields({ lang, country, setCountry, regionKey, setRegion
       setCountry?.(nextCountry);
       const guessedCity = data.city || city;
       if (nextCountry === 'uz' || nextCountry === 'kz') {
-        const guessedRegion = guessRegionFromCity(nextCountry, guessedCity || data.region || '');
+        const guessedRegion = guessRegionFromCity(guessedCity || data.region || '', nextCountry);
         if (guessedRegion) setRegionKey(guessedRegion);
       } else {
         setRegionKey('');
@@ -89,7 +87,7 @@ export function LocationFields({ lang, country, setCountry, regionKey, setRegion
             {t(lang, 'cityField')}
             <select className="select" value={city} onChange={(event) => setCity(event.target.value)}>
               <option value="">{t(lang, 'chooseCity')}</option>
-              {cityOptions.map((item) => <option key={item} value={item}>{item}</option>)}
+              {cityOptions.map((item) => <option key={item.key} value={item.value}>{item.label}</option>)}
             </select>
           </label>
         </>

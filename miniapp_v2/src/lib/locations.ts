@@ -8,45 +8,21 @@ export interface RegionInfo {
 
 export type RegionRecord = Record<string, RegionInfo>;
 
+export interface LocationOption {
+  key: string;
+  value: string;
+  label: string;
+}
+
 export const KAZAKHSTAN_REGIONS = {
-  astana: {
-    ru: 'Астана',
-    uz: 'Astana',
-    en: 'Astana',
-    kz: 'Астана',
-    localities: ['Astana'],
-  },
-  almaty: {
-    ru: 'Алматы',
-    uz: 'Almaty',
-    en: 'Almaty',
-    kz: 'Алматы',
-    localities: ['Almaty'],
-  },
-  shymkent: {
-    ru: 'Шымкент',
-    uz: 'Shymkent',
-    en: 'Shymkent',
-    kz: 'Шымкент',
-    localities: ['Shymkent'],
-  },
+  astana: { ru: 'Астана', uz: 'Astana', en: 'Astana', kz: 'Астана', localities: ['Astana'] },
+  almaty: { ru: 'Алматы', uz: 'Almaty', en: 'Almaty', kz: 'Алматы', localities: ['Almaty'] },
+  shymkent: { ru: 'Шымкент', uz: 'Shymkent', en: 'Shymkent', kz: 'Шымкент', localities: ['Shymkent'] },
 } as const;
 
 export const UZBEKISTAN_REGIONS = {
-  tashkent: {
-    ru: 'Ташкент',
-    uz: 'Toshkent',
-    en: 'Toshkent',
-    kz: 'Ташкент',
-    localities: ['Tashkent'],
-  },
-  samarkand: {
-    ru: 'Самарканд',
-    uz: 'Samarqand',
-    en: 'Samarkand',
-    kz: 'Самарқанд',
-    localities: ['Samarqand'],
-  },
+  tashkent: { ru: 'Ташкент', uz: 'Toshkent', en: 'Toshkent', kz: 'Ташкент', localities: ['Tashkent'] },
+  samarkand: { ru: 'Самарканд', uz: 'Samarqand', en: 'Samarkand', kz: 'Самарқанд', localities: ['Samarqand'] },
 } as const;
 
 export function getRegions(country: string): RegionRecord {
@@ -57,43 +33,40 @@ export function getRegions(country: string): RegionRecord {
 
 export function getAllLocalities(country: string): string[] {
   const regions = getRegions(country);
-  return Object.values(regions).flatMap((r) => [...r.localities]);
+  return Object.values(regions).flatMap((region) => [...region.localities]);
 }
 
-// ИСПРАВЛЕННАЯ ФУНКЦИЯ: теперь принимает два аргумента
-export function getLocalityOptionsForCountry(country: string, regionKey?: string | null) {
+export function getLocalityOptionsForCountry(country: string, regionKey?: string | null): LocationOption[] {
   const regions = getRegions(country);
-  
-  // Если передан регион, берем города только из него
+  const mapper = (locality: string) => ({ key: locality, value: locality, label: locality });
+
   if (regionKey && regions[regionKey]) {
-    return regions[regionKey].localities.map(loc => ({
-      value: loc,
-      label: loc
-    }));
+    return regions[regionKey].localities.map(mapper);
   }
-
-  // Если регион не указан, возвращаем все города страны
-  return Object.values(regions).flatMap((reg) => 
-    reg.localities.map(loc => ({
-      value: loc,
-      label: loc
-    }))
-  );
+  return Object.values(regions).flatMap((region) => region.localities.map(mapper));
 }
 
-export function getRegionOptionsForCountry(country: string, lang: string = 'ru') {
+function resolveRegionLabel(region: RegionInfo, lang: string): string {
+  if (lang === 'uz') return region.uz;
+  if (lang === 'en') return region.en;
+  if (lang === 'kz') return region.kz;
+  return region.ru;
+}
+
+export function getRegionOptionsForCountry(country: string, lang: string = 'ru'): LocationOption[] {
   const regions = getRegions(country);
-  return Object.entries(regions).map(([key, reg]) => ({
+  return Object.entries(regions).map(([key, region]) => ({
+    key,
     value: key,
-    label: (reg as any)[lang] || reg.ru
+    label: resolveRegionLabel(region, lang),
   }));
 }
 
 export function guessRegionFromCity(city: string | null, country: string): string | null {
   if (!city) return null;
   const regions = getRegions(country);
-  for (const [regKey, regInfo] of Object.entries(regions)) {
-    if (regInfo.localities.includes(city)) return regKey;
+  for (const [regionKey, regionInfo] of Object.entries(regions)) {
+    if (regionInfo.localities.includes(city)) return regionKey;
   }
   return null;
 }
