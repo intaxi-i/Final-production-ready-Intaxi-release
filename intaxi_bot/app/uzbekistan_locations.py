@@ -1,0 +1,63 @@
+from __future__ import annotations
+
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+
+REGIONS = {
+    "karakalpakstan": {"ru": "Республика Каракалпакстан", "uz": "Qoraqalpog‘iston Respublikasi", "en": "Republic of Karakalpakstan", "ar": "جمهورية قرقلپاقستان", "localities": {"ru": ["Нукус", "Амударьинский район", "Беруни", "Чимбай", "Элликкалинский район", "Кегейли", "Муйнак", "Кунград", "Караузяк", "Шуманай", "Тахтакупыр", "Турткуль", "Ходжейли", "Бозатау", "Тахиаташ"], "uz": ["Nukus", "Amudaryo", "Beruniy", "Chimboy", "Ellikqal'a", "Kegeyli", "Mo'ynoq", "Qo'ng'irot", "Qorao'zak", "Shumanay", "Taxtako'pir", "To'rtko'l", "Xo'jayli", "Bo'zatov", "Taxiatosh"], "en": ["Nukus", "Amudaryo", "Beruniy", "Chimbay", "Ellikqala", "Kegeyli", "Muynak", "Kungrad", "Qarauzak", "Shumanay", "Takhtakupir", "Turtkul", "Khodjeyli", "Bozatov", "Takhiatash"], "ar": ["نوكوس", "أموداريا", "بيروني", "تشيمباي", "إلليكالا", "كيغيلي", "مويناك", "كونغراد", "قارا أوزاك", "شوماناي", "تختاكوپير", "تورتكول", "خوجايلي", "بوزاتوف", "تاخياتاش"]}},
+    "andijan": {"ru":"Андижанская область","uz":"Andijon вилояти","en":"Andijan Region","ar":"منطقة أنديجان","localities":{"ru":["Андижан","Андижанский район","Асака","Балыкчи","Боз","Булакбаши","Избаскан","Джалакудук","Кургантепа","Мархамат","Алтынкуль","Пахтаабад","Шахрихан","Улугнор","Ходжаабад","Ханабад"],"uz":["Andijon","Andijon tumani","Asaka","Baliqchi","Bo'z","Buloqboshi","Izboskan","Jalaquduq","Qo'rg'ontepa","Marhamat","Oltinko'l","Paxtaobod","Shahrixon","Ulug'nor","Xo'jaobod","Xonobod"],"en":["Andijan","Andijan district","Asaka","Baliqchi","Boz","Buloqboshi","Izboskan","Jalakuduk","Kurgontepa","Marhamat","Altinkul","Pakhtaabad","Shahrikhan","Ulugnor","Khojaabad","Khanabad"],"ar":["أنديجان","منطقة أنديجان","أساكا","باليقچي","بوز","بولاقباشي","إزباسكان","جالاكودوك","كورغانتيبا","مرهمت","ألتينكول","بخت آباد","شهريخان","أولغنور","خوجا آباد","خان آباد"]}},
+    "bukhara": {"ru":"Бухарская область","uz":"Buxoro вилояти","en":"Bukhara Region","ar":"منطقة بخارى","localities":{"ru":["Бухара","Каган","Бухарский район","Алат","Гиждуван","Жондор","Каганский район","Каракуль","Караулбазар","Пешку","Ромитан","Шафиркан","Вабкент"],"uz":["Buxoro","Kogon","Buxoro tumani","Olot","G'ijduvon","Jondor","Kogon tumani","Qorako'l","Qorovulbozor","Peshku","Romitan","Shofirkon","Vobkent"],"en":["Bukhara","Kagan","Bukhara district","Alat","Gijduvan","Jondor","Kagan district","Karakul","Karaulbazar","Peshku","Romitan","Shofirkon","Vabkent"],"ar":["بخارى","كاغان","منطقة بخارى","ألات","غيجدوفان","جوندر","منطقة كاغان","قاراكول","قاراول بازار","بشكو","روميتان","شوفيركان","وابكنت"]}},
+    "fergana": {"ru":"Ферганская область","uz":"Farg‘ona вилояти","en":"Fergana Region","ar":"منطقة فرغانة","localities":{"ru":["Фергана","Коканд","Кувасай","Маргилан","Багдад","Бешарык","Бувайда","Дангара","Ферганский район","Фуркат","Алтыарык","Узбекистон","Куштепа","Кува","Риштан","Сох","Тошлок","Учкуприк","Язъяван"],"uz":["Farg'ona","Qo'qon","Quvasoy","Marg'ilon","Bag'dod","Beshariq","Buvayda","Dang'ara","Farg'ona tumani","Furqat","Oltiariq","O'zbekiston","Qo'shtepa","Quva","Rishton","So'x","Toshloq","Uchko'prik","Yozyovon"],"en":["Fergana","Kokand","Quvasoy","Margilan","Baghdad","Besharik","Buvayda","Dangara","Fergana district","Furkat","Oltiariq","Uzbekistan district","Qoshtepa","Quva","Rishtan","Sokh","Tashlak","Uchkopruk","Yazyavan"],"ar":["فرغانة","خوقند","قواسوي","مرغيلان","بغداد","بيشاريق","بوفايدا","دانغارا","منطقة فرغانة","فورقات","ألتياريق","أوزبكستان","قوشتيبا","قوفا","ريشتان","سوخ","توشلوق","أوتشكوبريك","يازيافان"]}},
+    "jizzakh": {"ru":"Джизакская область","uz":"Jizzax вилояти","en":"Jizzakh Region","ar":"منطقة جيزخ","localities":{"ru":["Джизак","Арнасай","Бахмальский район","Дустлик","Фориш","Галлаарал","Джизакский район","Мирзачуль","Пахтакор","Янгиабад","Зафарабад","Зарбдор","Заамин","Шараф Рашидов"],"uz":["Jizzax","Arnasoy","Baxmal","Do'stlik","Forish","G'allaorol","Jizzax tumani","Mirzacho'l","Paxtakor","Yangiobod","Zafarobod","Zarbdor","Zomin","Sharof Rashidov"],"en":["Jizzakh","Arnasay","Bakhmal","Dustlik","Forish","Gallaorol","Jizzakh district","Mirzachul","Pakhtakor","Yangiabad","Zafarabad","Zarbdor","Zaamin","Sharof Rashidov"],"ar":["جيزخ","أرناسوي","بخمال","دوستليك","فوريش","غالاورول","منطقة جيزخ","ميرزاتشول","بختاكور","يانغي آباد","زفараباد","زربدور","زامين","شرف رشيدوف"]}},
+    "kashkadarya": {"ru":"Кашкадарьинская область","uz":"Qashqadaryo вилояти","en":"Kashkadarya Region","ar":"منطقة قشقداريا","localities":{"ru":["Карши","Шахрисабз","Каршинский район","Чиракчи","Дехканабад","Гузар","Касби","Китаб","Касан","Миришкор","Мубарек","Нишан","Камаши","Яккабаг"],"uz":["Qarshi","Shahrisabz","Qarshi tumani","Chiroqchi","Dehqonobod","G'uzor","Kasbi","Kitob","Koson","Mirishkor","Muborak","Nishon","Qamashi","Yakkabog'"],"en":["Karshi","Shakhrisabz","Karshi district","Chiroqchi","Dehkanabad","Guzar","Kasbi","Kitab","Kasansay","Mirishkor","Mubarek","Nishan","Kamashi","Yakkabog"],"ar":["قرشي","شهرسبز","منطقة قرشي","تشيراقتشي","دهقان أباد","غوزار","كاسبي","كتاب","كوسون","ميريشكور","مبارك","نيشان","قاماشي","يكاباغ"]}},
+    "navoi": {"ru":"Навоийская область","uz":"Navoiy вилояти","en":"Navoi Region","ar":"منطقة نوائي","localities":{"ru":["Навои","Зарафшан","Кармана","Конимех","Кызылтепа","Навбахор","Нурата","Томди","Учкудук","Хатырчи"],"uz":["Navoiy","Zarafshon","Karmana","Konimex","Qiziltepa","Navbahor","Nurota","Tomdi","Uchquduq","Xatirchi"],"en":["Navoi","Zarafshan","Karmana","Konimekh","Kyzyltepa","Navbahor","Nurata","Tomdi","Uchkuduk","Khatyrchi"],"ar":["نوائي","زرافشان","كرمانة","كانيمخ","قيزيلتيبا","نافباهور","نوراتا","تومدي","أوتشكودوك","خاتيرتشي"]}},
+    "namangan": {"ru":"Наманганская область","uz":"Namangan вилояти","en":"Namangan Region","ar":"منطقة نمنغان","localities":{"ru":["Наманган","Чартак","Чуст","Касансай","Мингбулак","Наманганский район","Нарын","Пап","Туракурган","Учкурган","Уйчи","Янгикурган"],"uz":["Namangan","Chortoq","Chust","Kosonsoy","Mingbuloq","Namangan tumani","Norin","Pop","To'raqo'rg'on","Uchqo'rg'on","Uychi","Yangiqo'rg'on"],"en":["Namangan","Chartak","Chust","Kosonsoy","Mingbulak","Namangan district","Naryn","Pap","Turakurgan","Uchkurgan","Uychi","Yangikurgan"],"ar":["نمنغان","تشارتاق","تشوست","كوسونساي","مينغبولاق","منطقة نمنغان","نارين","باب","توراكورغان","أوتشكورغان","أويچي","يانغيقورغان"]}},
+    "samarkand": {"ru":"Самаркандская область","uz":"Samarqand вилояти","en":"Samarkand Region","ar":"منطقة سمرقند","localities":{"ru":["Самарканд","Каттакурган","Булунгур","Джамбай","Иштыхан","Каттакурганский район","Нарпай","Нурабад","Акдарья","Пайарык","Пастдаргом","Пахтачи","Кушрабад","Самаркандский район","Тайляк","Ургут"],"uz":["Samarqand","Kattaqo'rg'on","Bulung'ur","Jomboy","Ishtixon","Kattaqo'rg'on tumani","Narpay","Nurobod","Oqdaryo","Payariq","Pastdarg'om","Paxtachi","Qo'shrabot","Samarqand tumani","Toyloq","Urgut"],"en":["Samarkand","Kattakurgan","Bulungur","Jomboy","Ishtikhan","Kattakurgan district","Narpay","Nurabad","Akdarya","Payaryk","Pastdargom","Pakhtachi","Koshrabad","Samarkand district","Taylak","Urgut"],"ar":["سمرقند","كاتاكورغان","بولونغور","جومباي","إشتيخان","منطقة كاتاكورغان","نارباي","نوراباد","أقداريا","باياريق","باستدارغوم","بختاتشي","قوشرباد","منطقة سمرقند","تايلق","أورغوت"]}},
+    "surkhandarya": {"ru":"Сурхандарьинская область","uz":"Surxondaryo вилояти","en":"Surkhandarya Region","ar":"منطقة سرخانداريا","localities":{"ru":["Термез","Ангор","Бандихан","Байсун","Денау","Джаркурган","Музрабад","Алтынсай","Кызырык","Кумкурган","Сариасия","Шерабад","Шурчи","Термезский район","Узун"],"uz":["Termiz","Angor","Bandixon","Boysun","Denov","Jarqo'rg'on","Muzrabot","Oltinsoy","Qiziriq","Qumqo'rg'on","Sariosiyo","Sherobod","Sho'rchi","Termiz tumani","Uzun"],"en":["Termez","Angor","Bandikhan","Baysun","Denau","Jarkurgan","Muzrabat","Altinsay","Kizirik","Kumkurgan","Sariasiya","Sherabad","Shurchi","Termez district","Uzun"],"ar":["ترمذ","أنغور","بانديخان","بايسون","ديناو","جارقورغان","مزرابات","ألتينساي","قيزيريق","قومقورغان","ساريسيا","شيراباد","شورشي","منطقة ترمذ","أوزون"]}},
+    "syrdarya": {"ru":"Сырдарьинская область","uz":"Sirdaryo вилояти","en":"Syrdarya Region","ar":"منطقة سيرداريا","localities":{"ru":["Гулистан","Янгиер","Ширин","Акалтын","Баяут","Гулистанский район","Мирзаабад","Сардоба","Сайхунабад","Сырдарья","Хавас"],"uz":["Guliston","Yangiyer","Shirin","Oqoltin","Boyovut","Guliston tumani","Mirzaobod","Sardoba","Sayxunobod","Sirdaryo","Xovos"],"en":["Gulistan","Yangiyer","Shirin","Akaltyn","Bayaut","Gulistan district","Mirzaabad","Sardoba","Saykhunabad","Syrdarya","Khavas"],"ar":["غوليستان","يانغير","شيرين","أكالتين","باياوت","منطقة غوليستان","ميرزاباد","ساردوبا","سايخون أباد","سيرداريا","خافاس"]}},
+    "tashkent_region": {"ru":"Ташкентская область","uz":"Toshkent вилояти","en":"Tashkent Region","ar":"منطقة طشقند","localities":{"ru":["Нурафшан","Ангрен","Бекабад","Чирчик","Алмалык","Ахангаран","Аккурган","Бекабадский район","Бостанлык","Бука","Чиназ","Кибрай","Паркент","Пскент","Куйи Чирчик","Уртачирчик","Янгиюль","Юкори Чирчик","Зангиата"],"uz":["Nurafshon","Angren","Bekobod","Chirchiq","Olmaliq","Ohangaron","Oqqo'rg'on","Bekobod tumani","Bo'stonliq","Bo'ka","Chinoz","Qibray","Parkent","Piskent","Quyi Chirchiq","O'rtachirchiq","Yangiyo'l","Yuqori Chirchiq","Zangiota"],"en":["Nurafshan","Angren","Bekabad","Chirchik","Almalyk","Ahangaran","Akkurgan","Bekabad district","Bostanlyk","Buka","Chinaz","Qibray","Parkent","Pskent","Quyi Chirchiq","Urtachirchiq","Yangiyul","Yuqori Chirchiq","Zangiata"],"ar":["نورافشان","أنغرين","بيكاباد","تشيرتشيك","ألماليق","أهانغاران","أق قورغان","منطقة بيكاباد","بوستانليق","بوكا","تشيناز","قيبراي","باركنت","بسكنت","قويي تشيرتشيق","أورتاتشيرتشيق","يانغي يول","يوقوري تشيرتشيق","زانغياتا"]}},
+    "tashkent_city": {"ru":"Город Ташкент","uz":"Toshkent shahri","en":"Tashkent City","ar":"مدينة طشقند","localities":{"ru":["Бектемир","Мирабад","Мирзо-Улугбек","Сергелийский","Чиланзар","Юнусабад","Яшнабад","Яккасарай","Шайхантахур","Учтепа","Алмазар","Янгихаёт"],"uz":["Bektemir","Mirobod","Mirzo Ulug'bek","Sergeli","Chilonzor","Yunusobod","Yashnobod","Yakkasaroy","Shayxontohur","Uchtepa","Olmazor","Yangi Hayot"],"en":["Bektemir","Mirobod","Mirzo Ulugbek","Sergeli","Chilanzar","Yunusabad","Yashnabad","Yakkasaray","Shaykhontohur","Uchtepa","Almazar","Yangi Hayot"],"ar":["بيكتمير","ميراباد","ميرزو أولغبيك","سيرجيلي","تشيلانزار","يونوس آباد","ياشن آباد","يكاساراي","شيخانتاخور","أوتشتيبا","ألمازار","يانغي حيوت"]}},
+    "khorezm": {"ru":"Хорезмская область","uz":"Xorazm вилояти","en":"Khorezm Region","ar":"منطقة خوارزم","localities":{"ru":["Ургенч","Хива","Багат","Гурлен","Хазарасп","Ханка","Хивинский район","Кошкупыр","Шават","Ургенчский район","Янгиарык","Янгибазар","Тупраккала"],"uz":["Urganch","Xiva","Bog'ot","Gurlan","Hazorasp","Xonqa","Xiva tumani","Qo'shko'pir","Shovot","Urganch tumani","Yangiariq","Yangibozor","Tuproqqal'a"],"en":["Urgench","Khiva","Bagat","Gurlan","Khazarasp","Khanka","Khiva district","Qoshkopir","Shavat","Urgench district","Yangiariq","Yangibazar","Tuproqqala"],"ar":["أورغنج","خيوة","باغات","غورلان","هزاراسب","خانقة","منطقة خيوة","قوشكوبير","شاوات","منطقة أورغنج","يانغياريق","يانغي بازار","توبروق قالا"]}},
+}
+
+
+def _lang(lang: str) -> str:
+    return lang if lang in {"ru", "uz", "en", "ar"} else "ru"
+
+
+def region_items(lang: str):
+    code = _lang(lang)
+    return [(key, value[code]) for key, value in REGIONS.items()]
+
+
+def build_regions_keyboard(lang: str, prefix: str = "uzregion_"):
+    builder = InlineKeyboardBuilder()
+    for key, label in region_items(lang):
+        builder.button(text=label, callback_data=f"{prefix}{key}")
+    return builder.adjust(1)
+
+
+def build_localities_keyboard(region_key: str, lang: str, prefix: str = "uzcity_"):
+    builder = InlineKeyboardBuilder()
+    region = REGIONS.get(region_key)
+    if not region:
+        return builder
+    labels = region["localities"][_lang(lang)]
+    for idx, label in enumerate(labels):
+        builder.button(text=label, callback_data=f"{prefix}{region_key}:{idx}")
+    return builder.adjust(2)
+
+
+def get_locality_by_index(region_key: str, lang: str, idx: int) -> str:
+    region = REGIONS.get(region_key)
+    labels = (region or {}).get("localities", {}).get(_lang(lang), [])
+    if idx < 0 or idx >= len(labels):
+        return ""
+    return labels[idx]
+
+
+def format_uz_location(region_key: str, locality: str, lang: str) -> str:
+    region = REGIONS.get(region_key)
+    region_name = (region or {}).get(_lang(lang), region_key)
+    if locality:
+        return f"{region_name} / {locality}"
+    return region_name
