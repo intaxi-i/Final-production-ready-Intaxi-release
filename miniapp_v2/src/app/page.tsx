@@ -11,7 +11,6 @@ const links = [
   [t('ru', 'availableOffers'), APP_ROUTES.cityOffers, 'Доступные заказы для водителя.'],
   [t('ru', 'currentTrip'), APP_ROUTES.currentTrip, 'Текущая поездка и чат.'],
   [t('ru', 'wallet'), APP_ROUTES.wallet, 'Баланс и пополнение.'],
-  [t('ru', 'support'), APP_ROUTES.support, 'Обращения в поддержку.'],
   [t('ru', 'admin'), APP_ROUTES.admin, 'Настройки и управление.'],
 ];
 
