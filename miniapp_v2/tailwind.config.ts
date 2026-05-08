@@ -1,11 +1,17 @@
 import type { Config } from "tailwindcss";
+
 const config: Config = {
-  content: [
-    "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
-  ],
-  theme: { extend: {} },
-  plugins: [],
+  content: ["./src/**/*.{js,ts,jsx,tsx,mdx}"],
+  darkMode: "class",
+  theme: {
+    extend: {
+      colors: {
+        brand: { yellow: "#F5C242", dark: "#1E293B", slate: "#94A3B8" }
+      },
+      borderRadius: { "3xl": "1.5rem" },
+      boxShadow: { "premium": "0 10px 25px -5px rgba(0, 0, 0, 0.05)" }
+    }
+  },
+  plugins: []
 };
 export default config;

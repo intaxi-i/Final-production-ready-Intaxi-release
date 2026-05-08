@@ -1,34 +1,8 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Montserrat:wght@700&display=swap");
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --tg-safe-area-inset-top: env(safe-area-inset-top, 0px);
-  --tg-safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
-}
-
-body {
-  margin: 0; 
-  padding: 0; 
-  height: 100vh; 
-  overflow: hidden;
-  background-color: var(--tg-theme-bg-color);
-  color: var(--tg-theme-text-color);
-}
-
-main {
-  height: 100vh; 
-  overflow-y: auto;
-  padding-top: var(--tg-safe-area-inset-top);
-  padding-bottom: calc(var(--tg-safe-area-inset-bottom) + 80px);
-  box-sizing: border-box;
-}
-
-.bottom-nav {
-  position: fixed; 
-  bottom: 0; 
-  width: 100%;
-  padding-bottom: var(--tg-safe-area-inset-bottom);
-  background: var(--tg-theme-secondary-bg-color);
-  z-index: 9999;
-}
+:root { --tg-theme-bg-color: #F8FAFC; }
+body { @apply font-sans bg-slate-50 text-slate-900 antialiased; background-color: var(--tg-theme-bg-color); }
+.btn-primary { @apply bg-brand-yellow text-slate-900 font-bold py-4 rounded-2xl transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-yellow-400/20; }

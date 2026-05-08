@@ -1,39 +1,23 @@
-import Link from 'next/link';
-import { BottomNav } from '@/components/BottomNav';
-import { PageHeader } from '@/components/PageHeader';
-import { APP_ROUTES } from '@/lib/constants';
-import { t } from '@/lib/i18n';
-
-const links = [
-  [t('ru', 'profile'), APP_ROUTES.profile, 'Личные данные, роль и страна.'],
-  [t('ru', 'createOrder'), APP_ROUTES.cityCreate, 'Пассажир создаёт city-заказ.'],
-  [t('ru', 'myOrders'), APP_ROUTES.cityMyOrders, 'История и активные заявки.'],
-  [t('ru', 'availableOffers'), APP_ROUTES.cityOffers, 'Доступные заказы для водителя.'],
-  [t('ru', 'currentTrip'), APP_ROUTES.currentTrip, 'Текущая поездка и чат.'],
-  [t('ru', 'wallet'), APP_ROUTES.wallet, 'Баланс и пополнение.'],
-  [t('ru', 'admin'), APP_ROUTES.admin, 'Настройки и управление.'],
-];
-
+import Link from "next/link";
+import { Car, Map, User, Wallet } from "lucide-react";
 export default function HomePage() {
   return (
-    <main className="shell">
-      <section className="card stack">
-        <span className="badge w-fit">Intaxi V2</span>
-        <PageHeader
-          title="Такси InTaxi"
-          subtitle="Пассажир сам предлагает цену за поездку."
-        />
-      </section>
-
-      <section className="grid grid-2 pb-24">
-        {links.map(([label, href, description]) => (
-          <Link className="card stack no-underline transition-opacity hover:opacity-80" href={href} key={href}>
-            <strong className="text-white">{label}</strong>
-            <p className="subtitle">{description}</p>
-          </Link>
-        ))}
-      </section>
-      <BottomNav />
+    <main className="p-6">
+      <header className="mb-10 mt-4">
+        <div className="bg-brand-yellow w-12 h-12 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-yellow-400/30"><Car size={24}/></div>
+        <h1 className="text-4xl font-black tracking-tighter font-display">InTaxi <span className="text-brand-yellow">V2</span></h1>
+        <p className="text-slate-400 font-medium italic">Premium Ride-Sharing</p>
+      </header>
+      <div className="grid grid-cols-2 gap-4">
+        <Link href="/city/create" className="bg-white p-6 rounded-[2rem] shadow-premium flex flex-col gap-8 active:scale-95 transition-all">
+          <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center"><Map className="text-brand-yellow"/></div>
+          <p className="font-bold text-xs uppercase tracking-widest">Заказать</p>
+        </Link>
+        <Link href="/city/offers" className="bg-slate-900 text-white p-6 rounded-[2rem] shadow-premium flex flex-col gap-8 active:scale-95 transition-all">
+          <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center"><Car className="text-brand-yellow"/></div>
+          <p className="font-bold text-xs uppercase tracking-widest">Водителю</p>
+        </Link>
+      </div>
     </main>
-  );
+  )
 }
