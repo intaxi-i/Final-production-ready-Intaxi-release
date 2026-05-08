@@ -232,3 +232,7 @@ export async function rejectPayment(id: number, reason?: string): Promise<{ id: 
   const query = reason ? `?reason=${encodeURIComponent(reason)}` : '';
   return request<{ id: number; status: string }>(`/api/v2/admin/payments/${id}/reject${query}`, { method: 'POST' });
 }
+
+export async function createCityCounteroffer(orderId: number, price: number): Promise<any> {
+  return request<any>(`/api/v2/city/orders/${orderId}/counteroffers`, { method: 'POST', body: JSON.stringify({ price }) });
+}

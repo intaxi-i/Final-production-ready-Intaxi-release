@@ -178,7 +178,7 @@ export default function CityCreatePage() {
           <MapPointPicker lang="ru" triggerLabel="Выбрать точку назначения на карте" title="Точка назначения" confirmLabel="Подтвердить" cancelLabel="Отмена" initialLat={destinationLatNum} initialLng={destinationLngNum} onConfirm={(payload) => { setDestination(payload?.address ?? ''); setDestinationLat(payload?.lat ?? ''); setDestinationLng(payload?.lng ?? ''); }} />
 
           <div className="grid grid-2">
-            <div className="card-soft">
+            <div className="card-soft cursor-pointer transition-all active:scale-95" style={{ border: price === String(recommendedPrice) ? "2px solid #38bdf8" : "2px solid transparent" }} onClick={() => setPrice(String(recommendedPrice))}>
               <strong>{recommendedPrice} {tariff.currency}</strong>
               <p className="subtitle">{t('ru', 'recommendedPrice')} · ~{tariff.pricePerKm} {tariff.currency}/km</p>
               {estimatedDistance != null ? <p className="subtitle">{t('ru', 'distance')}: {estimatedDistance.toFixed(1)} km</p> : null}
