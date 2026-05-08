@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.api.v2.routes_admin import router as admin_router
 from app.api.v2.routes_city import router as city_router
@@ -27,7 +28,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 @app.exception_handler(DomainError)
 async def domain_error_handler(request: Request, exc: DomainError) -> JSONResponse:
     return JSONResponse(
@@ -35,11 +35,9 @@ async def domain_error_handler(request: Request, exc: DomainError) -> JSONRespon
         content={"error": {"code": exc.code, "message": exc.message, "details": exc.details}},
     )
 
-
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok", "app": settings.app_name}
-
 
 app.include_router(user_router, prefix=settings.api_prefix)
 app.include_router(city_router, prefix=settings.api_prefix)
@@ -49,3 +47,14 @@ app.include_router(intercity_router, prefix=settings.api_prefix)
 app.include_router(support_router, prefix=settings.api_prefix)
 app.include_router(admin_router, prefix=settings.api_prefix)
 app.include_router(public_router, prefix=settings.api_prefix)
+
+app.mount("/_next", StaticFiles(directory="static/_next"), name="next_static")
+app.mount("/", StaticFiles(directory="static", html=True), name="main_static")
+
+# --- ИНТЕГРАЦИЯ ФОНОВОГО ПРОЦЕССА СБРОСА СТАТУСОВ ---
+import asyncio
+from app.core.tasks import reset_offline_drivers_task
+
+@app.on_event("startup")
+async def init_background_tasks():
+    asyncio.create_task(reset_offline_drivers_task(timeout_minutes=5, interval_seconds=60))

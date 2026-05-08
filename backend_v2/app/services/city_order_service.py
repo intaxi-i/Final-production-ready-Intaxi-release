@@ -2,7 +2,7 @@ from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.city import CityOrder
-from app.domain.ride_statuses import RideStatus
+from app.domain.ride_statuses import CityOrderStatus
 
 async def accept_order(db: AsyncSession, order_id: int, driver_id: int):
     async with db.begin():
@@ -11,10 +11,10 @@ async def accept_order(db: AsyncSession, order_id: int, driver_id: int):
         result = await db.execute(stmt)
         order = result.scalar_one_or_none()
         
-        if not order or order.status != RideStatus.SEARCHING:
+        if not order or order.status != CityOrderStatus.SEARCHING:
             return {"status": "error", "message": "ORDER_ALREADY_TAKEN"}
             
         order.driver_id = driver_id
-        order.status = RideStatus.ACCEPTED
+        order.status = CityOrderStatus.ACCEPTED
         order.accepted_at = datetime.utcnow()
         return {"status": "success", "order_id": order.id}

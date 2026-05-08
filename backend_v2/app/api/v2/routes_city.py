@@ -22,7 +22,7 @@ from app.schemas.city import (
     RaisePriceRequest,
 )
 from app.schemas.driver import DriverPaymentMethodRead
-from app.services.city_order_service import CityOrderService
+import app.services.city_order_service as CityOrderService
 from app.services.city_trip_service import CityTripService
 
 router = APIRouter(prefix="/city", tags=["city"])
