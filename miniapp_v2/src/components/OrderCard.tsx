@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Navigation, Eye, Check } from "lucide-react";
 
-export function OrderCard({ order, actionLabel, onAction, onCounterOffer, disabled }: any) {
+export function OrderCard({ order, actionLabel, onAction, onCounterOffer, disabled }: { order: any, actionLabel?: string, onAction?: () => void, onCounterOffer?: (price: number) => void, disabled?: boolean }) {
   const [val, setVal] = useState(String(order.passenger_price));
   return (
     <article className="bg-white rounded-[2rem] p-6 shadow-premium border border-slate-100 mb-4">

@@ -65,7 +65,7 @@ export default function CityOffersPage() {
             actionLabel="Принять за эту цену" 
             disabled={actionId === order.id} 
             onAction={() => accept(order.id)} 
-            onCounterOffer={(price) => counterOffer(order.id, price)} 
+            onCounterOffer={(price: number) => counterOffer(order.id, price)} 
           />
         ))}
       </section>
