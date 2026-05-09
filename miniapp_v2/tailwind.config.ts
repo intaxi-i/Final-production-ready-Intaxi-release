@@ -4,7 +4,7 @@ const config: Config = {
   theme: {
     extend: {
       colors: { brand: { yellow: "#F5C242", dark: "#0F172A" } },
-      fontFamily: { sans: ["Inter", "sans-serif"], display: ["Montserrat", "sans-serif"] }
+      fontFamily: { sans: ["Outfit", "sans-serif"], display: ["Outfit", "sans-serif"] }
     }
   }
 };
