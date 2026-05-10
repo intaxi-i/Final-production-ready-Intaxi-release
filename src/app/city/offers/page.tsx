@@ -1,19 +1,14 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import BottomNav from "@/components/BottomNav";
 import PageHeader from "@/components/PageHeader";
+import PremiumCityCard from "@/components/PremiumCityCard";
 import { useApp } from "@/context/AppContext";
 import { api, CityOrder } from "@/lib/api";
-import { APP_ROUTES } from "@/lib/constants";
 import { t } from "@/lib/i18n";
 
-function emptyText(lang: string, isDriver: boolean) {
-  if (lang === "ru") return isDriver ? "Сейчас нет заказов пассажиров, ожидающих водителя." : "Сейчас нет доступных городских заказов.";
-  if (lang === "uz") return isDriver ? "Hozir haydovchini kutayotgan yo‘lovchi buyurtmalari yo‘q." : "Hozir mavjud shahar buyurtmalari yo‘q.";
-  if (lang === "ar") return isDriver ? "لا توجد الآن طلبات ركاب تنتظر سائقًا." : "لا توجد الآن طلبات مدينة متاحة.";
-  if (lang === "kz") return isDriver ? "Қазір жүргізушіні күтіп тұрған жолаушы тапсырыстары жоқ." : "Қазір қолжетімді қалалық тапсырыстар жоқ.";
+function emptyText(isDriver: boolean) {
   return isDriver ? "No passenger orders are waiting for a driver right now." : "No city orders are available right now.";
 }
 
@@ -33,22 +28,25 @@ export default function CityOffersPage() {
   const { lang, sessionToken, isReady, user } = useApp();
   const isDriver = user?.active_role === "driver";
   const [items, setItems] = useState<CityOrder[]>([]);
+  const [message, setMessage] = useState("");
+
+  async function load() {
+    if (!isReady || !sessionToken) return;
+    try {
+      const data = await api.cityOffers(sessionToken, isDriver ? "passenger" : "all");
+      setItems(isDriver ? data.items.filter((item) => item.role === "passenger") : data.items);
+    } catch {
+      setItems([]);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
-
-    async function load() {
-      if (!isReady || !sessionToken) return;
-      try {
-        const data = await api.cityOffers(sessionToken, isDriver ? "passenger" : "all");
-        if (!cancelled) setItems(isDriver ? data.items.filter((item) => item.role === "passenger") : data.items);
-      } catch {
-        if (!cancelled) setItems([]);
-      }
+    async function safeLoad() {
+      if (!cancelled) await load();
     }
-
-    void load();
-    const timer = window.setInterval(() => void load(), 8000);
+    void safeLoad();
+    const timer = window.setInterval(() => void safeLoad(), 8000);
     return () => {
       cancelled = true;
       window.clearInterval(timer);
@@ -57,35 +55,27 @@ export default function CityOffersPage() {
 
   const ordered = useMemo(() => sortItems(items), [items]);
 
+  async function handleRaisePrice(orderId: number, price: number) {
+    if (!sessionToken) return;
+    await api.raiseCityOrderPrice(sessionToken, orderId, price);
+    setMessage(t(lang, "updatedSuccessfully"));
+    await load();
+  }
+
   return (
     <main className="page">
       <div className="container stack">
         <PageHeader title={isDriver ? t(lang, "cityOrdersPassengers") : t(lang, "availableOffers")} subtitle={isDriver ? t(lang, "cityOrdersPassengers") : t(lang, "cityOffersDrivers")} />
-
-        <div className="card">
-          {ordered.length === 0 ? (
-            <div className="muted">{emptyText(lang, isDriver)}</div>
-          ) : (
-            ordered.map((item) => (
-              <div key={item.id} className="list-item">
-                <div className="list-row">
-                  <div className="card-title">{item.city}</div>
-                  <span className={`pill ${item.role === "driver" ? "role-driver" : "role-passenger"}`}>
-                    {item.role === "driver" ? t(lang, "driverMode") : t(lang, "passengerMode")}
-                  </span>
-                </div>
-                <div className="menu-card-text">{item.from_address}{item.to_address ? ` → ${item.to_address}` : ""}</div>
-                <div className="menu-card-text">{t(lang, "price")}: {item.price} · {t(lang, "tripDistance")}: {item.estimated_distance_km ?? "—"} km</div>
-                <div className="menu-card-text">{t(lang, "driverDistance")}: {item.driver_distance_km ?? "—"} km · {t(lang, "eta")}: {item.driver_eta_min ?? "—"} min</div>
-                {isDriver ? <div className="menu-card-text">{t(lang, "driversSeen")}: {item.seen_by_drivers ?? 0}</div> : null}
-                <div className="actions-row" style={{ marginTop: 12 }}>
-                  <Link href={`${APP_ROUTES.cityOffers}/${item.id}`} className="button-secondary">{t(lang, "details")}</Link>
-                  {item.active_trip_id ? <Link href={`${APP_ROUTES.currentTrip}?tripType=city_trip&tripId=${item.active_trip_id}`} className="button-main">{t(lang, "openTrip")}</Link> : null}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+        {message ? <div className="notice">{message}</div> : null}
+        {ordered.length === 0 ? (
+          <div className="card"><div className="muted">{emptyText(isDriver)}</div></div>
+        ) : (
+          <div className="stack">
+            {ordered.map((item) => (
+              <PremiumCityCard key={item.id} item={item} lang={lang} isDriver={isDriver} onRaisePrice={isDriver ? handleRaisePrice : undefined} />
+            ))}
+          </div>
+        )}
       </div>
       <BottomNav />
     </main>
