@@ -1,44 +1,133 @@
 "use client";
-import { useState } from "react";
-import { Navigation, Eye, Check } from "lucide-react";
+
+import { useMemo, useState } from "react";
+import { Check, Clock, Eye, Navigation } from "lucide-react";
+
+const COUNTRY_STEPS: Record<string, number[]> = {
+  uz: [1000, 5000, 10000],
+  kz: [500, 1000, 3000],
+  tr: [20, 50, 100],
+  sa: [5, 10, 20],
+};
+
+function formatNumber(value?: number | null) {
+  if (value == null || Number.isNaN(Number(value))) return "--";
+  return Number(value).toLocaleString("ru-RU");
+}
+
+function formatMoney(value?: number | null, currency?: string | null) {
+  if (value == null || Number.isNaN(Number(value))) return "--";
+  return `${Number(value).toLocaleString("ru-RU")} ${currency || ""}`.trim();
+}
+
 export function OrderCard({ order, actionLabel, onAction, onCounterOffer, disabled }: any) {
-  const [v, setV] = useState(String(order.passenger_price));
+  const basePrice = Number(order.passenger_price || 0);
+  const currency = order.currency || "";
+  const steps = COUNTRY_STEPS[String(order.country_code || "uz").toLowerCase()] || COUNTRY_STEPS.uz;
+  const [value, setValue] = useState(basePrice ? String(basePrice) : "");
+
+  const percentOffers = useMemo(
+    () => [10, 20, 30].map((percent) => ({ percent, value: Math.round(basePrice + basePrice * (percent / 100)) })),
+    [basePrice],
+  );
+
+  function sendCounterOffer(nextPrice: number) {
+    if (!onCounterOffer || !nextPrice || nextPrice <= 0) return;
+    onCounterOffer(nextPrice);
+    setValue(String(nextPrice));
+  }
+
   return (
-    <div className="it-card mb-4 border-none shadow-xl">
-      <div className="flex justify-between items-center mb-6">
-        <span className="text-[9px] font-black text-slate-200 uppercase tracking-tighter">№{order.id}</span>
-        <div className="flex items-center gap-1.5 text-brand-yellow font-black text-xs"><Eye size={14}/> {order.seen_by_drivers}</div>
-      </div>
-      <div className="space-y-6 mb-8 relative">
-        <div className="absolute left-[7.5px] top-4 bottom-4 w-[1px] bg-slate-50" />
-        <div className="flex gap-4 items-start relative">
-          <div className="w-4 h-4 rounded-full border-[3px] border-brand-yellow bg-white z-10 mt-1" />
-          <p className="text-[14px] font-bold leading-tight uppercase tracking-tight">{order.pickup_address}</p>
+    <article className="order-card">
+      <div className="order-card-inner">
+        <div className="order-topline">
+          <span className="order-badge">Заказ №{order.id}</span>
+          <span className="order-seen"><Eye size={14} /> {order.seen_by_drivers ?? 0}</span>
         </div>
-        <div className="flex gap-4 items-start relative">
-          <div className="w-4 h-4 rounded-full bg-brand-dark z-10 mt-1" />
-          <p className="text-[14px] font-bold leading-tight text-slate-300 uppercase">{order.destination_address}</p>
-        </div>
-      </div>
-      <div className="flex justify-between items-center bg-slate-50 mx-[-24px] px-6 py-4 mb-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-        <div className="flex items-center gap-1.5"><Navigation size={12}/> {order.estimated_distance_km || 0} KM</div>
-        <div className="italic">⏳ {order.estimated_duration_min || "--"} MIN</div>
-      </div>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-4xl font-black tracking-tighter">{order.passenger_price}<span className="text-xs ml-1 text-slate-300 uppercase">{order.currency}</span></h2>
-        {actionLabel && <button onClick={onAction} disabled={disabled} className="bg-brand-yellow h-[50px] px-8 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-yellow-400/20">{actionLabel}</button>}
-      </div>
-      {onCounterOffer && (
-        <div className="mt-6 p-4 bg-slate-50 rounded-[20px]">
-          <div className="grid grid-cols-3 gap-2 mb-4">
-            {[10, 20, 30].map(p => <button key={p} onClick={() => onCounterOffer(Math.round(order.passenger_price*(1+p/100)))} className="h-[48px] bg-white rounded-xl font-black text-xs transition-colors active:bg-brand-yellow shadow-sm">+{p}%</button>)}
+
+        <div className="route-panel">
+          <div className="route-line" />
+          <div className="route-point">
+            <span className="route-dot" />
+            <div>
+              <div className="route-kicker">A · Откуда</div>
+              <p className="route-address">{order.pickup_address || "Адрес отправления не указан"}</p>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <input type="number" value={v} onChange={e=>setV(e.target.value)} className="flex-1 bg-white rounded-xl px-5 font-black text-xl outline-none" />
-            <button onClick={()=>onCounterOffer(Number(v))} className="w-[60px] h-[60px] bg-brand-dark text-white rounded-xl flex items-center justify-center"><Check/></button>
+          <div className="route-point">
+            <span className="route-dot end" />
+            <div>
+              <div className="route-kicker">B · Куда</div>
+              <p className="route-address muted">{order.destination_address || "Адрес назначения не указан"}</p>
+            </div>
           </div>
         </div>
-      )}
-    </div>
+
+        <div className="metric-grid">
+          <div className="metric-card">
+            <div className="metric-label">Дистанция</div>
+            <div className="metric-value flex items-center gap-1.5"><Navigation size={15} /> {formatNumber(order.estimated_distance_km)} km</div>
+          </div>
+          <div className="metric-card">
+            <div className="metric-label">Время</div>
+            <div className="metric-value flex items-center gap-1.5"><Clock size={15} /> {formatNumber(order.estimated_duration_min)} min</div>
+          </div>
+        </div>
+
+        <div className="price-row">
+          <div>
+            <div className="metric-label">Цена пассажира</div>
+            <div className="price-value">{formatNumber(order.passenger_price)}<span className="price-currency">{currency}</span></div>
+          </div>
+          {actionLabel ? (
+            <button type="button" onClick={onAction} disabled={disabled} className="button primary min-w-[132px]">
+              {disabled ? "..." : actionLabel}
+            </button>
+          ) : null}
+        </div>
+
+        {onCounterOffer ? (
+          <div className="bid-panel">
+            <div>
+              <h3 className="bid-title">Встречное предложение</h3>
+              <p className="bid-subtitle">Крупные кнопки для быстрого торга за рулём</p>
+            </div>
+
+            <div className="bid-grid">
+              {percentOffers.map((offer) => (
+                <button key={offer.percent} type="button" disabled={disabled || !basePrice} onClick={() => sendCounterOffer(offer.value)} className="bid-button">
+                  +{offer.percent}%
+                  <span>{formatMoney(offer.value, currency)}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="bid-grid">
+              {steps.map((step) => (
+                <button key={step} type="button" disabled={disabled || !basePrice} onClick={() => sendCounterOffer(basePrice + step)} className="bid-button">
+                  +{formatNumber(step)}
+                  <span>{currency}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="manual-bid">
+              <input
+                type="number"
+                min="0"
+                inputMode="numeric"
+                value={value}
+                onChange={(event) => setValue(event.target.value)}
+                className="it-input"
+                placeholder="Своя цена"
+              />
+              <button type="button" disabled={disabled || !value} onClick={() => sendCounterOffer(Number(value))} className="send-bid" aria-label="Отправить цену">
+                <Check size={24} />
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </article>
   );
 }
