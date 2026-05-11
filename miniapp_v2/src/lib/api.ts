@@ -6,6 +6,10 @@ import type {
   DonationPaymentSetting,
   DriverOnlineState,
   DriverPaymentMethod,
+  IntercityOffer,
+  IntercityRequestInput,
+  IntercityRouteInput,
+  IntercityTrip,
   PendingDriverProfile,
   PendingPayment,
   RideMode,
@@ -13,7 +17,7 @@ import type {
   UserRole,
 } from './types';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_INTAXI_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_INTAXI_API_BASE_URL || 'https://api.intaxi.best';
 const DEV_USER_TOKEN = process.env.NEXT_PUBLIC_INTAXI_DEV_USER_TOKEN || 'dev:1';
 
 export class ApiError extends Error {
@@ -167,6 +171,31 @@ export async function updateCityTripStatus(tripId: number, status: string): Prom
 
 export async function getDriverPaymentMethodsForTrip(tripId: number): Promise<DriverPaymentMethod[]> {
   return request<DriverPaymentMethod[]>(`/api/v2/city/trips/${tripId}/driver-payment-methods`);
+}
+
+export async function createIntercityRequest(input: IntercityRequestInput): Promise<{ id: number; status: string }> {
+  return request<{ id: number; status: string }>('/api/v2/intercity/requests', { method: 'POST', body: JSON.stringify(input) });
+}
+
+export async function createIntercityRoute(input: IntercityRouteInput): Promise<{ id: number; status: string }> {
+  return request<{ id: number; status: string }>('/api/v2/intercity/routes', { method: 'POST', body: JSON.stringify(input) });
+}
+
+export async function listIntercityOffers(): Promise<IntercityOffer[]> {
+  return request<IntercityOffer[]>('/api/v2/intercity/offers');
+}
+
+export async function acceptIntercityOffer(kind: string, itemId: number): Promise<IntercityTrip> {
+  return request<IntercityTrip>(`/api/v2/intercity/offers/${kind}/${itemId}/accept`, { method: 'POST' });
+}
+
+export async function getCurrentIntercityTrip(): Promise<IntercityTrip | null> {
+  const data = await request<{ item: IntercityTrip | null }>('/api/v2/intercity/trips/current');
+  return data.item;
+}
+
+export async function updateIntercityTripStatus(tripId: number, status: string): Promise<IntercityTrip> {
+  return request<IntercityTrip>(`/api/v2/intercity/trips/${tripId}/status`, { method: 'POST', body: JSON.stringify({ status }) });
 }
 
 export async function listDonationPaymentSettings(countryCode?: string, currency?: string): Promise<DonationPaymentSetting[]> {
