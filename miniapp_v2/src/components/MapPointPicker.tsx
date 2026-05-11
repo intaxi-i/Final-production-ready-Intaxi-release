@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { useMemo, useState } from 'react';
-import { reverseGeocode } from '@/lib/geo';
+import { getCurrentPosition, reverseGeocode } from '@/lib/geo';
 
 const LeafletPicker = dynamic(() => import('@/components/MapPointPickerInner'), { ssr: false });
 
@@ -30,6 +30,17 @@ export function MapPointPicker({ lang, triggerLabel, title, confirmLabel, cancel
   const [busy, setBusy] = useState(false);
   const center = useMemo(() => picked || { lat: 41.311081, lng: 69.240562 }, [picked]);
 
+  async function openPicker() {
+    setOpen(true);
+    if (picked) return;
+    try {
+      const current = await getCurrentPosition();
+      setPicked(current);
+    } catch {
+      // Keep default city center if the user denies geolocation.
+    }
+  }
+
   async function confirm() {
     if (!picked) return;
     try {
@@ -44,19 +55,19 @@ export function MapPointPicker({ lang, triggerLabel, title, confirmLabel, cancel
 
   return (
     <>
-      <button type="button" className="button secondary" onClick={() => setOpen(true)}>{triggerLabel}</button>
+      <button type="button" className="button secondary" onClick={openPicker}>{triggerLabel}</button>
       {open ? (
         <div className="map-modal">
           <div className="card stack" style={{ margin: 0 }}>
             <strong>{title}</strong>
-            <p className="subtitle">{picked ? `${picked.lat.toFixed(6)}, ${picked.lng.toFixed(6)}` : '—'}</p>
+            <p className="subtitle">{picked ? `${picked.lat.toFixed(6)}, ${picked.lng.toFixed(6)}` : 'Поставьте точку на карте'}</p>
           </div>
           <div className="map-panel">
             <LeafletPicker center={center} picked={picked} onPick={setPicked} />
           </div>
           <div className="actions">
             <button type="button" className="button secondary" onClick={() => setOpen(false)}>{cancelLabel}</button>
-            <button type="button" className="button" onClick={confirm} disabled={!picked || busy}>{busy ? loadingText(lang) : confirmLabel}</button>
+            <button type="button" className="button primary" onClick={confirm} disabled={!picked || busy}>{busy ? loadingText(lang) : confirmLabel}</button>
           </div>
         </div>
       ) : null}
