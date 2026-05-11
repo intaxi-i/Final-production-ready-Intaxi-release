@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import { AppBackButton } from '@/components/AppBackButton';
 import { TelegramBootstrap } from '@/components/TelegramBootstrap';
 import './globals.css';
 
@@ -13,6 +14,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="ru">
       <body>
         <TelegramBootstrap />
+        <AppBackButton />
         {children}
       </body>
     </html>
