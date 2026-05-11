@@ -1,74 +1,63 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { listDonationPaymentSettings } from '@/lib/api';
-import type { DonationPaymentSetting } from '@/lib/types';
+import { useState } from 'react';
+import { Check, Copy } from 'lucide-react';
+import { DONATION_WALLETS, walletFingerprint } from '@/lib/donation-wallets';
 
 export default function DonatePage() {
-  const [items, setItems] = useState<DonationPaymentSetting[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [activeKey, setActiveKey] = useState(DONATION_WALLETS[0]?.key || '');
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const active = DONATION_WALLETS.find((item) => item.key === activeKey) || DONATION_WALLETS[0];
 
-  async function load() {
-    setError(null);
-    setLoading(true);
-    try {
-      setItems(await listDonationPaymentSettings('uz'));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось загрузить реквизиты');
-    } finally {
-      setLoading(false);
-    }
+  async function copyAddress(key: string, address: string) {
+    await navigator.clipboard.writeText(address);
+    setCopiedKey(key);
+    window.setTimeout(() => setCopiedKey(null), 2200);
   }
-
-  useEffect(() => {
-    load();
-  }, []);
 
   return (
     <main className="shell stack">
-      <section className="card stack">
-        <div>
+      <section className="premium-hero">
+        <div className="relative z-10">
           <h1 className="title">Поддержать Intaxi</h1>
-          <p className="subtitle">
-            Карты и digital asset wallet реквизиты берутся из Backend V2 и управляются только админ-панелью.
-          </p>
+          <p className="subtitle mt-2">Выберите сеть, скопируйте адрес и проверьте первые и последние символы.</p>
         </div>
-        <button className="button secondary" type="button" onClick={load} disabled={loading}>
-          Обновить
-        </button>
-        {error ? <p className="error">{error}</p> : null}
       </section>
 
-      {loading ? <p className="subtitle">Загрузка...</p> : null}
-      {!loading && items.length === 0 ? <p className="subtitle">Активные реквизиты пока не добавлены.</p> : null}
-
-      <section className="grid grid-2">
-        {items.map((item) => (
-          <article className="card stack" key={item.id}>
-            <div className="row">
-              <span className="badge">{item.method_type}</span>
-              {item.currency ? <span className="badge">{item.currency}</span> : null}
-            </div>
-            <div>
-              <h2 className="title" style={{ fontSize: 22 }}>{item.title}</h2>
-              {item.instructions ? <p className="subtitle">{item.instructions}</p> : null}
-            </div>
-            {item.card_number_masked ? (
-              <div className="card-soft">
-                <strong>{item.card_number_masked}</strong>
-                <p className="subtitle">{item.bank_name || 'Банк не указан'} · {item.card_holder_name || 'Владелец не указан'}</p>
-              </div>
-            ) : null}
-            {item.digital_asset_address_preview ? (
-              <div className="card-soft">
-                <strong>{item.digital_asset_address_preview}</strong>
-                <p className="subtitle">{item.digital_asset_network || 'Сеть не указана'}</p>
-              </div>
-            ) : null}
-          </article>
+      <section className="grid grid-cols-2 gap-3">
+        {DONATION_WALLETS.map((wallet) => (
+          <button key={wallet.key} type="button" className={`donate-chain ${active?.key === wallet.key ? 'active' : ''}`} onClick={() => setActiveKey(wallet.key)}>
+            <span>{wallet.asset}</span>
+            <small>{wallet.network}</small>
+          </button>
         ))}
       </section>
+
+      {active ? (
+        <section className="card stack">
+          <div className="row">
+            <div>
+              <p className="metric-label">{active.asset}</p>
+              <h2 className="title" style={{ fontSize: 24 }}>{active.title}</h2>
+            </div>
+            <span className="order-badge">{active.network}</span>
+          </div>
+          {active.warning ? <p className="error">{active.warning}</p> : null}
+          <div className="wallet-box">
+            <p className="metric-label">Адрес</p>
+            <code>{active.address}</code>
+            <p className="subtitle">Проверка: {walletFingerprint(active.address)}</p>
+          </div>
+          <button type="button" className="button primary" onClick={() => copyAddress(active.key, active.address)}>
+            {copiedKey === active.key ? <Check size={18} /> : <Copy size={18} />}
+            {copiedKey === active.key ? 'Скопировано' : 'Скопировать адрес'}
+          </button>
+          <div className="card-soft">
+            <strong>Важно</strong>
+            <p className="subtitle mt-1">Сверьте адрес в кошельке с проверкой выше. Для USDT выберите сеть TRC20.</p>
+          </div>
+        </section>
+      ) : null}
     </main>
   );
 }
