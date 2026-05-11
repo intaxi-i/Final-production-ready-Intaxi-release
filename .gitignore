@@ -6,6 +6,7 @@ out
 .env.production
 .vercel
 *.log
+*.tsbuildinfo
 
 # bot
 intaxi_bot/venv/
