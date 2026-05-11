@@ -7,6 +7,10 @@ export type ReverseGeoResult = {
   region?: string;
 };
 
+export type PlaceSuggestion = ReverseGeoResult & {
+  id: string;
+};
+
 function extractCity(address: Record<string, string | undefined>) {
   return (
     address.city ||
@@ -17,6 +21,20 @@ function extractCity(address: Record<string, string | undefined>) {
     address.state_district ||
     ''
   );
+}
+
+function toGeoResult(item: any): ReverseGeoResult {
+  const address = item?.address || {};
+  const lat = Number(item?.lat);
+  const lng = Number(item?.lon ?? item?.lng);
+  return {
+    address: item?.display_name || `${lat}, ${lng}`,
+    lat: Number(lat.toFixed(6)),
+    lng: Number(lng.toFixed(6)),
+    countryCode: String(address.country_code || '').toLowerCase(),
+    city: extractCity(address),
+    region: address.state || address.region || address.province || '',
+  };
 }
 
 export async function getCurrentPosition(): Promise<{ lat: number; lng: number }> {
@@ -46,15 +64,29 @@ export async function reverseGeocode(lat: number, lng: number): Promise<ReverseG
   });
   if (!response.ok) throw new Error('Reverse geocoding failed');
   const data = await response.json();
-  const address = data?.address || {};
-  return {
-    address: data?.display_name || `${lat}, ${lng}`,
-    lat: Number(lat.toFixed(6)),
-    lng: Number(lng.toFixed(6)),
-    countryCode: String(address.country_code || '').toLowerCase(),
-    city: extractCity(address),
-    region: address.state || address.region || address.province || '',
-  };
+  return toGeoResult({ ...data, lat, lon: lng });
+}
+
+export async function searchPlaces(query: string, countryCode?: string): Promise<PlaceSuggestion[]> {
+  const trimmed = query.trim();
+  if (trimmed.length < 3) return [];
+  const params = new URLSearchParams({
+    format: 'jsonv2',
+    addressdetails: '1',
+    limit: '5',
+    q: trimmed,
+  });
+  if (countryCode) params.set('countrycodes', countryCode.toLowerCase());
+  const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
+    headers: { Accept: 'application/json', 'Accept-Language': 'ru,en,uz' },
+    cache: 'no-store',
+  });
+  if (!response.ok) return [];
+  const data = await response.json();
+  if (!Array.isArray(data)) return [];
+  return data
+    .filter((item) => Number.isFinite(Number(item?.lat)) && Number.isFinite(Number(item?.lon)))
+    .map((item, index) => ({ ...toGeoResult(item), id: String(item?.place_id || `${item?.lat}-${item?.lon}-${index}`) }));
 }
 
 export async function resolveCurrentLocation(): Promise<ReverseGeoResult> {
