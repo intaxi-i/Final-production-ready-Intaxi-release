@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown, ChevronUp, MapPin, Navigation, Sparkles } from 'lucide-react';
+import { ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
 import { AddressField } from '@/components/AddressField';
 import { BottomNav } from '@/components/BottomNav';
 import { MapPointPicker } from '@/components/MapPointPicker';
@@ -28,6 +28,12 @@ function searchDots(seconds: number) {
 function parseCoordinate(value: string): number | null {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function roundPrice(value: number, country: string) {
+  if (country === 'uz') return Math.round(value / 1000) * 1000;
+  if (country === 'kz') return Math.round(value / 100) * 100;
+  return Math.round(value);
 }
 
 function formatMoney(value: number, currency: string) {
@@ -74,8 +80,8 @@ export default function CityCreatePage() {
 
   const recommendedPrice = useMemo(() => {
     if (estimatedDistance == null) return tariff.minPrice;
-    return Math.max(Math.round(estimatedDistance * tariff.pricePerKm), tariff.minPrice);
-  }, [estimatedDistance, tariff.minPrice, tariff.pricePerKm]);
+    return Math.max(roundPrice(estimatedDistance * tariff.pricePerKm, country), tariff.minPrice);
+  }, [country, estimatedDistance, tariff.minPrice, tariff.pricePerKm]);
 
   useEffect(() => {
     if (routeReady && estimatedDistance != null) {
@@ -147,7 +153,7 @@ export default function CityCreatePage() {
         destination_lat: destinationLatNum,
         destination_lng: destinationLngNum,
         seats: Number(seats || 1),
-        passenger_price: Number(price || recommendedPrice),
+        passenger_price: Math.round(Number(price || recommendedPrice)),
         comment: comment.trim() || null,
       });
       setCreated(order);
@@ -163,7 +169,7 @@ export default function CityCreatePage() {
 
   async function raisePrice() {
     if (!created?.id) return;
-    const nextPrice = Math.round(Number(price || created?.passenger_price || 0) * 1.1);
+    const nextPrice = roundPrice(Number(price || created?.passenger_price || 0) * 1.1, country);
     setError(null);
     try {
       const next = await raiseCityOrderPrice(created.id, nextPrice);
@@ -185,16 +191,13 @@ export default function CityCreatePage() {
             <p className="subtitle mt-2">Водители увидят цену и смогут принять заказ или предложить свою.</p>
           </div>
         </section>
-
         <section className="metric-grid">
           <div className="metric-card"><div className="metric-label">Увидели</div><div className="metric-value">{driversSeen}</div></div>
           <div className="metric-card"><div className="metric-label">Статус</div><div className="metric-value">{created.status}</div></div>
           <div className="metric-card"><div className="metric-label">Цена</div><div className="metric-value">{created.passenger_price} {created.currency}</div></div>
           <div className="metric-card"><div className="metric-label">Время</div><div className="metric-value">{secondsPassed}s</div></div>
         </section>
-
         <OrderCard order={created} />
-
         <section className="card stack">
           {error ? <p className="error">{error}</p> : null}
           {message ? <p className="success">{message}</p> : null}
@@ -215,148 +218,47 @@ export default function CityCreatePage() {
           <p className="subtitle mt-2">Сначала укажите маршрут. Цена появится после выбора точек.</p>
         </div>
       </section>
-
       <form className="stack" onSubmit={submit}>
         <section className="card stack">
           <button type="button" className="route-summary" onClick={() => setRouteOpen((prev) => !prev)}>
-            <span>
-              <strong>Маршрут</strong>
-              <small>{routeReady ? `${pickup} → ${destination}` : 'Откуда и куда поедем'}</small>
-            </span>
+            <span><strong>Маршрут</strong><small>{routeReady ? `${pickup} → ${destination}` : 'Откуда и куда поедем'}</small></span>
             {routeOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
           </button>
-
           {routeOpen ? (
             <div className="stack">
-              <AddressField
-                lang="ru"
-                label="Откуда"
-                address={pickup}
-                setAddress={setPickup}
-                lat={pickupLat}
-                setLat={setPickupLat}
-                lng={pickupLng}
-                setLng={setPickupLng}
-                countryCode={country}
-                placeholder="Адрес подачи"
-                onResolved={(payload) => {
-                  if (payload?.countryCode && ['uz', 'tr', 'kz', 'sa'].includes(payload.countryCode)) setCountry(payload.countryCode);
-                }}
-              />
-              <MapPointPicker
-                lang="ru"
-                triggerLabel="Указать подачу на карте"
-                title="Точка подачи"
-                confirmLabel="Подтвердить точку"
-                cancelLabel="Отмена"
-                initialLat={pickupLatNum}
-                initialLng={pickupLngNum}
-                onConfirm={(payload) => {
-                  setPickup(payload?.address ?? '');
-                  setPickupLat(payload?.lat ?? '');
-                  setPickupLng(payload?.lng ?? '');
-                  if (payload?.countryCode && ['uz', 'tr', 'kz', 'sa'].includes(payload.countryCode)) setCountry(payload.countryCode);
-                }}
-              />
-
-              <AddressField
-                lang="ru"
-                label="Куда"
-                address={destination}
-                setAddress={setDestination}
-                lat={destinationLat}
-                setLat={setDestinationLat}
-                lng={destinationLng}
-                setLng={setDestinationLng}
-                countryCode={country}
-                allowCurrentLocation={false}
-                placeholder="Адрес назначения"
-              />
-              <MapPointPicker
-                lang="ru"
-                triggerLabel="Указать точку назначения на карте"
-                title="Точка назначения"
-                confirmLabel="Подтвердить точку"
-                cancelLabel="Отмена"
-                initialLat={destinationLatNum}
-                initialLng={destinationLngNum}
-                onConfirm={(payload) => {
-                  setDestination(payload?.address ?? '');
-                  setDestinationLat(payload?.lat ?? '');
-                  setDestinationLng(payload?.lng ?? '');
-                }}
-              />
+              <AddressField lang="ru" label="Откуда" address={pickup} setAddress={setPickup} lat={pickupLat} setLat={setPickupLat} lng={pickupLng} setLng={setPickupLng} countryCode={country} placeholder="Адрес подачи" onResolved={(payload) => { if (payload?.countryCode) setCountry(payload.countryCode); }} />
+              <MapPointPicker lang="ru" triggerLabel="Указать подачу на карте" title="Точка подачи" confirmLabel="Подтвердить точку" cancelLabel="Отмена" initialLat={pickupLatNum} initialLng={pickupLngNum} onConfirm={(payload) => { setPickup(payload?.address ?? ''); setPickupLat(payload?.lat ?? ''); setPickupLng(payload?.lng ?? ''); if (payload?.countryCode) setCountry(payload.countryCode); }} />
+              <AddressField lang="ru" label="Куда" address={destination} setAddress={setDestination} lat={destinationLat} setLat={setDestinationLat} lng={destinationLng} setLng={setDestinationLng} countryCode={country} allowCurrentLocation={false} placeholder="Адрес назначения" />
+              <MapPointPicker lang="ru" triggerLabel="Указать точку назначения на карте" title="Точка назначения" confirmLabel="Подтвердить точку" cancelLabel="Отмена" initialLat={destinationLatNum || pickupLatNum} initialLng={destinationLngNum || pickupLngNum} onConfirm={(payload) => { setDestination(payload?.address ?? ''); setDestinationLat(payload?.lat ?? ''); setDestinationLng(payload?.lng ?? ''); }} />
             </div>
           ) : null}
         </section>
-
         {routeReady ? (
           <section className="card stack">
-            <div>
-              <p className="metric-label">Цена</p>
-              <h2 className="title" style={{ fontSize: 24 }}>Предложите свою цену</h2>
-              <p className="subtitle mt-1">Можно выбрать расчёт системы или указать свою сумму.</p>
-            </div>
-
+            <div><p className="metric-label">Цена</p><h2 className="title" style={{ fontSize: 24 }}>Предложите свою цену</h2><p className="subtitle mt-1">Можно выбрать расчёт системы или указать свою сумму.</p></div>
             <button type="button" className="recommended-price" onClick={() => setPrice(String(recommendedPrice))}>
-              <Sparkles size={18} />
-              <span>
-                <strong>{formatMoney(recommendedPrice, tariff.currency)}</strong>
-                <small>{estimatedDistance != null ? `Примерно ${estimatedDistance.toFixed(1)} km · расчёт системы` : 'Расчёт системы'}</small>
-              </span>
-              <em>Выбрать</em>
+              <Sparkles size={18} /><span><strong>{formatMoney(recommendedPrice, tariff.currency)}</strong><small>{estimatedDistance != null ? `Примерно ${estimatedDistance.toFixed(1)} km · расчёт системы` : 'Расчёт системы'}</small></span><em>Выбрать</em>
             </button>
-
-            <label className="label">
-              Ваша цена
-              <input className="input price-input" inputMode="numeric" value={price} onChange={(event) => setPrice(event.target.value)} placeholder={formatMoney(recommendedPrice, tariff.currency)} required />
-            </label>
+            <label className="label">Ваша цена<input className="input price-input" inputMode="numeric" value={price} onChange={(event) => setPrice(event.target.value)} placeholder={formatMoney(recommendedPrice, tariff.currency)} required /></label>
           </section>
         ) : null}
-
         <section className="card-soft stack">
-          <button type="button" className="route-summary" onClick={() => setSettingsOpen((prev) => !prev)}>
-            <span>
-              <strong>Дополнительно</strong>
-              <small>Страна, места, женский режим, комментарий</small>
-            </span>
-            {settingsOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-          </button>
-
+          <button type="button" className="route-summary" onClick={() => setSettingsOpen((prev) => !prev)}><span><strong>Дополнительно</strong><small>Страна, места, женский режим, комментарий</small></span>{settingsOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}</button>
           {settingsOpen ? (
             <div className="stack">
               <div className="grid grid-2">
-                <label className="label">
-                  Страна
-                  <select className="select" value={country} onChange={(event) => setCountry(event.target.value)}>
-                    <option value="uz">Uzbekistan</option>
-                    <option value="tr">Turkey</option>
-                    <option value="kz">Kazakhstan</option>
-                    <option value="sa">Saudi Arabia</option>
-                  </select>
-                </label>
-                <label className="label">
-                  Мест
-                  <input className="input" inputMode="numeric" min="1" value={seats} onChange={(event) => setSeats(event.target.value)} required />
-                </label>
+                <label className="label">Страна<input className="input" value={country.toUpperCase()} onChange={(event) => setCountry(event.target.value.toLowerCase().slice(0, 2))} placeholder="UZ" /></label>
+                <label className="label">Мест<input className="input" inputMode="numeric" min="1" value={seats} onChange={(event) => setSeats(event.target.value)} required /></label>
               </div>
               <ModeToggle value={mode} onChange={setMode} />
               <button type="button" className="button secondary" onClick={() => setCommentOpen((prev) => !prev)}>{commentOpen ? 'Скрыть комментарий' : 'Добавить комментарий'}</button>
-              {commentOpen ? (
-                <label className="label">
-                  Комментарий
-                  <textarea className="input" value={comment} onChange={(event) => setComment(event.target.value)} rows={3} placeholder="Например: подъезд, ориентир, багаж" />
-                </label>
-              ) : null}
+              {commentOpen ? <label className="label">Комментарий<textarea className="input" value={comment} onChange={(event) => setComment(event.target.value)} rows={3} placeholder="Например: подъезд, ориентир, багаж" /></label> : null}
             </div>
           ) : null}
         </section>
-
         {error ? <p className="error">{error}</p> : null}
         {message ? <p className="success">{message}</p> : null}
-        <button className="button primary full-submit" type="submit" disabled={loading || !routeReady}>
-          {loading ? 'Создаём...' : 'Подтвердить заказ'}
-        </button>
+        <button className="button primary full-submit" type="submit" disabled={loading || !routeReady}>{loading ? 'Создаём...' : 'Подтвердить заказ'}</button>
       </form>
       <BottomNav />
     </main>
