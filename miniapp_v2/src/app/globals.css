@@ -53,6 +53,10 @@ main {
   @apply w-full rounded-[28px] border border-slate-100 bg-white p-5 shadow-[0_16px_44px_rgba(15,23,42,0.07)];
 }
 
+.card-soft {
+  @apply rounded-3xl border border-slate-100 bg-slate-50 p-4;
+}
+
 .title {
   @apply text-2xl font-black tracking-[-0.04em] text-slate-950;
 }
@@ -67,7 +71,7 @@ main {
 
 .button,
 .it-btn {
-  @apply inline-flex min-h-[54px] items-center justify-center rounded-2xl px-5 text-sm font-black uppercase tracking-[0.12em] transition active:scale-95 disabled:opacity-50;
+  @apply inline-flex min-h-[54px] items-center justify-center gap-2 rounded-2xl px-5 text-sm font-black uppercase tracking-[0.12em] transition active:scale-95 disabled:opacity-50;
 }
 
 .button.primary,
@@ -84,8 +88,12 @@ main {
   @apply h-[58px] w-full rounded-2xl border border-slate-100 bg-white px-5 text-lg font-black outline-none focus:ring-4 focus:ring-brand-yellow/20;
 }
 
+.app-back-button {
+  @apply fixed left-4 top-4 z-50 flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-100 bg-white/95 text-2xl font-black text-slate-950 shadow-[0_12px_32px_rgba(15,23,42,0.12)] backdrop-blur active:scale-95;
+}
+
 .brand-wordmark {
-  @apply text-5xl font-black italic tracking-[-0.075em] leading-none;
+  @apply text-5xl font-black tracking-[-0.075em] leading-none;
 }
 
 .brand-in {
@@ -127,6 +135,34 @@ main {
 
 .nav-card.dark .nav-label {
   @apply text-white/65;
+}
+
+.donate-chain {
+  @apply flex min-h-[84px] flex-col items-start justify-between rounded-3xl border border-slate-100 bg-white p-4 text-left shadow-[0_12px_34px_rgba(15,23,42,0.06)] transition active:scale-95;
+}
+
+.donate-chain.active {
+  @apply border-brand-yellow bg-brand-yellow text-brand-dark shadow-[0_16px_34px_rgba(255,196,0,0.22)];
+}
+
+.donate-chain span {
+  @apply text-lg font-black;
+}
+
+.donate-chain small {
+  @apply text-xs font-black uppercase tracking-[0.14em] text-slate-500;
+}
+
+.donate-chain.active small {
+  @apply text-slate-800;
+}
+
+.wallet-box {
+  @apply rounded-[26px] border border-slate-100 bg-slate-50 p-4;
+}
+
+.wallet-box code {
+  @apply mt-2 block break-all rounded-2xl bg-white p-4 text-sm font-black leading-relaxed text-slate-950;
 }
 
 .order-card {
