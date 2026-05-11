@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { APP_ROUTES } from '@/lib/constants';
 import { getTelegramWebApp } from '@/lib/telegram';
@@ -9,7 +9,6 @@ export function AppBackButton() {
   const pathname = usePathname();
   const router = useRouter();
   const isHome = !pathname || pathname === APP_ROUTES.home;
-  const [hasNativeBackButton, setHasNativeBackButton] = useState(true);
 
   const goBack = useCallback(() => {
     if (typeof window !== 'undefined' && window.history.length > 1) {
@@ -20,15 +19,8 @@ export function AppBackButton() {
   }, [router]);
 
   useEffect(() => {
-    const webapp = getTelegramWebApp();
-    const backButton = webapp?.BackButton;
-
-    if (!backButton) {
-      setHasNativeBackButton(false);
-      return;
-    }
-
-    setHasNativeBackButton(true);
+    const backButton = getTelegramWebApp()?.BackButton;
+    if (!backButton) return;
 
     if (isHome) {
       backButton.hide?.();
@@ -44,11 +36,5 @@ export function AppBackButton() {
     };
   }, [goBack, isHome]);
 
-  if (isHome || hasNativeBackButton) return null;
-
-  return (
-    <button type="button" className="app-back-button" onClick={goBack} aria-label="Назад">
-      ←
-    </button>
-  );
+  return null;
 }
