@@ -4,11 +4,12 @@ import { APP_ROUTES } from '@/lib/constants';
 
 export default function IntercityPage() {
   return (
-    <main className="shell stack">
+    <main className="shell stack with-bottom-nav">
       <section className="premium-hero">
         <div className="relative z-10">
-          <h1 className="title">Межгород</h1>
-          <p className="subtitle mt-2">Направления между городами: создавайте заявку, маршрут или смотрите доступные предложения.</p>
+          <p className="metric-label">Межгород</p>
+          <h1 className="title">Куда едем?</h1>
+          <p className="subtitle mt-2">Создайте заявку, предложите маршрут или посмотрите доступные поездки между городами.</p>
         </div>
       </section>
 
@@ -17,7 +18,7 @@ export default function IntercityPage() {
           <MapPinned size={24} />
           <div>
             <strong>Нужна поездка</strong>
-            <span>Создать межгород-заявку пассажира</span>
+            <span>Заявка пассажира</span>
           </div>
           <ArrowRight size={20} />
         </Link>
@@ -35,15 +36,10 @@ export default function IntercityPage() {
           <CarFront size={24} />
           <div>
             <strong>Предложения</strong>
-            <span>Посмотреть доступный межгород</span>
+            <span>Активные заявки и маршруты</span>
           </div>
           <ArrowRight size={20} />
         </Link>
-      </section>
-
-      <section className="card-soft">
-        <strong>В разработке интерфейса</strong>
-        <p className="subtitle mt-1">Бэкенд межгорода уже предусмотрен маршрутизацией приложения. Следующий шаг — подключить реальные формы и списки к существующим endpoint-ам без изменения backend-логики.</p>
       </section>
     </main>
   );
