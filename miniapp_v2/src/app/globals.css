@@ -1,8 +1,252 @@
-@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800;900&display=swap");
-@tailwind base; @tailwind components; @tailwind utilities;
-:root { --brand: #F5C242; --bg: #F8FAFC; }
-body { @apply font-sans antialiased text-slate-900 bg-[#F8FAFC] overflow-hidden; }
-main { @apply h-screen overflow-y-auto flex flex-col items-center px-6 pt-12 pb-32; }
-.it-card { @apply w-full bg-white rounded-[28px] p-6 shadow-[0_10px_40px_rgba(0,0,0,0.03)] border border-slate-100; }
-.it-btn { @apply h-[60px] w-full rounded-2xl font-bold text-[12px] uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2; }
-.it-input { @apply w-full h-[56px] bg-slate-50 border-none rounded-xl px-5 font-bold outline-none focus:ring-2 focus:ring-brand-yellow/20; }
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap");
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --brand: #ffc400;
+  --brand-soft: #fff4c2;
+  --brand-dark: #0f172a;
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --surface-soft: #f1f5f9;
+  --line: #e2e8f0;
+  --muted: #64748b;
+}
+
+html,
+body {
+  min-height: 100%;
+  background: var(--bg);
+}
+
+body {
+  @apply font-sans antialiased text-slate-900;
+  overflow-x: hidden;
+}
+
+main {
+  @apply w-full min-h-screen overflow-y-auto px-5 pt-8 pb-28;
+  background:
+    radial-gradient(circle at top left, rgba(255, 196, 0, 0.18), transparent 32%),
+    var(--bg);
+}
+
+.shell {
+  @apply mx-auto w-full max-w-[480px];
+}
+
+.stack {
+  @apply flex flex-col gap-4;
+}
+
+.row {
+  @apply flex items-center justify-between gap-3;
+}
+
+.grid-2 {
+  @apply grid grid-cols-1 gap-4;
+}
+
+.card,
+.it-card {
+  @apply w-full rounded-[28px] border border-slate-100 bg-white p-5 shadow-[0_16px_44px_rgba(15,23,42,0.07)];
+}
+
+.title {
+  @apply text-2xl font-black tracking-[-0.04em] text-slate-950;
+}
+
+.subtitle {
+  @apply text-sm font-semibold leading-relaxed text-slate-500;
+}
+
+.error {
+  @apply rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold text-red-700;
+}
+
+.button,
+.it-btn {
+  @apply inline-flex min-h-[54px] items-center justify-center rounded-2xl px-5 text-sm font-black uppercase tracking-[0.12em] transition active:scale-95 disabled:opacity-50;
+}
+
+.button.primary,
+.it-btn.primary {
+  @apply bg-brand-yellow text-brand-dark shadow-[0_14px_30px_rgba(255,196,0,0.26)];
+}
+
+.button.secondary,
+.it-btn.secondary {
+  @apply border border-slate-200 bg-white text-slate-900;
+}
+
+.it-input {
+  @apply h-[58px] w-full rounded-2xl border border-slate-100 bg-white px-5 text-lg font-black outline-none focus:ring-4 focus:ring-brand-yellow/20;
+}
+
+.brand-wordmark {
+  @apply text-5xl font-black italic tracking-[-0.075em] leading-none;
+}
+
+.brand-in {
+  @apply text-brand-yellow;
+}
+
+.brand-taxi {
+  @apply text-brand-dark;
+}
+
+.premium-hero {
+  @apply relative overflow-hidden rounded-[34px] border border-slate-100 bg-white p-6 shadow-[0_20px_55px_rgba(15,23,42,0.08)];
+}
+
+.premium-hero::before {
+  content: "";
+  @apply absolute -right-12 -top-12 h-36 w-36 rounded-full bg-brand-yellow/25 blur-2xl;
+}
+
+.nav-card {
+  @apply flex min-h-[150px] flex-col justify-between rounded-[30px] border border-slate-100 bg-white p-5 shadow-[0_14px_42px_rgba(15,23,42,0.06)] transition active:scale-95;
+}
+
+.nav-card.dark {
+  @apply border-none bg-brand-dark text-white;
+}
+
+.nav-icon {
+  @apply flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-50 text-brand-yellow;
+}
+
+.nav-card.dark .nav-icon {
+  @apply bg-white/10;
+}
+
+.nav-label {
+  @apply text-xs font-black uppercase tracking-[0.16em] text-slate-500;
+}
+
+.nav-card.dark .nav-label {
+  @apply text-white/65;
+}
+
+.order-card {
+  @apply overflow-hidden rounded-[32px] border border-slate-100 bg-white shadow-[0_18px_48px_rgba(15,23,42,0.10)];
+}
+
+.order-card-inner {
+  @apply p-5;
+}
+
+.order-topline {
+  @apply mb-5 flex items-center justify-between gap-3;
+}
+
+.order-badge {
+  @apply inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-slate-500;
+}
+
+.order-seen {
+  @apply inline-flex items-center gap-1.5 rounded-full bg-brand-yellow/15 px-3 py-1 text-xs font-black text-brand-dark;
+}
+
+.route-panel {
+  @apply relative mb-5 rounded-[26px] bg-slate-50 p-4;
+}
+
+.route-line {
+  @apply absolute left-[23px] top-8 bottom-8 w-px bg-slate-200;
+}
+
+.route-point {
+  @apply relative flex gap-4;
+}
+
+.route-point + .route-point {
+  @apply mt-5;
+}
+
+.route-dot {
+  @apply mt-1 h-4 w-4 shrink-0 rounded-full border-[3px] border-brand-yellow bg-white;
+}
+
+.route-dot.end {
+  @apply border-brand-dark bg-brand-dark;
+}
+
+.route-kicker {
+  @apply text-[10px] font-black uppercase tracking-[0.18em] text-slate-400;
+}
+
+.route-address {
+  @apply mt-1 text-[15px] font-black leading-snug tracking-[-0.02em] text-slate-950;
+}
+
+.route-address.muted {
+  @apply text-slate-600;
+}
+
+.metric-grid {
+  @apply mb-5 grid grid-cols-2 gap-3;
+}
+
+.metric-card {
+  @apply rounded-3xl border border-slate-100 bg-slate-50 p-3;
+}
+
+.metric-label {
+  @apply text-[10px] font-black uppercase tracking-[0.16em] text-slate-400;
+}
+
+.metric-value {
+  @apply mt-1 text-base font-black text-slate-950;
+}
+
+.price-row {
+  @apply mb-5 flex items-center justify-between gap-3;
+}
+
+.price-value {
+  @apply text-4xl font-black tracking-[-0.06em] text-slate-950;
+}
+
+.price-currency {
+  @apply ml-1 text-xs font-black uppercase tracking-widest text-slate-400;
+}
+
+.bid-panel {
+  @apply mt-5 rounded-[28px] border border-slate-100 bg-slate-50 p-4;
+}
+
+.bid-title {
+  @apply text-sm font-black uppercase tracking-[0.12em] text-slate-950;
+}
+
+.bid-subtitle {
+  @apply mt-1 text-xs font-bold text-slate-500;
+}
+
+.bid-grid {
+  @apply mt-4 grid grid-cols-3 gap-2;
+}
+
+.bid-button {
+  @apply min-h-[58px] rounded-2xl bg-white px-2 text-center text-sm font-black text-slate-950 shadow-sm transition active:scale-95 active:bg-brand-yellow disabled:opacity-50;
+}
+
+.bid-button span {
+  @apply mt-1 block text-[10px] font-black text-slate-400;
+}
+
+.manual-bid {
+  @apply mt-3 grid grid-cols-[1fr_64px] gap-2;
+}
+
+.send-bid {
+  @apply flex h-[60px] items-center justify-center rounded-2xl bg-brand-dark text-white transition active:scale-95 disabled:opacity-50;
+}
+
+@media (min-width: 720px) {
+  .grid-2 {
+    @apply grid-cols-2;
+  }
+}
