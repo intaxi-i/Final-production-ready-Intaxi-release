@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { Car, CheckCircle2, Globe2, ShieldCheck, UserRound, Users } from 'lucide-react';
@@ -87,7 +86,10 @@ export default function ProfilePage() {
     <main className="shell stack with-bottom-nav">
       <section className="premium-hero text-center">
         <div className="relative z-10 mx-auto mb-5 flex h-24 w-24 items-center justify-center overflow-hidden rounded-[32px] bg-slate-950 text-white shadow-[0_16px_36px_rgba(15,23,42,0.18)]">
-          {avatarUrl ? <Image src={avatarUrl} alt={name} fill sizes="96px" className="object-cover" /> : <UserRound size={40} />}
+          {avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={avatarUrl} alt={name} className="h-full w-full object-cover" />
+          ) : <UserRound size={40} />}
         </div>
         <div className="relative z-10">
           <h1 className="title">{name}</h1>
