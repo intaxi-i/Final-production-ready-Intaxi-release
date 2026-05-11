@@ -1,9 +1,11 @@
 'use client';
+
 import { useEffect, useState } from 'react';
-import { acceptCityOrder, listAvailableCityOrders, createCityCounteroffer } from '@/lib/api';
+import { useRouter } from 'next/navigation';
+import { RefreshCw } from 'lucide-react';
+import { acceptCityOrder, createCityCounteroffer, listAvailableCityOrders } from '@/lib/api';
 import type { CityOrder } from '@/lib/types';
 import { OrderCard } from '@/components/OrderCard';
-import { useRouter } from 'next/navigation';
 
 export default function CityOffersPage() {
   const [orders, setOrders] = useState<CityOrder[]>([]);
@@ -13,62 +15,89 @@ export default function CityOffersPage() {
   const router = useRouter();
 
   async function load() {
-    setError(null); setLoading(true);
-    try { setOrders(await listAvailableCityOrders()); } 
-    catch (err) { setError(err instanceof Error ? err.message : 'Ошибка загрузки'); } 
-    finally { setLoading(false); }
+    setError(null);
+    setLoading(true);
+    try {
+      setOrders(await listAvailableCityOrders());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ошибка загрузки');
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function accept(orderId: number) {
-    setActionId(orderId); setError(null);
-    try { 
-        await acceptCityOrder(orderId); 
-        router.push('/trip/current');
-    } catch (err) { 
-        setError(err instanceof Error ? err.message : 'Ошибка принятия'); 
-        setActionId(null); 
+    setActionId(orderId);
+    setError(null);
+    try {
+      await acceptCityOrder(orderId);
+      router.push('/trip/current');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ошибка принятия');
+      setActionId(null);
     }
   }
 
   async function counterOffer(orderId: number, price: number) {
-    setActionId(orderId); setError(null);
+    setActionId(orderId);
+    setError(null);
     try {
-        await createCityCounteroffer(orderId, price);
-        await load(); // Перезагружаем список (заказ скроется, т.к. мы ждем ответа пассажира)
+      await createCityCounteroffer(orderId, price);
+      await load();
     } catch (err) {
-        setError(err instanceof Error ? err.message : 'Ошибка отправки цены');
+      setError(err instanceof Error ? err.message : 'Ошибка отправки цены');
     } finally {
-        setActionId(null);
+      setActionId(null);
     }
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   return (
-    <main className="shell stack pb-24">
-      <section className="card stack sticky top-0 z-10 shadow-sm">
+    <main className="shell stack">
+      <section className="card sticky top-3 z-10 backdrop-blur">
         <div className="row">
-          <div><h1 className="title">Доступные заказы</h1></div>
-          <button className="button secondary text-sm px-4" type="button" onClick={load} disabled={loading}>Обновить</button>
+          <div>
+            <p className="mb-1 text-[10px] font-black uppercase tracking-[0.2em] text-brand-yellow">Driver live feed</p>
+            <h1 className="title">Доступные заказы</h1>
+            <p className="subtitle mt-1">Выберите цену пассажира или отправьте встречное предложение.</p>
+          </div>
+          <button className="button secondary !min-h-[48px] !px-4" type="button" onClick={load} disabled={loading}>
+            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+          </button>
         </div>
-        {error ? <p className="error text-sm">{error}</p> : null}
+        {error ? <p className="error mt-4">{error}</p> : null}
       </section>
-      
-      {loading ? <p className="subtitle text-center mt-10">Загрузка эфира...</p> : null}
-      {!loading && orders.length === 0 ? <p className="subtitle text-center mt-10">Пока нет заказов в вашем радиусе.</p> : null}
-      
-      <section className="grid grid-2 gap-4 mt-2">
-        {orders.map((order) => (
-          <OrderCard 
-            key={order.id} 
-            order={order} 
-            actionLabel="Принять за эту цену" 
-            disabled={actionId === order.id} 
-            onAction={() => accept(order.id)} 
-            onCounterOffer={(price: number) => counterOffer(order.id, price)} 
-          />
-        ))}
-      </section>
+
+      {loading ? (
+        <section className="card text-center">
+          <p className="subtitle">Загрузка эфира...</p>
+        </section>
+      ) : null}
+
+      {!loading && orders.length === 0 ? (
+        <section className="card text-center">
+          <p className="text-lg font-black text-slate-950">Пока нет заказов в вашем радиусе</p>
+          <p className="subtitle mt-2">Нажмите обновить или вернитесь позже.</p>
+        </section>
+      ) : null}
+
+      {!loading && orders.length > 0 ? (
+        <section className="stack">
+          {orders.map((order) => (
+            <OrderCard
+              key={order.id}
+              order={order}
+              actionLabel="Принять"
+              disabled={actionId === order.id}
+              onAction={() => accept(order.id)}
+              onCounterOffer={(price: number) => counterOffer(order.id, price)}
+            />
+          ))}
+        </section>
+      ) : null}
     </main>
   );
 }
