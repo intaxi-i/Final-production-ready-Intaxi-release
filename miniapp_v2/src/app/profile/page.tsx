@@ -85,14 +85,14 @@ export default function ProfilePage() {
 
   return (
     <main className="shell stack with-bottom-nav">
-      <section className="premium-hero profile-hero">
-        <div className="profile-avatar">
-          {avatarUrl ? <Image src={avatarUrl} alt={name} fill sizes="96px" /> : <UserRound size={40} />}
+      <section className="premium-hero text-center">
+        <div className="relative z-10 mx-auto mb-5 flex h-24 w-24 items-center justify-center overflow-hidden rounded-[32px] bg-slate-950 text-white shadow-[0_16px_36px_rgba(15,23,42,0.18)]">
+          {avatarUrl ? <Image src={avatarUrl} alt={name} fill sizes="96px" className="object-cover" /> : <UserRound size={40} />}
         </div>
-        <div className="relative z-10 text-center">
+        <div className="relative z-10">
           <h1 className="title">{name}</h1>
-          <p className="subtitle mt-1">{username ? `@${username}` : 'Telegram Mini App'}</p>
-          <div className="profile-rating">★ {me?.rating ?? 0} · {me?.rating_count ?? 0} оценок</div>
+          <p className="subtitle mt-1">{username ? `@${username}` : 'Telegram пользователь'}</p>
+          <div className="mt-4 inline-flex rounded-full bg-brand-yellow px-4 py-2 text-xs font-black text-brand-dark">★ {me?.rating ?? 0} · {me?.rating_count ?? 0} оценок</div>
         </div>
       </section>
 
@@ -107,14 +107,14 @@ export default function ProfilePage() {
           </div>
           <Users className="text-brand-yellow" />
         </div>
-        <div className="role-switch-grid">
-          <button type="button" className={`role-card ${activeRole === 'passenger' ? 'active' : ''}`} disabled={saving} onClick={() => setRole('passenger')}>
-            <span>Пассажир</span>
-            <small>Заказывать поездки</small>
+        <div className="grid grid-cols-2 gap-3">
+          <button type="button" className={`min-h-[86px] rounded-3xl p-4 text-left transition active:scale-95 ${activeRole === 'passenger' ? 'bg-brand-dark text-white' : 'bg-slate-50 text-slate-950'}`} disabled={saving} onClick={() => setRole('passenger')}>
+            <span className="block text-base font-black">Пассажир</span>
+            <small className="mt-1 block text-xs font-bold opacity-70">Заказывать поездки</small>
           </button>
-          <button type="button" className={`role-card ${activeRole === 'driver' ? 'active' : ''}`} disabled={saving} onClick={() => setRole('driver')}>
-            <span>Водитель</span>
-            <small>Принимать заказы</small>
+          <button type="button" className={`min-h-[86px] rounded-3xl p-4 text-left transition active:scale-95 ${activeRole === 'driver' ? 'bg-brand-yellow text-brand-dark' : 'bg-slate-50 text-slate-950'}`} disabled={saving} onClick={() => setRole('driver')}>
+            <span className="block text-base font-black">Водитель</span>
+            <small className="mt-1 block text-xs font-bold opacity-70">Принимать заказы</small>
           </button>
         </div>
       </section>
@@ -128,51 +128,25 @@ export default function ProfilePage() {
             </div>
             {confirmedDriver ? <CheckCircle2 className="text-brand-yellow" /> : <ShieldCheck className="text-slate-300" />}
           </div>
-          {confirmedDriver ? (
-            <Link href={APP_ROUTES.cityOffers} className="button primary">Эфир заказов</Link>
-          ) : (
-            <Link href="/driver/register" className="button secondary">Подать заявку водителя</Link>
-          )}
+          {confirmedDriver ? <Link href={APP_ROUTES.cityOffers} className="button primary">Эфир заказов</Link> : <Link href="/driver/register" className="button secondary">Подать заявку водителя</Link>}
           <Link href="/driver/online" className="button secondary">Онлайн-статус</Link>
         </section>
       ) : (
         <section className="grid grid-2">
-          <Link href={APP_ROUTES.cityCreate} className="intercity-action primary">
-            <Car size={22} />
-            <div><strong>Город</strong><span>Создать заказ</span></div>
-          </Link>
-          <Link href={APP_ROUTES.intercity} className="intercity-action">
-            <Globe2 size={22} />
-            <div><strong>Межгород</strong><span>Дальняя поездка</span></div>
-          </Link>
+          <Link href={APP_ROUTES.cityCreate} className="intercity-action primary"><Car size={22} /><div><strong>Город</strong><span>Создать заказ</span></div></Link>
+          <Link href={APP_ROUTES.intercity} className="intercity-action"><Globe2 size={22} /><div><strong>Межгород</strong><span>Дальняя поездка</span></div></Link>
         </section>
       )}
 
       <section className="card stack">
-        <div>
-          <p className="metric-label">Настройки</p>
-          <h2 className="title" style={{ fontSize: 22 }}>Язык, страна, женский режим</h2>
-        </div>
+        <div><p className="metric-label">Настройки</p><h2 className="title" style={{ fontSize: 22 }}>Язык, страна, женский режим</h2></div>
         <div className="grid grid-2">
-          <label className="label">Язык
-            <select className="select" value={me?.language || 'ru'} onChange={(event) => saveProfile({ language: event.target.value })} disabled={saving}>
-              {LANGUAGE_OPTIONS.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}
-            </select>
-          </label>
-          <label className="label">Страна
-            <select className="select" value={me?.country_code || 'uz'} onChange={(event) => saveProfile({ country_code: event.target.value })} disabled={saving}>
-              {COUNTRY_OPTIONS.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}
-            </select>
-          </label>
+          <label className="label">Язык<select className="select" value={me?.language || 'ru'} onChange={(event) => saveProfile({ language: event.target.value })} disabled={saving}>{LANGUAGE_OPTIONS.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}</select></label>
+          <label className="label">Страна<select className="select" value={me?.country_code || 'uz'} onChange={(event) => saveProfile({ country_code: event.target.value })} disabled={saving}>{COUNTRY_OPTIONS.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}</select></label>
         </div>
-        <div className="women-setting">
-          <div>
-            <strong>Женский режим</strong>
-            <p className="subtitle">Для поездок с фильтром women-mode.</p>
-          </div>
-          <button type="button" className={`mode-chip ${me?.profile_gender === 'woman' ? 'active' : ''}`} disabled={saving} onClick={() => saveProfile({ profile_gender: me?.profile_gender === 'woman' ? 'unspecified' : 'woman' })}>
-            {me?.profile_gender === 'woman' ? 'Включён' : 'Выключен'}
-          </button>
+        <div className="row rounded-3xl bg-slate-50 p-4">
+          <div><strong>Женский режим</strong><p className="subtitle mt-1">Фильтр поездок women-mode.</p></div>
+          <button type="button" className={`rounded-2xl px-4 py-3 text-xs font-black ${me?.profile_gender === 'woman' ? 'bg-brand-yellow text-brand-dark' : 'bg-white text-slate-700'}`} disabled={saving} onClick={() => saveProfile({ profile_gender: me?.profile_gender === 'woman' ? 'unspecified' : 'woman' })}>{me?.profile_gender === 'woman' ? 'Включён' : 'Выключен'}</button>
         </div>
       </section>
 
