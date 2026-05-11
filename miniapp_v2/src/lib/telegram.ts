@@ -5,8 +5,20 @@ export type TelegramBackButton = {
   offClick?: (callback: () => void) => void;
 };
 
+export type TelegramUser = {
+  id?: number;
+  first_name?: string;
+  last_name?: string;
+  username?: string;
+  language_code?: string;
+  photo_url?: string;
+};
+
 export type TelegramWebApp = {
   initData?: string;
+  initDataUnsafe?: {
+    user?: TelegramUser;
+  };
   ready?: () => void;
   expand?: () => void;
   setHeaderColor?: (color: string) => void;
@@ -29,6 +41,23 @@ export function getTelegramWebApp(): TelegramWebApp | null {
 
 export function getTelegramInitData(): string | null {
   return getTelegramWebApp()?.initData || null;
+}
+
+export function getTelegramUser(): TelegramUser | null {
+  const webapp = getTelegramWebApp();
+  const unsafeUser = webapp?.initDataUnsafe?.user;
+  if (unsafeUser) return unsafeUser;
+
+  const initData = webapp?.initData;
+  if (!initData) return null;
+
+  try {
+    const params = new URLSearchParams(initData);
+    const rawUser = params.get('user');
+    return rawUser ? JSON.parse(rawUser) as TelegramUser : null;
+  } catch {
+    return null;
+  }
 }
 
 export function initTelegramUi() {
