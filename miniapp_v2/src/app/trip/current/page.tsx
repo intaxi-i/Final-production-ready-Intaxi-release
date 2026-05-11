@@ -1,13 +1,20 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { RefreshCw } from 'lucide-react';
-import { getCurrentCityTrip, getDriverPaymentMethodsForTrip, updateCityTripStatus } from '@/lib/api';
-import type { CityTrip, DriverPaymentMethod } from '@/lib/types';
+import { Globe2, RefreshCw } from 'lucide-react';
+import {
+  getCurrentCityTrip,
+  getCurrentIntercityTrip,
+  getDriverPaymentMethodsForTrip,
+  updateCityTripStatus,
+  updateIntercityTripStatus,
+} from '@/lib/api';
+import type { CityTrip, DriverPaymentMethod, IntercityTrip } from '@/lib/types';
 import { TripCard } from '@/components/TripCard';
 
 export default function CurrentTripPage() {
-  const [trip, setTrip] = useState<CityTrip | null>(null);
+  const [cityTrip, setCityTrip] = useState<CityTrip | null>(null);
+  const [intercityTrip, setIntercityTrip] = useState<IntercityTrip | null>(null);
   const [paymentMethods, setPaymentMethods] = useState<DriverPaymentMethod[]>([]);
   const [showPayment, setShowPayment] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -18,7 +25,12 @@ export default function CurrentTripPage() {
     setError(null);
     setLoading(true);
     try {
-      setTrip(await getCurrentCityTrip());
+      const [city, intercity] = await Promise.all([
+        getCurrentCityTrip().catch(() => null),
+        getCurrentIntercityTrip().catch(() => null),
+      ]);
+      setCityTrip(city);
+      setIntercityTrip(intercity);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось загрузить поездку');
     } finally {
@@ -26,12 +38,25 @@ export default function CurrentTripPage() {
     }
   }
 
-  async function changeStatus(status: string) {
-    if (!trip) return;
+  async function changeCityStatus(status: string) {
+    if (!cityTrip) return;
     setAction(true);
     setError(null);
     try {
-      setTrip(await updateCityTripStatus(trip.id, status));
+      setCityTrip(await updateCityTripStatus(cityTrip.id, status));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось изменить статус');
+    } finally {
+      setAction(false);
+    }
+  }
+
+  async function changeIntercityStatus(status: string) {
+    if (!intercityTrip) return;
+    setAction(true);
+    setError(null);
+    try {
+      setIntercityTrip(await updateIntercityTripStatus(intercityTrip.id, status));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось изменить статус');
     } finally {
@@ -40,11 +65,11 @@ export default function CurrentTripPage() {
   }
 
   async function loadPaymentMethods() {
-    if (!trip) return;
+    if (!cityTrip) return;
     setAction(true);
     setError(null);
     try {
-      setPaymentMethods(await getDriverPaymentMethodsForTrip(trip.id));
+      setPaymentMethods(await getDriverPaymentMethodsForTrip(cityTrip.id));
       setShowPayment(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Реквизиты пока недоступны');
@@ -62,7 +87,7 @@ export default function CurrentTripPage() {
           <div>
             <p className="metric-label">Поездка</p>
             <h1 className="title">Текущая поездка</h1>
-            <p className="subtitle mt-2">Здесь появится активный городской заказ после принятия водителем.</p>
+            <p className="subtitle mt-2">Активные городские и межгородские поездки.</p>
           </div>
           <button className="button secondary !min-h-[48px] !px-4" type="button" onClick={load} disabled={loading} aria-label="Обновить">
             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
@@ -72,11 +97,11 @@ export default function CurrentTripPage() {
       </section>
 
       {loading ? <section className="card"><p className="subtitle">Загрузка...</p></section> : null}
-      {!loading && !trip ? <section className="card"><p className="subtitle">Активной поездки нет.</p></section> : null}
+      {!loading && !cityTrip && !intercityTrip ? <section className="card"><p className="subtitle">Активной поездки нет.</p></section> : null}
 
-      {trip ? (
+      {cityTrip ? (
         <>
-          <TripCard trip={trip} onStatus={changeStatus} disabled={action} />
+          <TripCard trip={cityTrip} onStatus={changeCityStatus} disabled={action} />
           <section className="card stack">
             <div>
               <h2 className="title" style={{ fontSize: 22 }}>Оплата водителю</h2>
@@ -98,6 +123,29 @@ export default function CurrentTripPage() {
             ) : null}
           </section>
         </>
+      ) : null}
+
+      {intercityTrip ? (
+        <section className="order-card">
+          <div className="order-card-inner stack">
+            <div className="order-topline">
+              <span className="order-badge">Межгород · №{intercityTrip.id}</span>
+              <Globe2 className="text-brand-yellow" />
+            </div>
+            <div className="metric-grid">
+              <div className="metric-card"><div className="metric-label">Цена</div><div className="metric-value">{Math.round(intercityTrip.final_price).toLocaleString('ru-RU')} {intercityTrip.currency}</div></div>
+              <div className="metric-card"><div className="metric-label">Статус</div><div className="metric-value">{intercityTrip.status}</div></div>
+              <div className="metric-card"><div className="metric-label">Источник</div><div className="metric-value">{intercityTrip.source_type}</div></div>
+              <div className="metric-card"><div className="metric-label">Режим</div><div className="metric-value">{intercityTrip.mode === 'women' ? 'Женский' : 'Обычный'}</div></div>
+            </div>
+            <div className="grid grid-2">
+              <button className="button secondary" type="button" disabled={action} onClick={() => changeIntercityStatus('driver_on_way')}>Выехал</button>
+              <button className="button secondary" type="button" disabled={action} onClick={() => changeIntercityStatus('in_progress')}>В пути</button>
+              <button className="button primary" type="button" disabled={action} onClick={() => changeIntercityStatus('completed')}>Завершить</button>
+              <button className="button secondary" type="button" disabled={action} onClick={() => changeIntercityStatus('cancelled')}>Отменить</button>
+            </div>
+          </div>
+        </section>
       ) : null}
     </main>
   );
