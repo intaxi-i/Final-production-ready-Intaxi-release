@@ -1,11 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import {
-  getCurrentCityTrip,
-  getDriverPaymentMethodsForTrip,
-  updateCityTripStatus,
-} from '@/lib/api';
+import { RefreshCw } from 'lucide-react';
+import { getCurrentCityTrip, getDriverPaymentMethodsForTrip, updateCityTripStatus } from '@/lib/api';
 import type { CityTrip, DriverPaymentMethod } from '@/lib/types';
 import { TripCard } from '@/components/TripCard';
 
@@ -56,27 +53,26 @@ export default function CurrentTripPage() {
     }
   }
 
-  useEffect(() => {
-    load();
-  }, []);
+  useEffect(() => { load(); }, []);
 
   return (
-    <main className="shell stack">
-      <section className="card stack">
-        <div className="row">
+    <main className="shell stack with-bottom-nav">
+      <section className="premium-hero">
+        <div className="relative z-10 row">
           <div>
+            <p className="metric-label">Поездка</p>
             <h1 className="title">Текущая поездка</h1>
-            <p className="subtitle">Статусы меняются только через Backend V2.</p>
+            <p className="subtitle mt-2">Здесь появится активный городской заказ после принятия водителем.</p>
           </div>
-          <button className="button secondary" type="button" onClick={load} disabled={loading}>
-            Обновить
+          <button className="button secondary !min-h-[48px] !px-4" type="button" onClick={load} disabled={loading} aria-label="Обновить">
+            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
           </button>
         </div>
-        {error ? <p className="error">{error}</p> : null}
+        {error ? <p className="error mt-4">{error}</p> : null}
       </section>
 
-      {loading ? <p className="subtitle">Загрузка...</p> : null}
-      {!loading && !trip ? <p className="subtitle">Активной city-поездки нет.</p> : null}
+      {loading ? <section className="card"><p className="subtitle">Загрузка...</p></section> : null}
+      {!loading && !trip ? <section className="card"><p className="subtitle">Активной поездки нет.</p></section> : null}
 
       {trip ? (
         <>
@@ -84,13 +80,9 @@ export default function CurrentTripPage() {
           <section className="card stack">
             <div>
               <h2 className="title" style={{ fontSize: 22 }}>Оплата водителю</h2>
-              <p className="subtitle">
-                На первом этапе пассажир платит напрямую водителю. Реквизиты доступны только участнику поездки.
-              </p>
+              <p className="subtitle">Реквизиты доступны только участникам поездки.</p>
             </div>
-            <button className="button secondary" type="button" onClick={loadPaymentMethods} disabled={action}>
-              Показать реквизиты водителя
-            </button>
+            <button className="button secondary" type="button" onClick={loadPaymentMethods} disabled={action}>Показать реквизиты водителя</button>
             {showPayment ? (
               <div className="grid grid-2">
                 {paymentMethods.length === 0 ? <p className="subtitle">Водитель ещё не добавил реквизиты.</p> : null}
