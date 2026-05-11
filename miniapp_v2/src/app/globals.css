@@ -40,11 +40,17 @@ main {
   @apply flex flex-col gap-4;
 }
 
-.row {
+.row,
+.actions {
   @apply flex items-center justify-between gap-3;
 }
 
-.grid-2 {
+.actions {
+  @apply flex-wrap;
+}
+
+.grid-2,
+.info-grid {
   @apply grid grid-cols-1 gap-4;
 }
 
@@ -69,6 +75,28 @@ main {
   @apply rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold text-red-700;
 }
 
+.success {
+  @apply rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700;
+}
+
+.label {
+  @apply flex flex-col gap-2 text-xs font-black uppercase tracking-[0.14em] text-slate-500;
+}
+
+.input,
+.select,
+.it-input {
+  @apply h-[58px] w-full rounded-2xl border border-slate-100 bg-white px-5 text-base font-black normal-case tracking-normal text-slate-950 outline-none focus:ring-4 focus:ring-brand-yellow/20;
+}
+
+textarea.input {
+  @apply h-auto min-h-[96px] py-4 font-bold;
+}
+
+.select {
+  @apply appearance-none;
+}
+
 .button,
 .it-btn {
   @apply inline-flex min-h-[54px] items-center justify-center gap-2 rounded-2xl px-5 text-sm font-black uppercase tracking-[0.12em] transition active:scale-95 disabled:opacity-50;
@@ -84,12 +112,12 @@ main {
   @apply border border-slate-200 bg-white text-slate-900;
 }
 
-.it-input {
-  @apply h-[58px] w-full rounded-2xl border border-slate-100 bg-white px-5 text-lg font-black outline-none focus:ring-4 focus:ring-brand-yellow/20;
+.full-submit {
+  @apply w-full min-h-[62px] rounded-[22px];
 }
 
 .app-back-button {
-  @apply fixed left-4 top-4 z-50 flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-100 bg-white/95 text-2xl font-black text-slate-950 shadow-[0_12px_32px_rgba(15,23,42,0.12)] backdrop-blur active:scale-95;
+  @apply fixed left-4 top-20 z-50 flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-100 bg-white/95 text-2xl font-black text-slate-950 shadow-[0_12px_32px_rgba(15,23,42,0.12)] backdrop-blur active:scale-95;
 }
 
 .brand-wordmark {
@@ -135,6 +163,94 @@ main {
 
 .nav-card.dark .nav-label {
   @apply text-white/65;
+}
+
+.bottom-nav-wrap {
+  @apply fixed inset-x-0 bottom-0 z-40 border-t border-slate-100 bg-white/95 px-3 py-3 backdrop-blur;
+}
+
+.bottom-nav {
+  @apply mx-auto grid max-w-[480px] grid-cols-5 gap-2;
+}
+
+.bottom-link {
+  @apply flex min-h-[54px] items-center justify-center rounded-2xl border border-slate-100 bg-slate-50 px-2 text-center text-[10px] font-black uppercase tracking-[0.08em] text-slate-500;
+}
+
+.bottom-link.active {
+  @apply border-brand-yellow bg-brand-yellow text-brand-dark;
+}
+
+.address-block {
+  @apply rounded-[28px] border border-slate-100 bg-slate-50 p-4;
+}
+
+.address-actions {
+  @apply mt-3 grid grid-cols-1 gap-2;
+}
+
+.suggestion-list {
+  @apply mt-3 rounded-3xl border border-slate-100 bg-white p-3 shadow-sm;
+}
+
+.suggestion-item {
+  @apply mt-2 block w-full rounded-2xl bg-slate-50 p-3 text-left transition active:scale-[0.99] active:bg-brand-yellow/40;
+}
+
+.suggestion-item span {
+  @apply block text-sm font-black leading-snug text-slate-950;
+}
+
+.suggestion-item small {
+  @apply mt-1 block text-xs font-bold text-slate-500;
+}
+
+.advanced-box {
+  @apply mt-3 rounded-3xl border border-dashed border-slate-200 bg-white p-4;
+}
+
+.route-summary {
+  @apply flex w-full items-center justify-between gap-3 rounded-3xl bg-slate-50 p-4 text-left transition active:scale-[0.99];
+}
+
+.route-summary strong {
+  @apply block text-base font-black text-slate-950;
+}
+
+.route-summary small {
+  @apply mt-1 line-clamp-2 block text-xs font-bold leading-snug text-slate-500;
+}
+
+.recommended-price {
+  @apply flex w-full items-center gap-3 rounded-[26px] border border-brand-yellow/40 bg-brand-yellow/15 p-4 text-left transition active:scale-[0.99] active:bg-brand-yellow/30;
+}
+
+.recommended-price span {
+  @apply flex-1;
+}
+
+.recommended-price strong {
+  @apply block text-xl font-black text-slate-950;
+}
+
+.recommended-price small {
+  @apply mt-1 block text-xs font-bold text-slate-500;
+}
+
+.recommended-price em {
+  @apply rounded-full bg-brand-yellow px-3 py-2 text-[10px] font-black not-italic uppercase tracking-[0.12em] text-brand-dark;
+}
+
+.price-input {
+  @apply text-xl;
+}
+
+.map-modal {
+  @apply fixed inset-0 z-[60] flex flex-col gap-3 bg-slate-950/70 p-4 backdrop-blur;
+}
+
+.map-panel {
+  @apply min-h-0 flex-1 overflow-hidden rounded-[28px] border border-white/10 bg-white;
 }
 
 .intercity-action {
@@ -314,7 +430,12 @@ main {
 }
 
 @media (min-width: 720px) {
-  .grid-2 {
+  .grid-2,
+  .info-grid {
+    @apply grid-cols-2;
+  }
+
+  .address-actions {
     @apply grid-cols-2;
   }
 }
