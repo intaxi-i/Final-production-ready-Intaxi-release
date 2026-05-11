@@ -2,7 +2,7 @@ import { ApiError } from './api';
 import { getTelegramInitData } from './telegram';
 import type { DriverProfile, SupportTicket, Topup, Vehicle, Wallet } from './types';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_INTAXI_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_INTAXI_API_BASE_URL || 'https://api.intaxi.best';
 const DEV_USER_TOKEN = process.env.NEXT_PUBLIC_INTAXI_DEV_USER_TOKEN || 'dev:1';
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
