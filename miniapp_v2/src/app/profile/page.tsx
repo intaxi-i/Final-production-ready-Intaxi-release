@@ -19,7 +19,7 @@ function statusText(profile: DriverProfile | null) {
   if (isConfirmedDriver(profile)) return 'Водитель подтверждён';
   if (profile.status === 'pending') return 'Проверка водителя';
   if (profile.status === 'rejected') return 'Заявка водителя отклонена';
-  return `Статус водителя: ${profile.status}`;
+  return 'Неизвестный статус водителя';
 }
 
 export default function ProfilePage() {
@@ -147,7 +147,7 @@ export default function ProfilePage() {
           <label className="label">Страна<select className="select" value={me?.country_code || 'uz'} onChange={(event) => saveProfile({ country_code: event.target.value })} disabled={saving}>{COUNTRY_OPTIONS.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}</select></label>
         </div>
         <div className="row rounded-3xl bg-slate-50 p-4">
-          <div><strong>Женский режим</strong><p className="subtitle mt-1">Фильтр поездок women-mode.</p></div>
+          <div><strong>Женский режим</strong><p className="subtitle mt-1">Показывает, что вы предпочитаете поездки в женском режиме. Фактический подбор зависит от серверной фильтрации.</p></div>
           <button type="button" className={`rounded-2xl px-4 py-3 text-xs font-black ${me?.profile_gender === 'woman' ? 'bg-brand-yellow text-brand-dark' : 'bg-white text-slate-700'}`} disabled={saving} onClick={() => saveProfile({ profile_gender: me?.profile_gender === 'woman' ? 'unspecified' : 'woman' })}>{me?.profile_gender === 'woman' ? 'Включён' : 'Выключен'}</button>
         </div>
       </section>
