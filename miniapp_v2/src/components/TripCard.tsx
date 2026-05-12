@@ -37,6 +37,18 @@ const MODE_LABELS: Record<string, string> = {
   women: 'Женский режим',
 };
 
+function statusLabel(value?: string | null) {
+  return value ? STATUS_LABELS[value] || 'Неизвестный статус' : 'Неизвестный статус';
+}
+
+function modeLabel(value?: string | null) {
+  return value ? MODE_LABELS[value] || 'Неизвестный режим' : 'Неизвестный режим';
+}
+
+function actionLabel(value?: string | null) {
+  return value ? ACTION_LABELS[value] || 'Неизвестное действие' : 'Неизвестное действие';
+}
+
 function formatMoney(value: number, currency: string) {
   return `${Math.round(value).toLocaleString('ru-RU')} ${currency}`;
 }
@@ -49,7 +61,7 @@ export function TripCard({ trip, onStatus, disabled, canControl = true }: Props)
       <div className="order-card-inner stack">
         <div className="order-topline">
           <span className="order-badge">Город · №{trip.id}</span>
-          <span className="order-badge bg-brand-yellow text-brand-dark">{STATUS_LABELS[trip.status] || trip.status}</span>
+          <span className="order-badge bg-brand-yellow text-brand-dark">{statusLabel(trip.status)}</span>
         </div>
 
         <div className="route-panel">
@@ -77,7 +89,7 @@ export function TripCard({ trip, onStatus, disabled, canControl = true }: Props)
           </div>
           <div className="metric-card">
             <div className="metric-label">Режим</div>
-            <div className="metric-value">{MODE_LABELS[trip.mode] || trip.mode}</div>
+            <div className="metric-value">{modeLabel(trip.mode)}</div>
           </div>
           <div className="metric-card">
             <div className="metric-label">Водитель</div>
@@ -93,7 +105,7 @@ export function TripCard({ trip, onStatus, disabled, canControl = true }: Props)
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-brand-yellow"><Navigation size={20} /></div>
             <div>
-              <strong>{STATUS_LABELS[trip.status] || trip.status}</strong>
+              <strong>{statusLabel(trip.status)}</strong>
               <p className="subtitle mt-1">Следуйте статусам поездки по порядку.</p>
             </div>
           </div>
@@ -111,7 +123,7 @@ export function TripCard({ trip, onStatus, disabled, canControl = true }: Props)
                 onClick={() => onStatus(status)}
               >
                 {status === 'completed' ? <Banknote size={18} /> : <MapPin size={18} />}
-                {ACTION_LABELS[status] || status}
+                {actionLabel(status)}
               </button>
             ))}
           </div>
