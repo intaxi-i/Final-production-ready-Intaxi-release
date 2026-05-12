@@ -1,9 +1,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { History, RefreshCw } from 'lucide-react';
 import { cancelCityOrder, listMyCityOrders, raiseCityOrderPrice } from '@/lib/api';
 import type { CityOrder } from '@/lib/types';
 import { OrderCard } from '@/components/OrderCard';
+import { BottomNav } from '@/components/BottomNav';
+
+function roundPassengerRaise(value: number, currency: string) {
+  if (currency === 'UZS') return Math.round((value * 1.1) / 1000) * 1000;
+  if (currency === 'KZT') return Math.round((value * 1.1) / 100) * 100;
+  return Math.round(value * 1.1);
+}
 
 export default function MyCityOrdersPage() {
   const [orders, setOrders] = useState<CityOrder[]>([]);
@@ -27,7 +35,7 @@ export default function MyCityOrdersPage() {
     setActionId(order.id);
     setError(null);
     try {
-      await raiseCityOrderPrice(order.id, Math.round(order.passenger_price * 1.1));
+      await raiseCityOrderPrice(order.id, roundPassengerRaise(order.passenger_price, order.currency));
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось поднять цену');
@@ -49,30 +57,44 @@ export default function MyCityOrdersPage() {
     }
   }
 
-  useEffect(() => {
-    load();
-  }, []);
+  useEffect(() => { load(); }, []);
+
+  const activeCount = orders.filter((order) => ['search', 'active'].includes(order.status)).length;
 
   return (
-    <main className="shell stack">
-      <section className="card stack">
-        <div className="row">
+    <main className="shell stack with-bottom-nav">
+      <section className="premium-hero">
+        <div className="relative z-10 row">
           <div>
-            <h1 className="title">Мои city-заказы</h1>
-            <p className="subtitle">Пассажир видит свои заявки, может поднять цену или отменить активный заказ.</p>
+            <p className="metric-label">Пассажир</p>
+            <h1 className="title">Мои заказы</h1>
+            <p className="subtitle mt-2">История городских заявок, активные заказы и быстрые действия по цене.</p>
           </div>
-          <button className="button secondary" type="button" onClick={load} disabled={loading}>Обновить</button>
+          <button className="button secondary !min-h-[48px] !px-4" type="button" onClick={load} disabled={loading} aria-label="Обновить">
+            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+          </button>
         </div>
-        {error ? <p className="error">{error}</p> : null}
+        {error ? <p className="error mt-4">{error}</p> : null}
       </section>
 
-      {loading ? <p className="subtitle">Загрузка...</p> : null}
-      {!loading && orders.length === 0 ? <p className="subtitle">Заказов пока нет.</p> : null}
+      <section className="metric-grid">
+        <div className="metric-card"><div className="metric-label">Всего</div><div className="metric-value">{orders.length}</div></div>
+        <div className="metric-card"><div className="metric-label">Активных</div><div className="metric-value">{activeCount}</div></div>
+      </section>
+
+      {loading ? <section className="card"><p className="subtitle">Загрузка...</p></section> : null}
+      {!loading && orders.length === 0 ? (
+        <section className="card stack text-center">
+          <History className="mx-auto text-brand-yellow" size={34} />
+          <p className="subtitle">Заказов пока нет. Создайте городскую поездку, чтобы она появилась здесь.</p>
+        </section>
+      ) : null}
+
       <section className="grid grid-2">
         {orders.map((order) => (
           <div className="stack" key={order.id}>
             <OrderCard order={order} />
-            {order.status === 'active' ? (
+            {['search', 'active'].includes(order.status) ? (
               <div className="actions">
                 <button className="button secondary" type="button" disabled={actionId === order.id} onClick={() => raise(order)}>
                   Поднять цену на 10%
@@ -85,6 +107,7 @@ export default function MyCityOrdersPage() {
           </div>
         ))}
       </section>
+      <BottomNav />
     </main>
   );
 }
