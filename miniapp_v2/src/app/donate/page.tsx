@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Check, Copy } from 'lucide-react';
-import { DONATION_WALLETS, walletFingerprint } from '@/lib/donation-wallets';
+import { AlertTriangle, Check, Copy, ShieldCheck } from 'lucide-react';
+import { BottomNav } from '@/components/BottomNav';
+import { DONATION_WALLETS, walletChunks, walletFingerprint } from '@/lib/donation-wallets';
 
 export default function DonatePage() {
   const [activeKey, setActiveKey] = useState(DONATION_WALLETS[0]?.key || '');
@@ -16,11 +17,15 @@ export default function DonatePage() {
   }
 
   return (
-    <main className="shell stack">
+    <main className="shell stack with-bottom-nav">
       <section className="premium-hero">
-        <div className="relative z-10">
-          <h1 className="title">Поддержать Intaxi</h1>
-          <p className="subtitle mt-2">Выберите сеть, скопируйте адрес и проверьте первые и последние символы.</p>
+        <div className="relative z-10 row">
+          <div>
+            <p className="metric-label">Донат</p>
+            <h1 className="title">Поддержать Intaxi</h1>
+            <p className="subtitle mt-2">Выберите монету и сеть. Перед отправкой сверяйте адрес, сеть и контрольный код.</p>
+          </div>
+          <ShieldCheck className="text-brand-yellow" size={34} />
         </div>
       </section>
 
@@ -42,22 +47,45 @@ export default function DonatePage() {
             </div>
             <span className="order-badge">{active.network}</span>
           </div>
+
           {active.warning ? <p className="error">{active.warning}</p> : null}
+
           <div className="wallet-box">
             <p className="metric-label">Адрес</p>
-            <code>{active.address}</code>
-            <p className="subtitle">Проверка: {walletFingerprint(active.address)}</p>
+            <code>{walletChunks(active.address)}</code>
           </div>
-          <button type="button" className="button primary" onClick={() => copyAddress(active.key, active.address)}>
+
+          <section className="metric-grid">
+            <div className="metric-card">
+              <div className="metric-label">Проверка</div>
+              <div className="metric-value">{walletFingerprint(active.address)}</div>
+            </div>
+            <div className="metric-card">
+              <div className="metric-label">Код</div>
+              <div className="metric-value">{active.checksum}</div>
+            </div>
+          </section>
+
+          <button type="button" className="button primary full-submit" onClick={() => copyAddress(active.key, active.address)}>
             {copiedKey === active.key ? <Check size={18} /> : <Copy size={18} />}
             {copiedKey === active.key ? 'Скопировано' : 'Скопировать адрес'}
           </button>
+
+          <div className="card-soft row">
+            <div>
+              <strong>Проверка перед отправкой</strong>
+              <p className="subtitle mt-1">После вставки в кошелёк сверяйте первые 8 и последние 8 символов. Если адрес в кошельке отличается — не отправляйте.</p>
+            </div>
+            <AlertTriangle className="text-brand-yellow" />
+          </div>
+
           <div className="card-soft">
-            <strong>Важно</strong>
-            <p className="subtitle mt-1">Сверьте адрес в кошельке с проверкой выше. Для USDT выберите сеть TRC20.</p>
+            <strong>Защита от подмены</strong>
+            <p className="subtitle mt-1">Адреса зашиты в клиентский код и отображаются полностью. Контрольный код нужен для ручной сверки с официальным экраном Intaxi.</p>
           </div>
         </section>
       ) : null}
+      <BottomNav />
     </main>
   );
 }
