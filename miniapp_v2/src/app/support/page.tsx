@@ -25,7 +25,7 @@ function statusLabel(value: string) {
   if (value === 'in_progress') return 'В работе';
   if (value === 'resolved') return 'Решено';
   if (value === 'closed') return 'Закрыто';
-  return value;
+  return 'Неизвестный статус';
 }
 
 export default function SupportPage() {
