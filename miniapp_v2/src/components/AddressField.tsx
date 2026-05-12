@@ -20,10 +20,10 @@ type Props = {
 };
 
 function texts(lang: string) {
-  if (lang === 'uz') return { current: 'Joylashuvim', advanced: 'Kengaytirilgan', hideAdvanced: 'Yashirish', loading: 'Aniqlanmoqda...', detected: 'Joylashuv topildi', suggestions: 'Variantlar' };
-  if (lang === 'kz') return { current: 'Орным', advanced: 'Кеңейтілген', hideAdvanced: 'Жасыру', loading: 'Анықталуда...', detected: 'Орналасу табылды', suggestions: 'Ұсыныстар' };
-  if (lang === 'en') return { current: 'Use my location', advanced: 'Advanced', hideAdvanced: 'Hide', loading: 'Resolving...', detected: 'Location detected', suggestions: 'Suggestions' };
-  return { current: 'Моя локация', advanced: 'Расширенные настройки', hideAdvanced: 'Скрыть настройки', loading: 'Определяем...', detected: 'Локация определена', suggestions: 'Подходящие адреса' };
+  if (lang === 'uz') return { current: 'Joylashuvim', advanced: 'Kengaytirilgan', hideAdvanced: 'Yashirish', loading: 'Aniqlanmoqda...', detected: 'Joylashuv topildi', suggestions: 'Variantlar', latitude: 'Kenglik', longitude: 'Uzunlik' };
+  if (lang === 'kz') return { current: 'Орным', advanced: 'Кеңейтілген', hideAdvanced: 'Жасыру', loading: 'Анықталуда...', detected: 'Орналасу табылды', suggestions: 'Ұсыныстар', latitude: 'Ендік', longitude: 'Бойлық' };
+  if (lang === 'en') return { current: 'Use my location', advanced: 'Advanced', hideAdvanced: 'Hide', loading: 'Resolving...', detected: 'Location detected', suggestions: 'Suggestions', latitude: 'Latitude', longitude: 'Longitude' };
+  return { current: 'Моя локация', advanced: 'Расширенные настройки', hideAdvanced: 'Скрыть настройки', loading: 'Определяем...', detected: 'Локация определена', suggestions: 'Подходящие адреса', latitude: 'Широта', longitude: 'Долгота' };
 }
 
 export function AddressField({ lang, label, address, setAddress, lat, setLat, lng, setLng, onResolved, allowCurrentLocation = true, manualHint, countryCode, placeholder }: Props) {
@@ -112,8 +112,8 @@ export function AddressField({ lang, label, address, setAddress, lat, setLat, ln
         <div className="advanced-box">
           <p className="subtitle">Координаты нужны только если адрес не удаётся найти обычным способом.</p>
           <div className="grid grid-2">
-            <label className="label">Lat<input className="input" value={lat} onChange={(event) => setLat(event.target.value)} placeholder="41.2995" /></label>
-            <label className="label">Lng<input className="input" value={lng} onChange={(event) => setLng(event.target.value)} placeholder="69.2401" /></label>
+            <label className="label">{ui.latitude}<input className="input" value={lat} onChange={(event) => setLat(event.target.value)} placeholder="41.2995" /></label>
+            <label className="label">{ui.longitude}<input className="input" value={lng} onChange={(event) => setLng(event.target.value)} placeholder="69.2401" /></label>
           </div>
         </div>
       ) : null}
