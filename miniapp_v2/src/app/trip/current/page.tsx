@@ -38,8 +38,20 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
   crypto: 'Криптовалюта',
 };
 
-function statusLabel(value: string) {
-  return STATUS_LABELS[value] || value;
+function statusLabel(value?: string | null) {
+  return value ? STATUS_LABELS[value] || 'Неизвестный статус' : 'Неизвестный статус';
+}
+
+function sourceLabel(value?: string | null) {
+  return value ? SOURCE_LABELS[value] || 'Неизвестный источник' : 'Неизвестный источник';
+}
+
+function modeLabel(value?: string | null) {
+  return value ? MODE_LABELS[value] || 'Неизвестный режим' : 'Неизвестный режим';
+}
+
+function paymentMethodLabel(value?: string | null) {
+  return value ? PAYMENT_METHOD_LABELS[value] || 'Неизвестный способ' : 'Неизвестный способ';
 }
 
 export default function CurrentTripPage() {
@@ -143,7 +155,7 @@ export default function CurrentTripPage() {
                 {paymentMethods.length === 0 ? <p className="subtitle">Водитель ещё не добавил реквизиты.</p> : null}
                 {paymentMethods.map((method) => (
                   <div className="card-soft" key={method.id}>
-                    <strong>{PAYMENT_METHOD_LABELS[method.method_type] || method.method_type}</strong>
+                    <strong>{paymentMethodLabel(method.method_type)}</strong>
                     <p className="subtitle">Карта: {method.card_number_masked || 'не указана'}</p>
                     <p className="subtitle">Владелец: {method.card_holder_name || 'не указан'}</p>
                     <p className="subtitle">Банк: {method.bank_name || 'не указан'}</p>
@@ -166,14 +178,14 @@ export default function CurrentTripPage() {
               <div>
                 <p className="metric-label">Цена</p>
                 <h2 className="title" style={{ fontSize: 28 }}>{Math.round(intercityTrip.final_price).toLocaleString('ru-RU')} {intercityTrip.currency}</h2>
-                <p className="subtitle mt-1">{SOURCE_LABELS[intercityTrip.source_type] || intercityTrip.source_type}</p>
+                <p className="subtitle mt-1">{sourceLabel(intercityTrip.source_type)}</p>
               </div>
               <Globe2 className="text-brand-yellow" />
             </div>
             <div className="metric-grid">
               <div className="metric-card"><div className="metric-label">Статус</div><div className="metric-value">{statusLabel(intercityTrip.status)}</div></div>
-              <div className="metric-card"><div className="metric-label">Источник</div><div className="metric-value">{SOURCE_LABELS[intercityTrip.source_type] || intercityTrip.source_type}</div></div>
-              <div className="metric-card"><div className="metric-label">Режим</div><div className="metric-value">{MODE_LABELS[intercityTrip.mode] || intercityTrip.mode}</div></div>
+              <div className="metric-card"><div className="metric-label">Источник</div><div className="metric-value">{sourceLabel(intercityTrip.source_type)}</div></div>
+              <div className="metric-card"><div className="metric-label">Режим</div><div className="metric-value">{modeLabel(intercityTrip.mode)}</div></div>
               <div className="metric-card"><div className="metric-label">Поездка</div><div className="metric-value">#{intercityTrip.id}</div></div>
             </div>
             <div className="grid grid-2">
