@@ -6,10 +6,11 @@ import {
   getCurrentCityTrip,
   getCurrentIntercityTrip,
   getDriverPaymentMethodsForTrip,
+  getMe,
   updateCityTripStatus,
   updateIntercityTripStatus,
 } from '@/lib/api';
-import type { CityTrip, DriverPaymentMethod, IntercityTrip } from '@/lib/types';
+import type { CityTrip, DriverPaymentMethod, IntercityTrip, UserMe } from '@/lib/types';
 import { TripCard } from '@/components/TripCard';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -54,7 +55,16 @@ function paymentMethodLabel(value?: string | null) {
   return value ? PAYMENT_METHOD_LABELS[value] || 'Неизвестный способ' : 'Неизвестный способ';
 }
 
+function isTripDriver(me: UserMe | null, trip?: { driver_user_id?: number | null } | null) {
+  return Boolean(me?.id && trip?.driver_user_id && me.id === trip.driver_user_id);
+}
+
+function isTripPassenger(me: UserMe | null, trip?: { passenger_user_id?: number | null } | null) {
+  return Boolean(me?.id && trip?.passenger_user_id && me.id === trip.passenger_user_id);
+}
+
 export default function CurrentTripPage() {
+  const [me, setMe] = useState<UserMe | null>(null);
   const [cityTrip, setCityTrip] = useState<CityTrip | null>(null);
   const [intercityTrip, setIntercityTrip] = useState<IntercityTrip | null>(null);
   const [paymentMethods, setPaymentMethods] = useState<DriverPaymentMethod[]>([]);
@@ -67,12 +77,16 @@ export default function CurrentTripPage() {
     setError(null);
     setLoading(true);
     try {
-      const [city, intercity] = await Promise.all([
+      const [user, city, intercity] = await Promise.all([
+        getMe().catch(() => null),
         getCurrentCityTrip().catch(() => null),
         getCurrentIntercityTrip().catch(() => null),
       ]);
+      setMe(user);
       setCityTrip(city);
       setIntercityTrip(intercity);
+      setShowPayment(false);
+      setPaymentMethods([]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось загрузить поездку');
     } finally {
@@ -81,7 +95,7 @@ export default function CurrentTripPage() {
   }
 
   async function changeCityStatus(status: string) {
-    if (!cityTrip) return;
+    if (!cityTrip || !isTripDriver(me, cityTrip)) return;
     setAction(true);
     setError(null);
     try {
@@ -94,7 +108,7 @@ export default function CurrentTripPage() {
   }
 
   async function changeIntercityStatus(status: string) {
-    if (!intercityTrip) return;
+    if (!intercityTrip || !isTripDriver(me, intercityTrip)) return;
     setAction(true);
     setError(null);
     try {
@@ -107,7 +121,7 @@ export default function CurrentTripPage() {
   }
 
   async function loadPaymentMethods() {
-    if (!cityTrip) return;
+    if (!cityTrip || !isTripPassenger(me, cityTrip)) return;
     setAction(true);
     setError(null);
     try {
@@ -121,6 +135,10 @@ export default function CurrentTripPage() {
   }
 
   useEffect(() => { load(); }, []);
+
+  const canControlCityTrip = isTripDriver(me, cityTrip);
+  const canPayCityDriver = isTripPassenger(me, cityTrip);
+  const canControlIntercityTrip = isTripDriver(me, intercityTrip);
 
   return (
     <main className="shell stack with-bottom-nav">
@@ -143,27 +161,29 @@ export default function CurrentTripPage() {
 
       {cityTrip ? (
         <>
-          <TripCard trip={cityTrip} onStatus={changeCityStatus} disabled={action} />
-          <section className="card stack">
-            <div>
-              <h2 className="title" style={{ fontSize: 22 }}>Оплата водителю</h2>
-              <p className="subtitle">Реквизиты доступны только участникам поездки.</p>
-            </div>
-            <button className="button secondary" type="button" onClick={loadPaymentMethods} disabled={action}>Показать реквизиты водителя</button>
-            {showPayment ? (
-              <div className="grid grid-2">
-                {paymentMethods.length === 0 ? <p className="subtitle">Водитель ещё не добавил реквизиты.</p> : null}
-                {paymentMethods.map((method) => (
-                  <div className="card-soft" key={method.id}>
-                    <strong>{paymentMethodLabel(method.method_type)}</strong>
-                    <p className="subtitle">Карта: {method.card_number_masked || 'не указана'}</p>
-                    <p className="subtitle">Владелец: {method.card_holder_name || 'не указан'}</p>
-                    <p className="subtitle">Банк: {method.bank_name || 'не указан'}</p>
-                  </div>
-                ))}
+          <TripCard trip={cityTrip} onStatus={changeCityStatus} disabled={action} canControl={canControlCityTrip} />
+          {canPayCityDriver ? (
+            <section className="card stack">
+              <div>
+                <h2 className="title" style={{ fontSize: 22 }}>Оплата водителю</h2>
+                <p className="subtitle">Реквизиты доступны только участникам поездки.</p>
               </div>
-            ) : null}
-          </section>
+              <button className="button secondary" type="button" onClick={loadPaymentMethods} disabled={action}>Показать реквизиты водителя</button>
+              {showPayment ? (
+                <div className="grid grid-2">
+                  {paymentMethods.length === 0 ? <p className="subtitle">Водитель ещё не добавил реквизиты.</p> : null}
+                  {paymentMethods.map((method) => (
+                    <div className="card-soft" key={method.id}>
+                      <strong>{paymentMethodLabel(method.method_type)}</strong>
+                      <p className="subtitle">Карта: {method.card_number_masked || 'не указана'}</p>
+                      <p className="subtitle">Владелец: {method.card_holder_name || 'не указан'}</p>
+                      <p className="subtitle">Банк: {method.bank_name || 'не указан'}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </section>
+          ) : null}
         </>
       ) : null}
 
@@ -188,12 +208,14 @@ export default function CurrentTripPage() {
               <div className="metric-card"><div className="metric-label">Режим</div><div className="metric-value">{modeLabel(intercityTrip.mode)}</div></div>
               <div className="metric-card"><div className="metric-label">Поездка</div><div className="metric-value">#{intercityTrip.id}</div></div>
             </div>
-            <div className="grid grid-2">
-              <button className="button secondary" type="button" disabled={action} onClick={() => changeIntercityStatus('driver_on_way')}>Выехал</button>
-              <button className="button secondary" type="button" disabled={action} onClick={() => changeIntercityStatus('in_progress')}>В пути</button>
-              <button className="button primary" type="button" disabled={action} onClick={() => changeIntercityStatus('completed')}>Завершить</button>
-              <button className="button danger" type="button" disabled={action} onClick={() => changeIntercityStatus('cancelled')}>Отменить</button>
-            </div>
+            {canControlIntercityTrip ? (
+              <div className="grid grid-2">
+                <button className="button secondary" type="button" disabled={action} onClick={() => changeIntercityStatus('driver_on_way')}>Выехал</button>
+                <button className="button secondary" type="button" disabled={action} onClick={() => changeIntercityStatus('in_progress')}>В пути</button>
+                <button className="button primary" type="button" disabled={action} onClick={() => changeIntercityStatus('completed')}>Завершить</button>
+                <button className="button danger" type="button" disabled={action} onClick={() => changeIntercityStatus('cancelled')}>Отменить</button>
+              </div>
+            ) : null}
           </div>
         </section>
       ) : null}
