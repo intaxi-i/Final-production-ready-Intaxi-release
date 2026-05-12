@@ -10,6 +10,17 @@ import { createIntercityRoute } from '@/lib/api';
 import { getWorldCountryOptions } from '@/lib/world-countries';
 import type { RideMode } from '@/lib/types';
 
+const CREATED_STATUS_LABELS: Record<string, string> = {
+  search: 'Ищем пассажира',
+  active: 'Активно',
+  accepted: 'Принято',
+  cancelled: 'Отменено',
+};
+
+function createdStatusLabel(value?: string | null) {
+  return value ? CREATED_STATUS_LABELS[value] || 'Неизвестный статус' : 'Неизвестный статус';
+}
+
 function roundPrice(value: number, country: string) {
   if (country === 'uz') return Math.round(value / 1000) * 1000;
   if (country === 'kz') return Math.round(value / 100) * 100;
@@ -90,7 +101,7 @@ export default function IntercityRoutePage() {
           </div>
           <div className="metric-grid">
             <div className="metric-card"><div className="metric-label">За место</div><div className="metric-value">{roundPrice(Number(pricePerSeat), countryCode).toLocaleString('ru-RU')} {currency}</div></div>
-            <div className="metric-card"><div className="metric-label">Статус</div><div className="metric-value">{created.status}</div></div>
+            <div className="metric-card"><div className="metric-label">Статус</div><div className="metric-value">{createdStatusLabel(created.status)}</div></div>
           </div>
           <Link className="button primary" href={APP_ROUTES.intercityOffers}>Смотреть предложения</Link>
           <Link className="button secondary" href={APP_ROUTES.intercity}>Межгород</Link>
