@@ -20,21 +20,29 @@ function formatMoney(value?: number | null, currency?: string | null) {
   return `${Number(value).toLocaleString("ru-RU")} ${currency || ""}`.trim();
 }
 
+function roundCounterPrice(value: number, countryCode: string) {
+  if (countryCode === "uz") return Math.round(value / 1000) * 1000;
+  if (countryCode === "kz") return Math.round(value / 100) * 100;
+  return Math.round(value);
+}
+
 export function OrderCard({ order, actionLabel, onAction, onCounterOffer, disabled }: any) {
+  const countryCode = String(order.country_code || "uz").toLowerCase();
   const basePrice = Number(order.passenger_price || 0);
   const currency = order.currency || "";
-  const steps = COUNTRY_STEPS[String(order.country_code || "uz").toLowerCase()] || COUNTRY_STEPS.uz;
+  const steps = COUNTRY_STEPS[countryCode] || COUNTRY_STEPS.uz;
   const [value, setValue] = useState(basePrice ? String(basePrice) : "");
 
   const percentOffers = useMemo(
-    () => [10, 20, 30].map((percent) => ({ percent, value: Math.round(basePrice + basePrice * (percent / 100)) })),
-    [basePrice],
+    () => [10, 20, 30].map((percent) => ({ percent, value: roundCounterPrice(basePrice + basePrice * (percent / 100), countryCode) })),
+    [basePrice, countryCode],
   );
 
   function sendCounterOffer(nextPrice: number) {
     if (!onCounterOffer || !nextPrice || nextPrice <= 0) return;
-    onCounterOffer(nextPrice);
-    setValue(String(nextPrice));
+    const rounded = roundCounterPrice(nextPrice, countryCode);
+    onCounterOffer(rounded);
+    setValue(String(rounded));
   }
 
   return (
@@ -50,14 +58,14 @@ export function OrderCard({ order, actionLabel, onAction, onCounterOffer, disabl
           <div className="route-point">
             <span className="route-dot" />
             <div>
-              <div className="route-kicker">A · Откуда</div>
+              <div className="route-kicker">Откуда</div>
               <p className="route-address">{order.pickup_address || "Адрес отправления не указан"}</p>
             </div>
           </div>
           <div className="route-point">
             <span className="route-dot end" />
             <div>
-              <div className="route-kicker">B · Куда</div>
+              <div className="route-kicker">Куда</div>
               <p className="route-address muted">{order.destination_address || "Адрес назначения не указан"}</p>
             </div>
           </div>
@@ -81,7 +89,7 @@ export function OrderCard({ order, actionLabel, onAction, onCounterOffer, disabl
           </div>
           {actionLabel ? (
             <button type="button" onClick={onAction} disabled={disabled} className="button primary min-w-[132px]">
-              {disabled ? "..." : actionLabel}
+              {disabled ? "Выполняем..." : actionLabel}
             </button>
           ) : null}
         </div>
@@ -90,7 +98,7 @@ export function OrderCard({ order, actionLabel, onAction, onCounterOffer, disabl
           <div className="bid-panel">
             <div>
               <h3 className="bid-title">Встречное предложение</h3>
-              <p className="bid-subtitle">Крупные кнопки для быстрого торга за рулём</p>
+              <p className="bid-subtitle">Крупные кнопки для быстрого выбора цены</p>
             </div>
 
             <div className="bid-grid">
