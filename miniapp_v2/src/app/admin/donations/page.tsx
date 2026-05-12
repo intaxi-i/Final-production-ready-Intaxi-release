@@ -13,7 +13,8 @@ function methodLabel(value: string) {
   if (value === 'crypto') return 'Криптовалюта';
   if (value === 'card') return 'Карта';
   if (value === 'bank_transfer') return 'Банковский перевод';
-  return value;
+  if (value === 'cash') return 'Наличные';
+  return 'Неизвестный способ';
 }
 
 function scopeLabel(country: string | null, currency: string | null) {
