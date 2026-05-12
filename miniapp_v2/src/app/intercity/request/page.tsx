@@ -16,6 +16,14 @@ function roundedIntercityPrice(value: number, country: string) {
   return Math.round(value);
 }
 
+function statusLabel(value: string) {
+  if (value === 'search') return 'Ищем водителя';
+  if (value === 'active') return 'Активно';
+  if (value === 'accepted') return 'Принято';
+  if (value === 'cancelled') return 'Отменено';
+  return value;
+}
+
 export default function IntercityRequestPage() {
   const countries = useMemo(() => getWorldCountryOptions('ru'), []);
   const [mode, setMode] = useState<RideMode>('regular');
@@ -88,7 +96,7 @@ export default function IntercityRequestPage() {
           </div>
           <div className="metric-grid">
             <div className="metric-card"><div className="metric-label">Цена</div><div className="metric-value">{roundedIntercityPrice(Number(price), countryCode).toLocaleString('ru-RU')} {currency}</div></div>
-            <div className="metric-card"><div className="metric-label">Статус</div><div className="metric-value">{created.status}</div></div>
+            <div className="metric-card"><div className="metric-label">Статус</div><div className="metric-value">{statusLabel(created.status)}</div></div>
           </div>
           <Link className="button primary" href={APP_ROUTES.intercityOffers}>Смотреть предложения</Link>
           <Link className="button secondary" href={APP_ROUTES.intercity}>Межгород</Link>
