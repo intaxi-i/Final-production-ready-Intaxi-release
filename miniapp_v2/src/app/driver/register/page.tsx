@@ -12,14 +12,15 @@ function statusLabel(status?: string | null) {
   if (status === 'pending') return 'На проверке';
   if (['approved', 'verified', 'active'].includes(status)) return 'Подтверждено';
   if (status === 'rejected') return 'Отклонено';
-  return status;
+  return 'Неизвестный статус';
 }
 
 function vehicleClassLabel(value: string) {
   if (value === 'comfort') return 'Комфорт';
   if (value === 'business') return 'Бизнес';
   if (value === 'minivan') return 'Минивэн';
-  return 'Эконом';
+  if (value === 'economy') return 'Эконом';
+  return 'Неизвестный класс';
 }
 
 export default function DriverRegisterPage() {
@@ -140,7 +141,7 @@ export default function DriverRegisterPage() {
           <label className="women-setting cursor-pointer">
             <span>
               <strong>Допуск к женскому режиму</strong>
-              <p className="subtitle mt-1">Отметьте, если хотите проходить отдельную проверку для women-mode.</p>
+              <p className="subtitle mt-1">Отметьте, если хотите пройти отдельную проверку для женского режима.</p>
             </span>
             <input name="request_woman_mode" type="checkbox" className="h-6 w-6 accent-brand-yellow" defaultChecked={profile?.woman_driver_status === 'pending' || profile?.woman_driver_status === 'approved'} />
           </label>
