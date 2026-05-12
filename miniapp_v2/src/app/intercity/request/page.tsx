@@ -21,7 +21,7 @@ function statusLabel(value: string) {
   if (value === 'active') return 'Активно';
   if (value === 'accepted') return 'Принято';
   if (value === 'cancelled') return 'Отменено';
-  return value;
+  return 'Статус неизвестен';
 }
 
 export default function IntercityRequestPage() {
