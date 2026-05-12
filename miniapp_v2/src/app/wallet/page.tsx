@@ -11,6 +11,23 @@ function formatAmount(value?: number | null, currency?: string | null) {
   return `${value.toLocaleString('ru-RU')} ${currency || ''}`.trim();
 }
 
+function topupStatusLabel(value?: string | null) {
+  if (value === 'pending') return 'На проверке';
+  if (value === 'approved') return 'Одобрено';
+  if (value === 'rejected') return 'Отклонено';
+  if (value === 'completed') return 'Завершено';
+  if (value === 'cancelled') return 'Отменено';
+  return 'Неизвестный статус';
+}
+
+function paymentMethodLabel(value?: string | null) {
+  if (value === 'card') return 'Карта';
+  if (value === 'bank_transfer') return 'Банковский перевод';
+  if (value === 'cash') return 'Наличные';
+  if (value === 'crypto') return 'Криптовалюта';
+  return 'Неизвестный способ';
+}
+
 export default function WalletPage() {
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [items, setItems] = useState<Topup[]>([]);
@@ -153,10 +170,10 @@ export default function WalletPage() {
             <article className="card-soft" key={item.id}>
               <div className="row">
                 <strong>#{item.id}</strong>
-                <span className="order-badge">{item.status}</span>
+                <span className="order-badge">{topupStatusLabel(item.status)}</span>
               </div>
               <h3 className="title mt-3" style={{ fontSize: 22 }}>{item.amount.toLocaleString('ru-RU')} {item.currency}</h3>
-              <p className="subtitle mt-1">Способ: {item.method}</p>
+              <p className="subtitle mt-1">Способ: {paymentMethodLabel(item.method)}</p>
               {item.rejection_reason ? <p className="error mt-3">{item.rejection_reason}</p> : null}
             </article>
           ))}
