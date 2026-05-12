@@ -1,24 +1,45 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Radio, RefreshCw } from 'lucide-react';
-import { acceptCityOrder, createCityCounteroffer, listAvailableCityOrders } from '@/lib/api';
-import type { CityOrder } from '@/lib/types';
+import { Radio, RefreshCw, ShieldAlert } from 'lucide-react';
+import { acceptCityOrder, createCityCounteroffer, getMe, listAvailableCityOrders } from '@/lib/api';
+import { getDriverProfile } from '@/lib/api-extra';
+import type { CityOrder, DriverProfile, UserMe } from '@/lib/types';
 import { OrderCard } from '@/components/OrderCard';
 import { BottomNav } from '@/components/BottomNav';
 
+function isConfirmedDriver(profile: DriverProfile | null) {
+  if (!profile?.status) return false;
+  return ['approved', 'verified', 'active'].includes(profile.status.toLowerCase());
+}
+
 export default function CityOffersPage() {
   const [orders, setOrders] = useState<CityOrder[]>([]);
+  const [me, setMe] = useState<UserMe | null>(null);
+  const [profile, setProfile] = useState<DriverProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
+  const confirmedDriver = me?.active_role === 'driver' && isConfirmedDriver(profile);
+
   async function load() {
     setError(null);
     setLoading(true);
     try {
+      const user = await getMe();
+      setMe(user);
+      const driverProfile = user.active_role === 'driver' ? await getDriverProfile().catch(() => null) : null;
+      setProfile(driverProfile);
+
+      if (user.active_role !== 'driver' || !isConfirmedDriver(driverProfile)) {
+        setOrders([]);
+        return;
+      }
+
       setOrders(await listAvailableCityOrders());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось загрузить заказы');
@@ -28,6 +49,7 @@ export default function CityOffersPage() {
   }
 
   async function accept(orderId: number) {
+    if (!confirmedDriver) return;
     setActionId(orderId);
     setError(null);
     try {
@@ -40,6 +62,7 @@ export default function CityOffersPage() {
   }
 
   async function counterOffer(orderId: number, price: number) {
+    if (!confirmedDriver) return;
     setActionId(orderId);
     setError(null);
     try {
@@ -72,10 +95,21 @@ export default function CityOffersPage() {
         {error ? <p className="error mt-4">{error}</p> : null}
       </section>
 
-      <section className="metric-grid">
-        <div className="metric-card"><div className="metric-label">Доступно</div><div className="metric-value">{orders.length}</div></div>
-        <div className="metric-card"><div className="metric-label">Эфир</div><div className="metric-value">Город</div></div>
-      </section>
+      {!loading && !confirmedDriver ? (
+        <section className="card stack text-center">
+          <ShieldAlert className="mx-auto text-brand-yellow" size={34} />
+          <p className="text-lg font-black text-slate-950">Эфир доступен после проверки водителя</p>
+          <p className="subtitle mt-2">Подайте заявку и дождитесь подтверждения. До этого городские заказы недоступны.</p>
+          <Link href="/driver/register" className="button primary">Открыть заявку водителя</Link>
+        </section>
+      ) : null}
+
+      {confirmedDriver ? (
+        <section className="metric-grid">
+          <div className="metric-card"><div className="metric-label">Доступно</div><div className="metric-value">{orders.length}</div></div>
+          <div className="metric-card"><div className="metric-label">Эфир</div><div className="metric-value">Город</div></div>
+        </section>
+      ) : null}
 
       {loading ? (
         <section className="card text-center">
@@ -83,7 +117,7 @@ export default function CityOffersPage() {
         </section>
       ) : null}
 
-      {!loading && orders.length === 0 ? (
+      {!loading && confirmedDriver && orders.length === 0 ? (
         <section className="card stack text-center">
           <Radio className="mx-auto text-brand-yellow" size={34} />
           <p className="text-lg font-black text-slate-950">Пока нет заказов рядом</p>
@@ -91,7 +125,7 @@ export default function CityOffersPage() {
         </section>
       ) : null}
 
-      {!loading && orders.length > 0 ? (
+      {!loading && confirmedDriver && orders.length > 0 ? (
         <section className="stack">
           {orders.map((order) => (
             <OrderCard
