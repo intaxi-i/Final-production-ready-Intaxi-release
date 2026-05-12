@@ -9,7 +9,7 @@ function statusLabel(value: string) {
   if (value === 'pending') return 'Ожидает проверки';
   if (value === 'approved') return 'Подтверждено';
   if (value === 'rejected') return 'Отклонено';
-  return value;
+  return 'Неизвестный статус';
 }
 
 export default function AdminPaymentsPage() {
