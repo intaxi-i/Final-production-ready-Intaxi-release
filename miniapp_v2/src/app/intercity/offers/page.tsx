@@ -9,11 +9,30 @@ import { acceptIntercityOffer, listIntercityOffers } from '@/lib/api';
 import type { IntercityOffer } from '@/lib/types';
 
 function kindLabel(kind: string) {
-  return kind === 'request' ? 'Заявка пассажира' : 'Маршрут водителя';
+  if (kind === 'request') return 'Заявка пассажира';
+  if (kind === 'route') return 'Маршрут водителя';
+  return 'Неизвестный тип';
 }
 
 function actionLabel(kind: string) {
-  return kind === 'request' ? 'Принять как водитель' : 'Поехать пассажиром';
+  if (kind === 'request') return 'Принять как водитель';
+  if (kind === 'route') return 'Поехать пассажиром';
+  return 'Открыть предложение';
+}
+
+function statusLabel(value?: string | null) {
+  if (value === 'search') return 'Идёт поиск';
+  if (value === 'active') return 'Активно';
+  if (value === 'accepted') return 'Принято';
+  if (value === 'completed') return 'Завершено';
+  if (value === 'cancelled') return 'Отменено';
+  return 'Неизвестный статус';
+}
+
+function modeLabel(value?: string | null) {
+  if (value === 'regular') return 'Обычный режим';
+  if (value === 'women') return 'Женский режим';
+  return 'Неизвестный режим';
 }
 
 export default function IntercityOffersPage() {
@@ -129,7 +148,7 @@ export default function IntercityOffersPage() {
                 <div className="row rounded-3xl bg-slate-50 p-4">
                   <div className="flex items-center gap-3">
                     {item.kind === 'request' ? <Route className="text-brand-yellow" /> : <CalendarDays className="text-brand-yellow" />}
-                    <div><strong>{item.status}</strong><p className="subtitle mt-1">{item.mode === 'women' ? 'Женский режим' : 'Обычный режим'}</p></div>
+                    <div><strong>{statusLabel(item.status)}</strong><p className="subtitle mt-1">{modeLabel(item.mode)}</p></div>
                   </div>
                 </div>
 
