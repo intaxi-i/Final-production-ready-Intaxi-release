@@ -21,6 +21,19 @@ const FALLBACK_PRICE_PER_KM: Record<string, { currency: string; pricePerKm: numb
   sa: { currency: 'SAR', pricePerKm: 2.5, minPrice: 15 },
 };
 
+const CREATED_STATUS_LABELS: Record<string, string> = {
+  search: 'Ищем водителя',
+  active: 'Активно',
+  accepted: 'Принято',
+  finished: 'Завершено',
+  completed: 'Завершено',
+  cancelled: 'Отменено',
+};
+
+function createdStatusLabel(value?: string | null) {
+  return value ? CREATED_STATUS_LABELS[value] || 'Неизвестный статус' : 'Неизвестный статус';
+}
+
 function searchDots(seconds: number) {
   return '.'.repeat((seconds % 3) + 1);
 }
@@ -193,7 +206,7 @@ export default function CityCreatePage() {
         </section>
         <section className="metric-grid">
           <div className="metric-card"><div className="metric-label">Увидели</div><div className="metric-value">{driversSeen}</div></div>
-          <div className="metric-card"><div className="metric-label">Статус</div><div className="metric-value">{created.status}</div></div>
+          <div className="metric-card"><div className="metric-label">Статус</div><div className="metric-value">{createdStatusLabel(created.status)}</div></div>
           <div className="metric-card"><div className="metric-label">Цена</div><div className="metric-value">{created.passenger_price} {created.currency}</div></div>
           <div className="metric-card"><div className="metric-label">Время</div><div className="metric-value">{secondsPassed}s</div></div>
         </section>
