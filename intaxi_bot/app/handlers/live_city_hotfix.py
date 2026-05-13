@@ -39,7 +39,7 @@ def _current_trip_link(trip_id: int) -> str:
     return f"{base}?tripType=city_trip&tripId={trip_id}"
 
 
-def _trip_status_kb(trip_id: int, status: str):
+def _driver_trip_status_kb(trip_id: int, status: str):
     builder = InlineKeyboardBuilder()
     if status in {"accepted", "driver_on_way"}:
         builder.button(text="🚘 В пути", callback_data=f"lctrip_onway_{trip_id}")
@@ -48,7 +48,7 @@ def _trip_status_kb(trip_id: int, status: str):
         builder.button(text="▶️ Начать поездку", callback_data=f"lctrip_start_{trip_id}")
     if status == "in_progress":
         builder.button(text="✅ Завершить поездку", callback_data=f"lctrip_finish_{trip_id}")
-    return builder.adjust(1).as_markup()
+    return builder.adjust(1).as_markup() if builder.buttons else None
 
 
 async def _vehicle_for_driver(driver_tg_id: int) -> Vehicle | None:
@@ -119,11 +119,11 @@ async def _send_trip_cards(bot: Bot, trip: CityTripV1):
         f"Открыть поездку: {_current_trip_link(trip.id)}"
     )
     try:
-        await bot.send_message(trip.passenger_tg_id, passenger_text, reply_markup=_trip_status_kb(trip.id, trip.status))
+        await bot.send_message(trip.passenger_tg_id, passenger_text)
     except Exception:
         pass
     try:
-        await bot.send_message(trip.driver_tg_id, driver_text, reply_markup=_trip_status_kb(trip.id, trip.status))
+        await bot.send_message(trip.driver_tg_id, driver_text, reply_markup=_driver_trip_status_kb(trip.id, trip.status))
     except Exception:
         pass
 
@@ -142,11 +142,11 @@ async def _notify_trip_status(bot: Bot, trip: CityTripV1, action: str):
         passenger_text = f"✅ Поездка завершена.\n\nСпасибо, что воспользовались Intaxi."
         driver_text = f"✅ Поездка завершена."
     try:
-        await bot.send_message(trip.passenger_tg_id, passenger_text, reply_markup=_trip_status_kb(trip.id, trip.status))
+        await bot.send_message(trip.passenger_tg_id, passenger_text)
     except Exception:
         pass
     try:
-        await bot.send_message(trip.driver_tg_id, driver_text, reply_markup=_trip_status_kb(trip.id, trip.status))
+        await bot.send_message(trip.driver_tg_id, driver_text, reply_markup=_driver_trip_status_kb(trip.id, trip.status))
     except Exception:
         pass
 
@@ -340,7 +340,8 @@ async def hotfix_current_trip(message: types.Message):
         f"Статус: {trip.status}{vehicle_text}\n\n"
         f"Мини App: {_current_trip_link(trip.id)}"
     )
-    await message.answer(text, reply_markup=_trip_status_kb(trip.id, trip.status))
+    reply_markup = _driver_trip_status_kb(trip.id, trip.status) if message.from_user.id == trip.driver_tg_id else None
+    await message.answer(text, reply_markup=reply_markup)
 
 
 @router.callback_query(F.data.startswith('lctrip_'))
@@ -358,6 +359,9 @@ async def hotfix_trip_status(callback: types.CallbackQuery, bot: Bot):
         trip = await session.scalar(select(CityTripV1).where(CityTripV1.id == trip_id))
         if not trip:
             await callback.answer('Поездка не найдена', show_alert=True)
+            return
+        if callback.from_user.id != trip.driver_tg_id:
+            await callback.answer('Статус поездки может менять только водитель', show_alert=True)
             return
         trip.status = next_status or trip.status
         await session.commit()
