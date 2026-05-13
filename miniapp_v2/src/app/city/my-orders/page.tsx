@@ -5,12 +5,15 @@ import { History, RefreshCw } from 'lucide-react';
 import { cancelCityOrder, listMyCityOrders, raiseCityOrderPrice } from '@/lib/api';
 import type { CityOrder } from '@/lib/types';
 import { OrderCard } from '@/components/OrderCard';
-import { BottomNav } from '@/components/BottomNav';
 
 function roundPassengerRaise(value: number, currency: string) {
   if (currency === 'UZS') return Math.round((value * 1.1) / 1000) * 1000;
   if (currency === 'KZT') return Math.round((value * 1.1) / 100) * 100;
   return Math.round(value * 1.1);
+}
+
+function isLiveStatus(status: string) {
+  return ['search', 'active', 'accepted'].includes(status);
 }
 
 export default function MyCityOrdersPage() {
@@ -57,9 +60,14 @@ export default function MyCityOrdersPage() {
     }
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    void load();
+    const timer = window.setInterval(() => void load(), 10000);
+    return () => window.clearInterval(timer);
+  }, []);
 
-  const activeCount = orders.filter((order) => ['search', 'active'].includes(order.status)).length;
+  const activeOrders = orders.filter((order) => isLiveStatus(order.status));
+  const historyOrders = orders.filter((order) => !isLiveStatus(order.status));
 
   return (
     <main className="shell stack with-bottom-nav">
@@ -68,7 +76,7 @@ export default function MyCityOrdersPage() {
           <div>
             <p className="metric-label">Пассажир</p>
             <h1 className="title">Мои заказы</h1>
-            <p className="subtitle mt-2">История городских заявок, активные заказы и быстрые действия по цене.</p>
+            <p className="subtitle mt-2">Активные заказы показываются отдельно, завершённые остаются в истории.</p>
           </div>
           <button className="button secondary !min-h-[48px] !px-4" type="button" onClick={load} disabled={loading} aria-label="Обновить">
             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
@@ -79,22 +87,24 @@ export default function MyCityOrdersPage() {
 
       <section className="metric-grid">
         <div className="metric-card"><div className="metric-label">Всего</div><div className="metric-value">{orders.length}</div></div>
-        <div className="metric-card"><div className="metric-label">Активных</div><div className="metric-value">{activeCount}</div></div>
+        <div className="metric-card"><div className="metric-label">Активных</div><div className="metric-value">{activeOrders.length}</div></div>
       </section>
 
       {loading ? <section className="card"><p className="subtitle">Загрузка...</p></section> : null}
       {!loading && orders.length === 0 ? (
         <section className="card stack text-center">
           <History className="mx-auto text-brand-yellow" size={34} />
-          <p className="subtitle">Заказов пока нет. Создайте городскую поездку, чтобы она появилась здесь.</p>
+          <h2 className="title" style={{ fontSize: 22 }}>История пока пустая</h2>
+          <p className="subtitle">Создайте городскую поездку — активный заказ появится сверху, а после завершения останется здесь.</p>
         </section>
       ) : null}
 
-      <section className="grid grid-2">
-        {orders.map((order) => (
-          <div className="stack" key={order.id}>
-            <OrderCard order={order} />
-            {['search', 'active'].includes(order.status) ? (
+      {activeOrders.length > 0 ? (
+        <section className="stack">
+          <h2 className="title" style={{ fontSize: 22 }}>Активные</h2>
+          {activeOrders.map((order) => (
+            <div className="stack" key={order.id}>
+              <OrderCard order={order} />
               <div className="actions">
                 <button className="button secondary" type="button" disabled={actionId === order.id} onClick={() => raise(order)}>
                   Поднять цену на 10%
@@ -103,11 +113,19 @@ export default function MyCityOrdersPage() {
                   Отменить
                 </button>
               </div>
-            ) : null}
+            </div>
+          ))}
+        </section>
+      ) : null}
+
+      {historyOrders.length > 0 ? (
+        <section className="stack">
+          <h2 className="title" style={{ fontSize: 22 }}>История</h2>
+          <div className="grid grid-2">
+            {historyOrders.map((order) => <OrderCard key={order.id} order={order} />)}
           </div>
-        ))}
-      </section>
-      <BottomNav />
+        </section>
+      ) : null}
     </main>
   );
 }
