@@ -38,6 +38,7 @@ SECTION_BY_TEXT = {
 class AdminFlows(StatesGroup):
     lookup_id = State()
     grant_admin_id = State()
+    broadcast_text = State()
 
 
 async def _clean_admin_messages(bot: Bot, user_tg_id: int) -> None:
@@ -81,6 +82,19 @@ async def _ensure_permission(target: types.Message | types.CallbackQuery, permis
         except Exception:
             pass
     return allowed
+
+
+async def _send_broadcast(bot: Bot, text: str) -> tuple[int, int, int]:
+    users = await rq.list_recent_users(100000)
+    sent = 0
+    failed = 0
+    for user in users:
+        try:
+            await bot.send_message(user.tg_id, text, disable_web_page_preview=True)
+            sent += 1
+        except Exception:
+            failed += 1
+    return len(users), sent, failed
 
 
 @router.message(F.text == '/admin')
@@ -147,9 +161,7 @@ async def open_admin_section(message: types.Message, state: FSMContext):
         users = await rq.list_recent_users(12)
         lines = ['<b>Последние пользователи</b>']
         for user in users:
-            lines.append(
-                f'• <code>{user.tg_id}</code> — {user.full_name or "—"} | {user.country or "—"} / {user.city or "—"}'
-            )
+            lines.append(f'• <code>{user.tg_id}</code> — {user.full_name or "—"} | {user.country or "—"} / {user.city or "—"}')
         await _send_admin_block(message, '\n'.join(lines))
         return
 
@@ -200,12 +212,7 @@ async def open_admin_section(message: types.Message, state: FSMContext):
 
     if section == 'moderation':
         feedback_rows = await rq.list_recent_feedback(8)
-        lines = [
-            '<b>Модерация</b>',
-            'Проверь заявки водителей через сообщения с кнопками verify/reject.',
-            '',
-            '<b>Последние отзывы/предложения</b>',
-        ]
+        lines = ['<b>Модерация</b>', 'Проверь заявки водителей через сообщения с кнопками verify/reject.', '', '<b>Последние отзывы/предложения</b>']
         if not feedback_rows:
             lines.append('Новых записей нет.')
         for row in feedback_rows:
@@ -214,7 +221,8 @@ async def open_admin_section(message: types.Message, state: FSMContext):
         return
 
     if section == 'broadcast':
-        await _send_admin_block(message, '<b>Рассылка</b>\n\nМассовая рассылка в этом restore-bundle отключена, чтобы не сломать рабочие сценарии.')
+        await state.set_state(AdminFlows.broadcast_text)
+        await _send_admin_block(message, '<b>Рассылка</b>\n\nОтправь текст рассылки одним сообщением. Для отмены напиши: <code>отмена</code>')
         return
 
     if section == 'lookup':
@@ -257,6 +265,51 @@ async def open_admin_section(message: types.Message, state: FSMContext):
         builder.button(text='➕ Назначить / сменить роль', callback_data='adminrole_add')
         await _send_admin_block(message, '\n'.join(lines), reply_markup=builder.adjust(2).as_markup())
         return
+
+
+@router.message(AdminFlows.broadcast_text)
+async def broadcast_receive_text(message: types.Message, state: FSMContext):
+    if not await _ensure_permission(message, 'broadcast'):
+        await state.clear()
+        return
+    text = (message.text or '').strip()
+    if text.lower() in {'отмена', 'cancel'}:
+        await state.clear()
+        await _send_admin_block(message, 'Рассылка отменена.')
+        return
+    if len(text) < 2:
+        await message.answer('Текст слишком короткий. Отправь текст рассылки или напиши отмена.')
+        return
+    await state.update_data(broadcast_text=text)
+    builder = InlineKeyboardBuilder()
+    builder.button(text='✅ Отправить всем', callback_data='broadcast_confirm')
+    builder.button(text='❌ Отменить', callback_data='broadcast_cancel')
+    await _send_admin_block(message, f'<b>Предпросмотр рассылки</b>\n\n{text}', reply_markup=builder.adjust(1).as_markup())
+
+
+@router.callback_query(F.data == 'broadcast_cancel')
+async def broadcast_cancel(callback: types.CallbackQuery, state: FSMContext):
+    if not await _ensure_permission(callback, 'broadcast'):
+        return
+    await state.clear()
+    await _send_admin_block(callback, 'Рассылка отменена.')
+    await callback.answer('Отменено')
+
+
+@router.callback_query(F.data == 'broadcast_confirm')
+async def broadcast_confirm(callback: types.CallbackQuery, state: FSMContext):
+    if not await _ensure_permission(callback, 'broadcast'):
+        return
+    data = await state.get_data()
+    text = data.get('broadcast_text')
+    if not text:
+        await callback.answer('Текст рассылки не найден', show_alert=True)
+        await state.clear()
+        return
+    await callback.answer('Рассылка запущена')
+    total, sent, failed = await _send_broadcast(callback.bot, text)
+    await state.clear()
+    await _send_admin_block(callback, f'<b>Рассылка завершена</b>\n\nВсего: {total}\nОтправлено: {sent}\nОшибок: {failed}')
 
 
 @router.message(AdminFlows.lookup_id)
