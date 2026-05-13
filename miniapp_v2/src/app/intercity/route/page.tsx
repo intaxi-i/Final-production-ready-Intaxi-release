@@ -1,14 +1,15 @@
 'use client';
 
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { CalendarDays, CheckCircle2, Route } from 'lucide-react';
+import { CalendarDays, CheckCircle2, Route, ShieldAlert } from 'lucide-react';
 import { BottomNav } from '@/components/BottomNav';
 import { ModeToggle } from '@/components/ModeToggle';
 import { APP_ROUTES, currencyForCountry } from '@/lib/constants';
-import { createIntercityRoute } from '@/lib/api';
+import { createIntercityRoute, getMe } from '@/lib/api';
+import { getDriverProfile } from '@/lib/api-extra';
 import { getWorldCountryOptions } from '@/lib/world-countries';
-import type { RideMode } from '@/lib/types';
+import type { DriverProfile, RideMode, UserMe } from '@/lib/types';
 
 const CREATED_STATUS_LABELS: Record<string, string> = {
   search: 'Ищем пассажира',
@@ -21,6 +22,11 @@ function createdStatusLabel(value?: string | null) {
   return value ? CREATED_STATUS_LABELS[value] || 'Неизвестный статус' : 'Неизвестный статус';
 }
 
+function isConfirmedDriver(profile: DriverProfile | null) {
+  if (!profile?.status) return false;
+  return ['approved', 'verified', 'active'].includes(profile.status.toLowerCase());
+}
+
 function roundPrice(value: number, country: string) {
   if (country === 'uz') return Math.round(value / 1000) * 1000;
   if (country === 'kz') return Math.round(value / 100) * 100;
@@ -29,6 +35,9 @@ function roundPrice(value: number, country: string) {
 
 export default function IntercityRoutePage() {
   const countries = useMemo(() => getWorldCountryOptions('ru'), []);
+  const [me, setMe] = useState<UserMe | null>(null);
+  const [driverProfile, setDriverProfile] = useState<DriverProfile | null>(null);
+  const [checkingAccess, setCheckingAccess] = useState(true);
   const [mode, setMode] = useState<RideMode>('regular');
   const [countryCode, setCountryCode] = useState('uz');
   const [fromText, setFromText] = useState('');
@@ -43,12 +52,41 @@ export default function IntercityRoutePage() {
   const [created, setCreated] = useState<{ id: number; status: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function loadAccess() {
+      try {
+        const user = await getMe();
+        if (cancelled) return;
+        setMe(user);
+        if (user.active_role === 'driver') {
+          const profile = await getDriverProfile().catch(() => null);
+          if (!cancelled) setDriverProfile(profile);
+        }
+      } catch {
+        // Access guard will show safe fallback if profile cannot be loaded.
+      } finally {
+        if (!cancelled) setCheckingAccess(false);
+      }
+    }
+    void loadAccess();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const confirmedDriver = me?.active_role === 'driver' && isConfirmedDriver(driverProfile);
   const currency = currencyForCountry(countryCode);
   const canSubmit = fromText.trim().length > 1 && toText.trim().length > 1 && Number(pricePerSeat) > 0;
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+
+    if (!confirmedDriver) {
+      setError('Публикация маршрута доступна только подтверждённому водителю.');
+      return;
+    }
 
     if (!canSubmit) {
       setError('Укажите маршрут, количество мест и цену за место.');
@@ -78,6 +116,37 @@ export default function IntercityRoutePage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (checkingAccess) {
+    return (
+      <main className="shell stack with-bottom-nav">
+        <section className="card"><p className="subtitle">Проверяем статус водителя...</p></section>
+        <BottomNav />
+      </main>
+    );
+  }
+
+  if (!confirmedDriver) {
+    return (
+      <main className="shell stack with-bottom-nav">
+        <section className="premium-hero text-center">
+          <div className="relative z-10 mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-brand-yellow text-brand-dark">
+            <ShieldAlert size={34} />
+          </div>
+          <div className="relative z-10">
+            <p className="metric-label">Водитель межгород</p>
+            <h1 className="title">Нужна проверка водителя</h1>
+            <p className="subtitle mt-2">Публикация межгород-маршрута доступна только после подтверждения водителя администратором.</p>
+          </div>
+        </section>
+        <section className="card stack">
+          <Link className="button primary" href="/driver/register">Открыть заявку водителя</Link>
+          <Link className="button secondary" href={APP_ROUTES.intercity}>Вернуться в межгород</Link>
+        </section>
+        <BottomNav />
+      </main>
+    );
   }
 
   if (created) {
