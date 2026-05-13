@@ -4,7 +4,7 @@ from math import ceil
 from typing import Any, Callable
 
 from aiogram import Bot
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from sqlalchemy import or_, select
 
 from api.auth import get_bot_token, get_current_user
@@ -12,13 +12,12 @@ from api.schemas import (
     CityAcceptResponse,
     CityOrderCreateRequest,
     CityOrderCreateResponse,
-    CityOrderEnvelope,
     CityOrderListResponse,
     CityOrderResponse,
-    CityTripEnvelope,
     CityTripResponse,
     CurrentTripResponse,
-    DriverOnlineStateResponse,
+    IntercityOfferListResponse,
+    IntercityOfferResponse,
     RaisePriceRequest,
     VehicleInfo,
 )
@@ -27,6 +26,9 @@ from intaxi_bot.app.database.models import (
     CityOrderV1,
     CityTripV1,
     DriverOnlineState,
+    IntercityRequestV1,
+    IntercityRouteMeta,
+    IntercityRouteV1,
     TariffSetting,
     User,
     Vehicle,
@@ -55,14 +57,7 @@ def _same_or_empty(left: Any, right: Any) -> bool:
 def _vehicle_to_schema(vehicle: Vehicle | None) -> VehicleInfo | None:
     if not vehicle:
         return None
-    return VehicleInfo(
-        brand=vehicle.brand,
-        model=vehicle.model,
-        plate=vehicle.plate,
-        color=vehicle.color,
-        capacity=vehicle.capacity,
-        vehicle_class=vehicle.vehicle_class,
-    )
+    return VehicleInfo(brand=vehicle.brand, model=vehicle.model, plate=vehicle.plate, color=vehicle.color, capacity=vehicle.capacity, vehicle_class=vehicle.vehicle_class)
 
 
 async def _tariff(country: str | None) -> tuple[str, float]:
@@ -93,11 +88,7 @@ async def _vehicle_for_driver(session, driver_tg_id: int) -> Vehicle | None:
 
 
 async def _driver_has_live_trip(session, driver_tg_id: int) -> bool:
-    trip = await session.scalar(
-        select(CityTripV1)
-        .where(CityTripV1.driver_tg_id == driver_tg_id, CityTripV1.status.in_(list(LIVE_CITY_STATUSES)))
-        .order_by(CityTripV1.id.desc())
-    )
+    trip = await session.scalar(select(CityTripV1).where(CityTripV1.driver_tg_id == driver_tg_id, CityTripV1.status.in_(list(LIVE_CITY_STATUSES))).order_by(CityTripV1.id.desc()))
     return trip is not None
 
 
@@ -145,32 +136,17 @@ async def _order_schema(session, order: CityOrderV1, current_user: User | None =
         driver_distance = round(haversine_km(float(runtime.from_lat), float(runtime.from_lng), float(driver_state.lat), float(driver_state.lng)), 2)
         driver_eta = max(2, ceil(driver_distance / 0.45))
     return CityOrderResponse(
-        id=order.id,
-        creator_tg_id=order.creator_tg_id,
-        creator_name=creator.full_name if creator else None,
-        creator_rating=float(creator.rating or 0) if creator else None,
-        role=order.role,
-        country=order.country,
-        city=order.city,
-        from_address=order.from_address,
-        to_address=order.to_address,
-        seats=order.seats,
-        price=float(order.price or 0),
+        id=order.id, creator_tg_id=order.creator_tg_id, creator_name=creator.full_name if creator else None,
+        creator_rating=float(creator.rating or 0) if creator else None, role=order.role, country=order.country, city=order.city,
+        from_address=order.from_address, to_address=order.to_address, seats=order.seats, price=float(order.price or 0),
         recommended_price=float(runtime.recommended_price) if runtime and runtime.recommended_price is not None else None,
-        seen_by_drivers=int(runtime.seen_by_drivers) if runtime else 0,
-        can_raise_price_after=30,
+        seen_by_drivers=int(runtime.seen_by_drivers) if runtime else 0, can_raise_price_after=30,
         estimated_distance_km=float(runtime.estimated_distance_km) if runtime and runtime.estimated_distance_km is not None else None,
         estimated_trip_min=int(runtime.estimated_trip_min) if runtime and runtime.estimated_trip_min is not None else None,
-        driver_distance_km=driver_distance,
-        driver_eta_min=driver_eta,
-        comment=order.comment,
-        status=order.status,
-        created_at=str(order.created_at) if order.created_at else None,
-        is_mine=bool(current_user and current_user.tg_id == order.creator_tg_id),
-        active_trip_id=int(runtime.active_trip_id) if runtime and runtime.active_trip_id else None,
-        vehicle=_vehicle_to_schema(vehicle),
-        currency=runtime.currency if runtime else None,
-        tariff_hint=runtime.tariff_hint if runtime else None,
+        driver_distance_km=driver_distance, driver_eta_min=driver_eta, comment=order.comment, status=order.status,
+        created_at=str(order.created_at) if order.created_at else None, is_mine=bool(current_user and current_user.tg_id == order.creator_tg_id),
+        active_trip_id=int(runtime.active_trip_id) if runtime and runtime.active_trip_id else None, vehicle=_vehicle_to_schema(vehicle),
+        currency=runtime.currency if runtime else None, tariff_hint=runtime.tariff_hint if runtime else None,
     )
 
 
@@ -179,34 +155,14 @@ async def _trip_schema(session, trip: CityTripV1) -> CityTripResponse:
     driver = await session.scalar(select(User).where(User.tg_id == trip.driver_tg_id))
     vehicle = await _vehicle_for_driver(session, trip.driver_tg_id)
     return CityTripResponse(
-        id=trip.id,
-        order_id=trip.order_id,
-        status=trip.status,
-        price=float(trip.price or 0),
-        country=trip.country,
-        city=trip.city,
-        from_address=trip.from_address,
-        to_address=trip.to_address,
-        seats=trip.seats,
-        comment=trip.comment,
-        passenger_tg_id=trip.passenger_tg_id,
-        driver_tg_id=trip.driver_tg_id,
-        passenger_name=passenger.full_name if passenger else None,
-        passenger_username=passenger.username if passenger else None,
-        driver_name=driver.full_name if driver else None,
-        driver_username=driver.username if driver else None,
-        driver_rating=float(driver.rating or 0) if driver else None,
-        vehicle=_vehicle_to_schema(vehicle),
-        trip_type="city_trip",
-        pickup_lat=trip.pickup_lat,
-        pickup_lng=trip.pickup_lng,
-        destination_lat=trip.destination_lat,
-        destination_lng=trip.destination_lng,
-        driver_lat=trip.driver_lat,
-        driver_lng=trip.driver_lng,
-        passenger_lat=trip.passenger_lat,
-        passenger_lng=trip.passenger_lng,
-        eta_min=None,
+        id=trip.id, order_id=trip.order_id, status=trip.status, price=float(trip.price or 0), country=trip.country, city=trip.city,
+        from_address=trip.from_address, to_address=trip.to_address, seats=trip.seats, comment=trip.comment,
+        passenger_tg_id=trip.passenger_tg_id, driver_tg_id=trip.driver_tg_id, passenger_name=passenger.full_name if passenger else None,
+        passenger_username=passenger.username if passenger else None, driver_name=driver.full_name if driver else None,
+        driver_username=driver.username if driver else None, driver_rating=float(driver.rating or 0) if driver else None,
+        vehicle=_vehicle_to_schema(vehicle), trip_type="city_trip", pickup_lat=trip.pickup_lat, pickup_lng=trip.pickup_lng,
+        destination_lat=trip.destination_lat, destination_lng=trip.destination_lng, driver_lat=trip.driver_lat, driver_lng=trip.driver_lng,
+        passenger_lat=trip.passenger_lat, passenger_lng=trip.passenger_lng, eta_min=None,
     )
 
 
@@ -223,13 +179,14 @@ async def _notify_city_drivers(order_id: int) -> int:
         runtime.seen_by_drivers = len(selected)
         await session.commit()
         payload = [(driver.tg_id, distance) for distance, driver, _ in selected]
+        distance_line = f"Дистанция поездки: {float(runtime.estimated_distance_km):.1f} км\n" if runtime.estimated_distance_km is not None else ""
         text = (
             "🆕 Новый городской заказ\n\n"
             f"A: {order.from_address or '—'}\n"
             f"B: {order.to_address or '—'}\n"
             f"Цена пассажира: {float(order.price or 0):g}\n"
             f"Мест: {int(order.seats or 1)}\n"
-            f"Дистанция поездки: {float(runtime.estimated_distance_km):.1f} км\n" if runtime.estimated_distance_km is not None else "🆕 Новый городской заказ\n\n"
+            f"{distance_line}"
         )
     if not token or not payload:
         return len(payload)
@@ -241,9 +198,9 @@ async def _notify_city_drivers(order_id: int) -> int:
             builder.button(text="✅ Принять заказ", callback_data=f"lccacc_{order_id}")
             builder.button(text="💰 Предложить свою цену", callback_data=f"lccoffer_{order_id}")
             builder.adjust(1)
-            distance_line = f"\nДо пассажира: {float(distance):.1f} км" if distance is not None else ""
+            near = f"\nДо пассажира: {float(distance):.1f} км" if distance is not None else ""
             try:
-                await bot.send_message(driver_tg_id, text + distance_line, reply_markup=builder.as_markup())
+                await bot.send_message(driver_tg_id, text + near, reply_markup=builder.as_markup())
             except Exception:
                 pass
     finally:
@@ -363,6 +320,43 @@ async def current_trip(current_user: User = Depends(_current_user)) -> CurrentTr
     return CurrentTripResponse(item=None)
 
 
+def _route_to_offer(row: IntercityRouteV1, current_user: User | None) -> IntercityOfferResponse:
+    return IntercityOfferResponse(kind="route", id=row.id, creator_tg_id=row.creator_tg_id, country=row.country, from_city=row.from_city, to_city=row.to_city, date=row.departure_date, time=row.departure_time, seats=row.seats, price=float(row.price or 0), comment=row.comment, status=row.status, created_at=str(row.created_at) if row.created_at else None, is_mine=bool(current_user and current_user.tg_id == row.creator_tg_id), pickup_mode="ask_driver", active_trip_id=row.id if row.status in {"accepted", "in_progress"} else None, accepted_by_tg_id=row.accepted_by_tg_id, can_accept=bool(current_user and current_user.tg_id not in {row.creator_tg_id, row.accepted_by_tg_id} and row.status == "active"))
+
+
+def _request_to_offer(row: IntercityRequestV1, current_user: User | None) -> IntercityOfferResponse:
+    return IntercityOfferResponse(kind="request", id=row.id, creator_tg_id=row.creator_tg_id, country=row.country, from_city=row.from_city, to_city=row.to_city, date=row.desired_date, time=row.desired_time, seats=row.seats_needed, price=float(row.price_offer or 0), comment=row.comment, status=row.status, created_at=str(row.created_at) if row.created_at else None, is_mine=bool(current_user and current_user.tg_id == row.creator_tg_id), pickup_mode="ask_driver", active_trip_id=row.id if row.status in {"accepted", "in_progress"} else None, accepted_by_tg_id=row.accepted_by_tg_id, can_accept=bool(current_user and current_user.tg_id not in {row.creator_tg_id, row.accepted_by_tg_id} and row.status == "active"))
+
+
+async def intercity_filtered_offers(kind: str | None = Query(default=None), country: str | None = Query(default=None), from_city: str | None = Query(default=None), to_city: str | None = Query(default=None), current_user: User = Depends(_current_user)) -> IntercityOfferListResponse:
+    role = _clean(current_user.active_role) or "passenger"
+    want_routes = kind in {None, "", "route", "routes"}
+    want_requests = kind in {None, "", "request", "requests"}
+    items: list[IntercityOfferResponse] = []
+    async with async_session() as session:
+        if want_routes and role != "driver":
+            query = select(IntercityRouteV1).where(IntercityRouteV1.status == "active", IntercityRouteV1.creator_tg_id != current_user.tg_id)
+            if country:
+                query = query.where(IntercityRouteV1.country == _clean(country))
+            if from_city:
+                query = query.where(IntercityRouteV1.from_city == from_city)
+            if to_city:
+                query = query.where(IntercityRouteV1.to_city == to_city)
+            rows = (await session.scalars(query.order_by(IntercityRouteV1.id.desc()).limit(50))).all()
+            items.extend([_route_to_offer(row, current_user) for row in rows])
+        if want_requests and role == "driver":
+            query = select(IntercityRequestV1).where(IntercityRequestV1.status == "active", IntercityRequestV1.creator_tg_id != current_user.tg_id)
+            if country:
+                query = query.where(IntercityRequestV1.country == _clean(country))
+            if from_city:
+                query = query.where(IntercityRequestV1.from_city == from_city)
+            if to_city:
+                query = query.where(IntercityRequestV1.to_city == to_city)
+            rows = (await session.scalars(query.order_by(IntercityRequestV1.id.desc()).limit(50))).all()
+            items.extend([_request_to_offer(row, current_user) for row in rows])
+    return IntercityOfferListResponse(items=items)
+
+
 def install_intaxi_production_patch() -> None:
     if getattr(FastAPI, "_intaxi_production_patch_installed", False):
         return
@@ -377,14 +371,17 @@ def install_intaxi_production_patch() -> None:
             replacement = current_trip
         elif path == "/city/my-orders" and "GET" in methods:
             replacement = city_my_orders
+        elif path == "/intercity/offers" and "GET" in methods:
+            replacement = intercity_filtered_offers
         elif path.startswith("/city/offers/") and path.endswith("/accept") and "POST" in methods:
             replacement = accept_city_order
-        endpoint_to_register = replacement or endpoint
-        result = original_add_api_route(self, path, endpoint_to_register, *args, **kwargs)
+        result = original_add_api_route(self, path, replacement or endpoint, *args, **kwargs)
         if path == "/city/offers" and "GET" in methods:
             original_add_api_route(self, "/city/orders/available", city_available_orders, methods=["GET"], response_model=CityOrderListResponse)
         elif path == "/city/my-orders" and "GET" in methods:
             original_add_api_route(self, "/city/orders/my", city_my_orders, methods=["GET"], response_model=CityOrderListResponse)
+        elif path == "/intercity/offers" and "GET" in methods:
+            original_add_api_route(self, "/intercity/offers/search", intercity_filtered_offers, methods=["GET"], response_model=IntercityOfferListResponse)
         elif path.startswith("/city/offers/") and path.endswith("/accept") and "POST" in methods:
             original_add_api_route(self, "/city/orders/{order_id}/accept", accept_city_order, methods=["POST"], response_model=CityAcceptResponse)
             original_add_api_route(self, "/city/orders/{order_id}/counteroffers", city_counteroffer, methods=["POST"])
