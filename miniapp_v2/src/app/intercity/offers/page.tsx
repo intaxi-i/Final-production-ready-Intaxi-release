@@ -5,8 +5,9 @@ import Link from 'next/link';
 import { CalendarDays, RefreshCw, Route, Users } from 'lucide-react';
 import { BottomNav } from '@/components/BottomNav';
 import { APP_ROUTES } from '@/lib/constants';
-import { acceptIntercityOffer, listIntercityOffers } from '@/lib/api';
-import type { IntercityOffer } from '@/lib/types';
+import { acceptIntercityOffer, getMe, listIntercityOffers } from '@/lib/api';
+import { getDriverProfile } from '@/lib/api-extra';
+import type { DriverProfile, IntercityOffer, UserMe } from '@/lib/types';
 
 function kindLabel(kind: string) {
   if (kind === 'request') return 'Заявка пассажира';
@@ -35,17 +36,31 @@ function modeLabel(value?: string | null) {
   return 'Неизвестный режим';
 }
 
+function isConfirmedDriver(profile: DriverProfile | null) {
+  if (!profile?.status) return false;
+  return ['approved', 'verified', 'active'].includes(profile.status.toLowerCase());
+}
+
 export default function IntercityOffersPage() {
   const [items, setItems] = useState<IntercityOffer[]>([]);
+  const [me, setMe] = useState<UserMe | null>(null);
+  const [driverProfile, setDriverProfile] = useState<DriverProfile | null>(null);
   const [filter, setFilter] = useState<'all' | 'request' | 'route'>('all');
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const confirmedDriver = me?.active_role === 'driver' && isConfirmedDriver(driverProfile);
+  const filterOptions: Array<'all' | 'request' | 'route'> = confirmedDriver ? ['all', 'request', 'route'] : ['all', 'route'];
+
   async function load() {
     setError(null);
     setLoading(true);
     try {
+      const user = await getMe();
+      setMe(user);
+      const profile = user.active_role === 'driver' ? await getDriverProfile().catch(() => null) : null;
+      setDriverProfile(profile);
       setItems(await listIntercityOffers());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось загрузить предложения');
@@ -55,6 +70,11 @@ export default function IntercityOffersPage() {
   }
 
   async function accept(item: IntercityOffer) {
+    if (item.kind === 'request' && !confirmedDriver) {
+      setError('Заявки пассажиров доступны только подтверждённым водителям.');
+      return;
+    }
+
     const key = `${item.kind}:${item.id}`;
     setActionId(key);
     setError(null);
@@ -71,9 +91,10 @@ export default function IntercityOffersPage() {
   useEffect(() => { load(); }, []);
 
   const visibleItems = useMemo(() => {
-    if (filter === 'all') return items;
-    return items.filter((item) => item.kind === filter);
-  }, [filter, items]);
+    const roleSafeItems = confirmedDriver ? items : items.filter((item) => item.kind !== 'request');
+    if (filter === 'all') return roleSafeItems;
+    return roleSafeItems.filter((item) => item.kind === filter);
+  }, [confirmedDriver, filter, items]);
 
   return (
     <main className="shell stack with-bottom-nav">
@@ -82,7 +103,7 @@ export default function IntercityOffersPage() {
           <div>
             <p className="metric-label">Межгород</p>
             <h1 className="title">Предложения</h1>
-            <p className="subtitle mt-2">Активные заявки пассажиров и маршруты водителей.</p>
+            <p className="subtitle mt-2">{confirmedDriver ? 'Активные заявки пассажиров и маршруты водителей.' : 'Активные маршруты водителей для пассажиров.'}</p>
           </div>
           <button className="button secondary !min-h-[48px] !px-4" type="button" onClick={load} disabled={loading} aria-label="Обновить">
             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
@@ -91,8 +112,8 @@ export default function IntercityOffersPage() {
         {error ? <p className="error mt-4">{error}</p> : null}
       </section>
 
-      <section className="grid grid-cols-3 gap-2">
-        {(['all', 'request', 'route'] as const).map((item) => (
+      <section className={`grid gap-2 ${confirmedDriver ? 'grid-cols-3' : 'grid-cols-2'}`}>
+        {filterOptions.map((item) => (
           <button
             key={item}
             type="button"
@@ -110,7 +131,7 @@ export default function IntercityOffersPage() {
           <p className="subtitle">Пока нет активных предложений.</p>
           <div className="grid grid-2">
             <Link href={APP_ROUTES.intercityRequest} className="button primary">Создать заявку</Link>
-            <Link href={APP_ROUTES.intercityRoute} className="button secondary">Опубликовать маршрут</Link>
+            {confirmedDriver ? <Link href={APP_ROUTES.intercityRoute} className="button secondary">Опубликовать маршрут</Link> : null}
           </div>
         </section>
       ) : null}
