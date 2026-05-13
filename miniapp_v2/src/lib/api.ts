@@ -41,6 +41,16 @@ function storageAvailable() { return typeof window !== 'undefined' && typeof win
 function getStoredSessionToken() { return storageAvailable() ? window.sessionStorage.getItem(SESSION_STORAGE_KEY) : null; }
 function setStoredSessionToken(token: string | null) { if (!storageAvailable()) return; if (token) window.sessionStorage.setItem(SESSION_STORAGE_KEY, token); else window.sessionStorage.removeItem(SESSION_STORAGE_KEY); }
 function parseDevTgId() { const parsed = Number(DEV_USER_TOKEN.replace('dev:', '').trim()); return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined; }
+function sleep(ms: number) { return new Promise((resolve) => setTimeout(resolve, ms)); }
+
+async function waitForTelegramInitData() {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const initData = getTelegramInitData();
+    if (initData) return initData;
+    await sleep(100);
+  }
+  return getTelegramInitData();
+}
 
 async function parseResponse(response: Response) {
   const data = await response.json().catch(() => null);
@@ -56,7 +66,7 @@ async function parseResponse(response: Response) {
 async function createSession(): Promise<string | null> {
   const headers = new Headers();
   headers.set('Content-Type', 'application/json');
-  const initData = getTelegramInitData();
+  const initData = await waitForTelegramInitData();
 
   if (initData) {
     const response = await fetch(`${API_BASE_URL}/auth/telegram`, { method: 'POST', headers, body: JSON.stringify({ init_data: initData }), cache: 'no-store' });
@@ -74,7 +84,7 @@ async function createSession(): Promise<string | null> {
     return token;
   }
 
-  return null;
+  throw new ApiError('Откройте Mini App внутри Telegram, чтобы авторизоваться.', 'telegram_auth_missing');
 }
 
 async function getSessionToken() { return getStoredSessionToken() || createSession(); }
@@ -84,7 +94,7 @@ async function request<T>(path: string, init: RequestInit = {}, authenticated = 
   if (init.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
   if (authenticated) {
     const token = await getSessionToken();
-    if (token) headers.set('Authorization', `Bearer ${token}`);
+    headers.set('Authorization', `Bearer ${token}`);
   }
   const response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers, cache: 'no-store' });
   if (authenticated && response.status === 401 && retryAuth) {
@@ -92,7 +102,7 @@ async function request<T>(path: string, init: RequestInit = {}, authenticated = 
     const token = await createSession();
     const retryHeaders = new Headers(init.headers);
     if (init.body && !retryHeaders.has('Content-Type')) retryHeaders.set('Content-Type', 'application/json');
-    if (token) retryHeaders.set('Authorization', `Bearer ${token}`);
+    retryHeaders.set('Authorization', `Bearer ${token}`);
     const retryResponse = await fetch(`${API_BASE_URL}${path}`, { ...init, headers: retryHeaders, cache: 'no-store' });
     return parseResponse(retryResponse) as Promise<T>;
   }
