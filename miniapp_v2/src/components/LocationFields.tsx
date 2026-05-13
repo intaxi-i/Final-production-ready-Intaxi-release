@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { resolveCurrentLocation } from '@/lib/geo';
 import { getLocalityOptionsForCountry, getRegionOptionsForCountry, guessRegionFromCity } from '@/lib/locations';
-import { COUNTRY_OPTIONS_EXTENDED } from '@/lib/country-config';
+import { getWorldCountryOptions } from '@/lib/world-countries';
 import { t } from '@/lib/i18n';
 
 type Props = {
@@ -25,6 +25,7 @@ function labels(lang: string) {
 
 export function LocationFields({ lang, country, setCountry, regionKey, setRegionKey, city, setCity, showCountry = true, collapsible = false }: Props) {
   const ui = useMemo(() => labels(lang), [lang]);
+  const countryOptions = useMemo(() => getWorldCountryOptions(lang), [lang]);
   const regionOptions = getRegionOptionsForCountry(country, lang);
   const cityOptions = getLocalityOptionsForCountry(country, regionKey);
   const [busy, setBusy] = useState(false);
@@ -36,7 +37,7 @@ export function LocationFields({ lang, country, setCountry, regionKey, setRegion
       setBusy(true);
       const data = await resolveCurrentLocation();
       setDetectedAddress(data.address);
-      const nextCountry = ['uz', 'tr', 'sa', 'kz'].includes(data.countryCode || '') ? data.countryCode || country : country;
+      const nextCountry = data.countryCode || country;
       setCountry?.(nextCountry);
       const guessedCity = data.city || city;
       if (nextCountry === 'uz' || nextCountry === 'kz') {
@@ -70,7 +71,7 @@ export function LocationFields({ lang, country, setCountry, regionKey, setRegion
             <label className="label">
               {t(lang, 'country')}
               <select className="select" value={country} onChange={(event) => { setCountry?.(event.target.value); setRegionKey(''); setCity(''); }}>
-                {COUNTRY_OPTIONS_EXTENDED.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}
+                {countryOptions.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}
               </select>
             </label>
           ) : null}
