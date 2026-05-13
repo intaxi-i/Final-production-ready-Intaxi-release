@@ -4,7 +4,6 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
 import { AddressField } from '@/components/AddressField';
-import { BottomNav } from '@/components/BottomNav';
 import { MapPointPicker } from '@/components/MapPointPicker';
 import { ModeToggle } from '@/components/ModeToggle';
 import { OrderCard } from '@/components/OrderCard';
@@ -98,7 +97,6 @@ export default function CityCreatePage() {
 
   useEffect(() => {
     if (routeReady && estimatedDistance != null) {
-      setRouteOpen(false);
       setPrice((current) => current || String(recommendedPrice));
     }
   }, [estimatedDistance, recommendedPrice, routeReady]);
@@ -217,7 +215,6 @@ export default function CityCreatePage() {
           {secondsPassed >= 30 ? <button className="button primary" type="button" onClick={raisePrice}>{t('ru', 'raisePrice')}</button> : <p className="subtitle">{t('ru', 'raisePriceHint')}</p>}
           <Link className="button secondary" href={APP_ROUTES.cityMyOrders}>Открыть мои заказы</Link>
         </section>
-        <BottomNav />
       </main>
     );
   }
@@ -273,7 +270,6 @@ export default function CityCreatePage() {
         {message ? <p className="success">{message}</p> : null}
         <button className="button primary full-submit" type="submit" disabled={loading || !routeReady}>{loading ? 'Создаём...' : 'Подтвердить заказ'}</button>
       </form>
-      <BottomNav />
     </main>
   );
 }
