@@ -5,7 +5,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Car, CheckCircle2, Globe2, ShieldCheck, UserRound, Users } from 'lucide-react';
 import { getMe, updateMe, updateRole } from '@/lib/api';
 import { getDriverProfile, getWallet } from '@/lib/api-extra';
-import { APP_ROUTES, COUNTRY_OPTIONS, LANGUAGE_OPTIONS } from '@/lib/constants';
+import { APP_ROUTES, LANGUAGE_OPTIONS } from '@/lib/constants';
+import { getWorldCountryOptions } from '@/lib/world-countries';
 import { getTelegramUser } from '@/lib/telegram';
 import type { DriverProfile, ProfileGender, UserMe, UserRole, Wallet } from '@/lib/types';
 
@@ -30,6 +31,7 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const tgUser = typeof window !== 'undefined' ? getTelegramUser() : null;
+  const countryOptions = useMemo(() => getWorldCountryOptions(me?.language || 'ru'), [me?.language]);
 
   async function load() {
     setError(null);
@@ -144,7 +146,7 @@ export default function ProfilePage() {
         <div><p className="metric-label">Настройки</p><h2 className="title" style={{ fontSize: 22 }}>Язык, страна, женский режим</h2></div>
         <div className="grid grid-2">
           <label className="label">Язык<select className="select" value={me?.language || 'ru'} onChange={(event) => saveProfile({ language: event.target.value })} disabled={saving}>{LANGUAGE_OPTIONS.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}</select></label>
-          <label className="label">Страна<select className="select" value={me?.country_code || 'uz'} onChange={(event) => saveProfile({ country_code: event.target.value })} disabled={saving}>{COUNTRY_OPTIONS.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}</select></label>
+          <label className="label">Страна<select className="select" value={me?.country_code || 'uz'} onChange={(event) => saveProfile({ country_code: event.target.value })} disabled={saving}>{countryOptions.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}</select></label>
         </div>
         <div className="row rounded-3xl bg-slate-50 p-4">
           <div><strong>Женский режим</strong><p className="subtitle mt-1">Показывает, что вы предпочитаете поездки в женском режиме. Фактический подбор зависит от серверной фильтрации.</p></div>
