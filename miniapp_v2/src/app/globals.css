@@ -442,3 +442,25 @@ textarea.input {
     @apply grid-cols-2;
   }
 }
+
+/* Production mobile stability overrides */
+* { box-sizing: border-box; }
+main { padding-top: max(5.5rem, calc(env(safe-area-inset-top) + 5rem)); padding-bottom: max(8.5rem, calc(env(safe-area-inset-bottom) + 7.5rem)); }
+.app-back-button { display: none; }
+.card, .card-soft, .it-card, .nav-card, .address-block, .wallet-box, .order-card, .order-card-inner, .route-panel, .metric-card, .bid-panel, .intercity-action, .donate-chain { min-width: 0; overflow: hidden; }
+.title, .subtitle, .metric-label, .metric-value, .route-address, .bid-title, .bid-subtitle, .donate-chain span, .donate-chain small { overflow-wrap: anywhere; word-break: break-word; }
+.input, .select, .it-input, .label, .route-summary, .recommended-price, .suggestion-item, .bottom-link { min-width: 0; }
+code, .wallet-box code { max-width: 100%; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-all; }
+.bottom-nav-wrap { padding-bottom: max(0.75rem, env(safe-area-inset-bottom)); }
+.bottom-link { padding-left: 0.25rem; padding-right: 0.25rem; font-size: 9px; letter-spacing: .04em; }
+.bottom-link span { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.suggestion-list { max-height: 260px; overflow-y: auto; }
+.suggestion-item span, .suggestion-item small { overflow-wrap: anywhere; word-break: break-word; }
+.active-ride-wrap { position: fixed; left: 0; right: 0; top: 0; z-index: 50; padding: max(.75rem, env(safe-area-inset-top)) .75rem .5rem; pointer-events: none; }
+.active-ride-bar { pointer-events: auto; max-width: 480px; min-height: 64px; margin: 0 auto; display: flex; align-items: center; gap: .75rem; border-radius: 24px; border: 1px solid #e2e8f0; background: rgba(255,255,255,.96); padding: .75rem 1rem; color: #0f172a; box-shadow: 0 16px 44px rgba(15,23,42,.16); backdrop-filter: blur(12px); }
+.active-ride-dot { flex: 0 0 auto; width: .75rem; height: .75rem; border-radius: 999px; background: var(--brand); box-shadow: 0 0 0 6px rgba(255,196,0,.18); }
+.active-ride-main { min-width: 0; flex: 1; }
+.active-ride-main strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .875rem; font-weight: 900; }
+.active-ride-main small { display: block; margin-top: .125rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .75rem; font-weight: 700; color: #64748b; }
+.active-ride-price { flex: 0 0 auto; text-align: right; font-size: .75rem; font-weight: 900; }
+.active-ride-price small { display: block; font-size: .625rem; color: #94a3b8; }
