@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { CalendarDays, RefreshCw, Route, Users } from 'lucide-react';
-import { BottomNav } from '@/components/BottomNav';
 import { APP_ROUTES } from '@/lib/constants';
 import { acceptIntercityOffer, getMe, listIntercityOffers } from '@/lib/api';
 import { getDriverProfile } from '@/lib/api-extra';
@@ -41,11 +40,25 @@ function isConfirmedDriver(profile: DriverProfile | null) {
   return ['approved', 'verified', 'active'].includes(profile.status.toLowerCase());
 }
 
+function normalizeRouteText(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function routeMatches(item: IntercityOffer, from: string, to: string) {
+  const fromQuery = normalizeRouteText(from);
+  const toQuery = normalizeRouteText(to);
+  const itemFrom = normalizeRouteText(item.from_text || '');
+  const itemTo = normalizeRouteText(item.to_text || '');
+  return (!fromQuery || itemFrom.includes(fromQuery)) && (!toQuery || itemTo.includes(toQuery));
+}
+
 export default function IntercityOffersPage() {
   const [items, setItems] = useState<IntercityOffer[]>([]);
   const [me, setMe] = useState<UserMe | null>(null);
   const [driverProfile, setDriverProfile] = useState<DriverProfile | null>(null);
   const [filter, setFilter] = useState<'all' | 'request' | 'route'>('all');
+  const [fromFilter, setFromFilter] = useState('');
+  const [toFilter, setToFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -88,13 +101,13 @@ export default function IntercityOffersPage() {
     }
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { void load(); }, []);
 
   const visibleItems = useMemo(() => {
     const roleSafeItems = confirmedDriver ? items : items.filter((item) => item.kind !== 'request');
-    if (filter === 'all') return roleSafeItems;
-    return roleSafeItems.filter((item) => item.kind === filter);
-  }, [confirmedDriver, filter, items]);
+    const kindItems = filter === 'all' ? roleSafeItems : roleSafeItems.filter((item) => item.kind === filter);
+    return kindItems.filter((item) => routeMatches(item, fromFilter, toFilter));
+  }, [confirmedDriver, filter, fromFilter, items, toFilter]);
 
   return (
     <main className="shell stack with-bottom-nav">
@@ -103,13 +116,22 @@ export default function IntercityOffersPage() {
           <div>
             <p className="metric-label">Межгород</p>
             <h1 className="title">Предложения</h1>
-            <p className="subtitle mt-2">{confirmedDriver ? 'Активные заявки пассажиров и маршруты водителей.' : 'Активные маршруты водителей для пассажиров.'}</p>
+            <p className="subtitle mt-2">{confirmedDriver ? 'Активные заявки пассажиров и маршруты водителей.' : 'Укажите направление и смотрите маршруты водителей по вашему пути.'}</p>
           </div>
           <button className="button secondary !min-h-[48px] !px-4" type="button" onClick={load} disabled={loading} aria-label="Обновить">
             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
           </button>
         </div>
         {error ? <p className="error mt-4">{error}</p> : null}
+      </section>
+
+      <section className="card stack">
+        <p className="metric-label">Фильтр маршрута</p>
+        <div className="grid grid-2">
+          <label className="label">Откуда<input className="input" value={fromFilter} onChange={(event) => setFromFilter(event.target.value)} placeholder="Например: Ташкент" /></label>
+          <label className="label">Куда<input className="input" value={toFilter} onChange={(event) => setToFilter(event.target.value)} placeholder="Например: Самарканд" /></label>
+        </div>
+        <p className="subtitle">Пассажиру не показывается всё подряд: список сужается по направлению.</p>
       </section>
 
       <section className={`grid gap-2 ${confirmedDriver ? 'grid-cols-3' : 'grid-cols-2'}`}>
@@ -128,7 +150,7 @@ export default function IntercityOffersPage() {
       {loading ? <section className="card"><p className="subtitle">Загрузка предложений...</p></section> : null}
       {!loading && visibleItems.length === 0 ? (
         <section className="card stack text-center">
-          <p className="subtitle">Пока нет активных предложений.</p>
+          <p className="subtitle">По этому направлению пока нет активных предложений.</p>
           <div className="grid grid-2">
             <Link href={APP_ROUTES.intercityRequest} className="button primary">Создать заявку</Link>
             {confirmedDriver ? <Link href={APP_ROUTES.intercityRoute} className="button secondary">Опубликовать маршрут</Link> : null}
@@ -181,7 +203,6 @@ export default function IntercityOffersPage() {
           );
         })}
       </section>
-      <BottomNav />
     </main>
   );
 }
