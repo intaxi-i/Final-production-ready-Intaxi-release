@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { resolveCurrentLocation, searchPlaces, type PlaceSuggestion } from '@/lib/geo';
 
 type Props = {
@@ -20,10 +20,10 @@ type Props = {
 };
 
 function texts(lang: string) {
-  if (lang === 'uz') return { current: 'Joylashuvim', advanced: 'Kengaytirilgan', hideAdvanced: 'Yashirish', loading: 'Aniqlanmoqda...', detected: 'Joylashuv topildi', suggestions: 'Variantlar', latitude: 'Kenglik', longitude: 'Uzunlik' };
-  if (lang === 'kz') return { current: 'Орным', advanced: 'Кеңейтілген', hideAdvanced: 'Жасыру', loading: 'Анықталуда...', detected: 'Орналасу табылды', suggestions: 'Ұсыныстар', latitude: 'Ендік', longitude: 'Бойлық' };
-  if (lang === 'en') return { current: 'Use my location', advanced: 'Advanced', hideAdvanced: 'Hide', loading: 'Resolving...', detected: 'Location detected', suggestions: 'Suggestions', latitude: 'Latitude', longitude: 'Longitude' };
-  return { current: 'Моя локация', advanced: 'Расширенные настройки', hideAdvanced: 'Скрыть настройки', loading: 'Определяем...', detected: 'Локация определена', suggestions: 'Подходящие адреса', latitude: 'Широта', longitude: 'Долгота' };
+  if (lang === 'uz') return { current: 'Joylashuvim', advanced: 'Kengaytirilgan', hideAdvanced: 'Yashirish', loading: 'Aniqlanmoqda...', detected: 'Joylashuv topildi', suggestions: 'Variantlar', latitude: 'Kenglik', longitude: 'Uzunlik', choose: 'Tanlash', typing: 'Manzilni yozing va pastdagi variantlardan tanlang' };
+  if (lang === 'kz') return { current: 'Орным', advanced: 'Кеңейтілген', hideAdvanced: 'Жасыру', loading: 'Анықталуда...', detected: 'Орналасу табылды', suggestions: 'Ұсыныстар', latitude: 'Ендік', longitude: 'Бойлық', choose: 'Таңдау', typing: 'Мекенжайды жазып, төмендегі нұсқадан таңдаңыз' };
+  if (lang === 'en') return { current: 'Use my location', advanced: 'Advanced', hideAdvanced: 'Hide', loading: 'Resolving...', detected: 'Location detected', suggestions: 'Suggestions', latitude: 'Latitude', longitude: 'Longitude', choose: 'Choose', typing: 'Type the address and choose a suggestion below' };
+  return { current: 'Моя локация', advanced: 'Расширенные настройки', hideAdvanced: 'Скрыть настройки', loading: 'Определяем...', detected: 'Локация определена', suggestions: 'Подходящие адреса', latitude: 'Широта', longitude: 'Долгота', choose: 'Выбрать', typing: 'Введите адрес и выберите вариант ниже' };
 }
 
 export function AddressField({ lang, label, address, setAddress, lat, setLat, lng, setLng, onResolved, allowCurrentLocation = true, manualHint, countryCode, placeholder }: Props) {
@@ -33,11 +33,12 @@ export function AddressField({ lang, label, address, setAddress, lat, setLat, ln
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [suggestBusy, setSuggestBusy] = useState(false);
+  const selectedAddressRef = useRef('');
 
   useEffect(() => {
     let cancelled = false;
     const query = address.trim();
-    if (query.length < 3) {
+    if (query.length < 3 || query === selectedAddressRef.current) {
       setSuggestions([]);
       return;
     }
@@ -49,18 +50,28 @@ export function AddressField({ lang, label, address, setAddress, lat, setLat, ln
       } finally {
         if (!cancelled) setSuggestBusy(false);
       }
-    }, 450);
+    }, 650);
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
     };
   }, [address, countryCode]);
 
+  function handleManualChange(value: string) {
+    selectedAddressRef.current = '';
+    setAddress(value);
+    setLat('');
+    setLng('');
+    setHint(value.trim().length >= 3 ? ui.typing : '');
+  }
+
   function applyPlace(place: PlaceSuggestion) {
+    selectedAddressRef.current = place.address;
     setAddress(place.address);
     setLat(String(place.lat));
     setLng(String(place.lng));
     setSuggestions([]);
+    setHint(ui.detected);
     onResolved?.({ address: place.address, lat: String(place.lat), lng: String(place.lng), countryCode: place.countryCode, city: place.city, region: place.region });
   }
 
@@ -71,6 +82,7 @@ export function AddressField({ lang, label, address, setAddress, lat, setLat, ln
       const data = await resolveCurrentLocation();
       const latValue = String(data.lat);
       const lngValue = String(data.lng);
+      selectedAddressRef.current = data.address;
       setAddress(data.address);
       setLat(latValue);
       setLng(lngValue);
@@ -87,7 +99,7 @@ export function AddressField({ lang, label, address, setAddress, lat, setLat, ln
     <div className="address-block">
       <label className="label">
         {label}
-        <input className="input" value={address} onChange={(event) => setAddress(event.target.value)} placeholder={placeholder || manualHint || label} />
+        <input className="input" value={address} onChange={(event) => handleManualChange(event.target.value)} placeholder={placeholder || manualHint || label} autoComplete="off" />
       </label>
 
       {suggestBusy ? <p className="subtitle">Ищем адрес...</p> : null}
@@ -98,6 +110,7 @@ export function AddressField({ lang, label, address, setAddress, lat, setLat, ln
             <button key={place.id} type="button" className="suggestion-item" onClick={() => applyPlace(place)}>
               <span>{place.address}</span>
               {place.city || place.region ? <small>{[place.city, place.region].filter(Boolean).join(', ')}</small> : null}
+              <small>{ui.choose}</small>
             </button>
           ))}
         </div>
