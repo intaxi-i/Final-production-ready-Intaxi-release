@@ -6,11 +6,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { getMe } from '@/lib/api';
 import { getDriverProfile } from '@/lib/api-extra';
 import { APP_ROUTES } from '@/lib/constants';
+import { t } from '@/lib/i18n';
 import type { DriverProfile, UserMe } from '@/lib/types';
 
 type NavLink = {
   href: string;
-  label: string;
+  labelKey: string;
+  fallback: string;
 };
 
 function isConfirmedDriver(profile: DriverProfile | null) {
@@ -19,27 +21,27 @@ function isConfirmedDriver(profile: DriverProfile | null) {
 }
 
 const passengerLinks: NavLink[] = [
-  { href: APP_ROUTES.home, label: 'Главная' },
-  { href: APP_ROUTES.cityCreate, label: 'Город' },
-  { href: APP_ROUTES.intercity, label: 'Межгород' },
-  { href: APP_ROUTES.cityMyOrders, label: 'История' },
-  { href: APP_ROUTES.profile, label: 'Профиль' },
+  { href: APP_ROUTES.home, labelKey: 'home', fallback: 'Главная' },
+  { href: APP_ROUTES.cityCreate, labelKey: 'city', fallback: 'Город' },
+  { href: APP_ROUTES.intercity, labelKey: 'intercity', fallback: 'Межгород' },
+  { href: APP_ROUTES.cityMyOrders, labelKey: 'myOrders', fallback: 'История' },
+  { href: APP_ROUTES.profile, labelKey: 'profile', fallback: 'Профиль' },
 ];
 
 const confirmedDriverLinks: NavLink[] = [
-  { href: APP_ROUTES.home, label: 'Главная' },
-  { href: APP_ROUTES.cityOffers, label: 'Эфир' },
-  { href: APP_ROUTES.intercityOffers, label: 'Межгород' },
-  { href: '/driver/online', label: 'Онлайн' },
-  { href: APP_ROUTES.profile, label: 'Профиль' },
+  { href: APP_ROUTES.home, labelKey: 'home', fallback: 'Главная' },
+  { href: APP_ROUTES.cityOffers, labelKey: 'availableOffers', fallback: 'Эфир' },
+  { href: APP_ROUTES.intercityOffers, labelKey: 'intercity', fallback: 'Межгород' },
+  { href: '/driver/online', labelKey: 'driverOnline', fallback: 'Онлайн' },
+  { href: APP_ROUTES.profile, labelKey: 'profile', fallback: 'Профиль' },
 ];
 
 const pendingDriverLinks: NavLink[] = [
-  { href: APP_ROUTES.home, label: 'Главная' },
-  { href: '/driver/register', label: 'Заявка' },
-  { href: '/driver/online', label: 'Онлайн' },
-  { href: '/support', label: 'Помощь' },
-  { href: APP_ROUTES.profile, label: 'Профиль' },
+  { href: APP_ROUTES.home, labelKey: 'home', fallback: 'Главная' },
+  { href: '/driver/register', labelKey: 'driverRegister', fallback: 'Заявка' },
+  { href: '/driver/online', labelKey: 'driverOnline', fallback: 'Онлайн' },
+  { href: '/support', labelKey: 'support', fallback: 'Помощь' },
+  { href: APP_ROUTES.profile, labelKey: 'profile', fallback: 'Профиль' },
 ];
 
 export function BottomNav() {
@@ -73,14 +75,17 @@ export function BottomNav() {
     return isConfirmedDriver(driverProfile) ? confirmedDriverLinks : pendingDriverLinks;
   }, [driverProfile, me?.active_role]);
 
+  const lang = me?.language || 'ru';
+
   return (
     <div className="bottom-nav-wrap">
       <nav className="bottom-nav" aria-label="Основная навигация">
         {links.map((link) => {
           const active = pathname === link.href || (link.href !== APP_ROUTES.home && pathname.startsWith(`${link.href}/`));
+          const label = t(lang, link.labelKey) || link.fallback;
           return (
             <Link key={link.href} href={link.href} className={`bottom-link${active ? ' active' : ''}`}>
-              <span>{link.label}</span>
+              <span>{label}</span>
             </Link>
           );
         })}
