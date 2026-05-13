@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import { ActiveRideBar } from '@/components/ActiveRideBar';
 import { AppBackButton } from '@/components/AppBackButton';
+import { BottomNav } from '@/components/BottomNav';
 import { TelegramBootstrap } from '@/components/TelegramBootstrap';
 import './globals.css';
 
@@ -15,7 +17,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body>
         <TelegramBootstrap />
         <AppBackButton />
+        <ActiveRideBar />
         {children}
+        <BottomNav />
       </body>
     </html>
   );
