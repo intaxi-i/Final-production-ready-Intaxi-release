@@ -14,6 +14,8 @@ from app.miniapp_routes import current_trip_url
 from app.strings import MESSAGES
 
 router = Router()
+CITY_RADIUS_STAGES_KM = (3, 6, 12, 15)
+LIVE_TRIP_STATUSES = {'accepted', 'driver_on_way', 'driver_arrived', 'in_progress'}
 
 
 class CityCreateFlow(StatesGroup):
@@ -51,6 +53,12 @@ def _driver_trip_status_kb(trip_id: int, status: str):
     return builder.adjust(1).as_markup() if builder.buttons else None
 
 
+def _driver_distance(order_runtime: CityOrderRuntime, state: DriverOnlineState) -> float | None:
+    if order_runtime.from_lat is None or order_runtime.from_lng is None or state.lat is None or state.lng is None:
+        return None
+    return round(rq.haversine_km(float(order_runtime.from_lat), float(order_runtime.from_lng), float(state.lat), float(state.lng)), 2)
+
+
 async def _vehicle_for_driver(driver_tg_id: int) -> Vehicle | None:
     async with async_session() as session:
         user = await session.scalar(select(User).where(User.tg_id == driver_tg_id))
@@ -59,42 +67,71 @@ async def _vehicle_for_driver(driver_tg_id: int) -> Vehicle | None:
         return await session.scalar(select(Vehicle).where(Vehicle.user_id == user.id))
 
 
+async def _driver_has_live_trip(session, driver_tg_id: int) -> bool:
+    trip = await session.scalar(
+        select(CityTripV1)
+        .where(CityTripV1.driver_tg_id == driver_tg_id, CityTripV1.status.in_(list(LIVE_TRIP_STATUSES)))
+        .order_by(CityTripV1.id.desc())
+    )
+    return trip is not None
+
+
 async def _notify_online_drivers(bot: Bot, order: CityOrderV1, runtime: CityOrderRuntime):
     async with async_session() as session:
-        query = (
-            select(User)
-            .join(DriverOnlineState, DriverOnlineState.driver_tg_id == User.tg_id)
-            .where(
-                User.is_verified == True,
-                DriverOnlineState.is_online == True,
-                User.tg_id != order.creator_tg_id,
-            )
-            .order_by(User.rating.desc(), User.rating_count.desc())
-        )
-        if order.country:
-            query = query.where(DriverOnlineState.country == order.country)
-        if order.city:
-            query = query.where(DriverOnlineState.city == order.city)
-        drivers = (await session.scalars(query)).all()
+        states = (await session.scalars(select(DriverOnlineState).where(DriverOnlineState.is_online == True))).all()
+        candidates: list[tuple[float | None, User]] = []
+        for state in states:
+            if order.country and state.country and state.country != order.country:
+                continue
+            if order.city and state.city and state.city != order.city:
+                continue
+            driver = await session.scalar(select(User).where(User.tg_id == state.driver_tg_id))
+            if not driver or not driver.is_verified or driver.tg_id == order.creator_tg_id or (driver.active_role or '') != 'driver':
+                continue
+            if await _driver_has_live_trip(session, driver.tg_id):
+                continue
+            candidates.append((_driver_distance(runtime, state), driver))
+
+        with_distance = [item for item in candidates if item[0] is not None]
+        selected: list[tuple[float | None, User]] = []
+        stage = 'manual_list'
+        if with_distance:
+            with_distance.sort(key=lambda item: item[0] or 10**9)
+            for radius in CITY_RADIUS_STAGES_KM:
+                selected = [item for item in with_distance if item[0] is not None and item[0] <= radius]
+                if selected:
+                    stage = f'{radius}km'
+                    break
+            if not selected:
+                selected = with_distance
+                stage = 'all_online'
+        else:
+            selected = candidates
+            stage = 'active_drivers'
+
         runtime_row = await session.scalar(select(CityOrderRuntime).where(CityOrderRuntime.order_id == order.id))
         if runtime_row:
-            runtime_row.seen_by_drivers = len(drivers)
+            runtime_row.seen_by_drivers = len(selected)
+            runtime_row.dispatch_stage = stage
             await session.commit()
-    for driver in drivers:
+
+    for distance, driver in selected:
         kbld = InlineKeyboardBuilder()
         kbld.button(text="✅ Принять", callback_data=f"lccacc_{order.id}")
         kbld.button(text="💰 Предложить свою цену", callback_data=f"lccoffer_{order.id}")
         kbld.adjust(1)
+        distance_line = f"\nДо пассажира: {distance:.1f} км" if distance is not None else ""
         try:
             await bot.send_message(
                 driver.tg_id,
                 (
-                    f"🆕 Новый заказ\n\n"
-                    f"A: {order.from_address}\n"
+                    f"🆕 Новый городской заказ\n\n"
+                    f"A: {order.from_address or '—'}\n"
                     f"B: {order.to_address or '—'}\n"
-                    f"Цена: {order.price}\n"
+                    f"Цена пассажира: {float(order.price or 0):g}\n"
                     f"Мест: {order.seats}\n"
-                    f"Расстояние: {runtime.estimated_distance_km or '—'} km"
+                    f"Дистанция поездки: {runtime.estimated_distance_km or '—'} км"
+                    f"{distance_line}"
                 ),
                 reply_markup=kbld.as_markup(),
             )
