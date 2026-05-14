@@ -1,53 +1,101 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { CarFront, MapPin, Power, Radio, RefreshCw, ShieldAlert } from 'lucide-react';
+import { CarFront, MapPin, Power, Radio, ShieldAlert } from 'lucide-react';
 import { BottomNav } from '@/components/BottomNav';
-import { getDriverOnline, setDriverOnline, updateRole } from '@/lib/api';
+import { getDriverOnline, getMe, setDriverOnline, updateRole } from '@/lib/api';
 import { getDriverProfile } from '@/lib/api-extra';
 import { APP_ROUTES } from '@/lib/constants';
 import { getCurrentPosition, reverseGeocode } from '@/lib/geo';
-import type { DriverOnlineState, DriverProfile } from '@/lib/types';
+import { t } from '@/lib/i18n';
+import type { DriverOnlineState, DriverProfile, UserMe } from '@/lib/types';
+
+type Point = { lat: number; lng: number };
 
 function isConfirmedDriver(profile: DriverProfile | null) {
   if (!profile?.status) return false;
   return ['approved', 'verified', 'active'].includes(profile.status.toLowerCase());
 }
 
-function statusLabel(state: DriverOnlineState | null) {
+function statusLabel(lang: string | undefined | null, state: DriverOnlineState | null) {
   if (!state) return '—';
-  if (state.is_busy) return 'В поездке';
-  return state.is_online ? 'В эфире' : 'Не в эфире';
+  if (state.is_busy) return t(lang, 'inTrip');
+  return state.is_online ? t(lang, 'online') : t(lang, 'offline');
 }
 
 export default function DriverOnlinePage() {
   const [state, setState] = useState<DriverOnlineState | null>(null);
   const [profile, setProfile] = useState<DriverProfile | null>(null);
+  const [me, setMe] = useState<UserMe | null>(null);
   const [countryCode, setCountryCode] = useState('uz');
-  const [locationLabel, setLocationLabel] = useState('Геолокация не обновлена');
+  const [locationLabel, setLocationLabel] = useState('');
+  const [autoLocation, setAutoLocation] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [locating, setLocating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const watchIdRef = useRef<number | null>(null);
+  const lastPointRef = useRef<Point | null>(null);
+  const lang = me?.language;
+
+  async function pushLocation(point: Point, country?: string | null) {
+    lastPointRef.current = point;
+    const nextCountry = country || countryCode;
+    setState(await setDriverOnline({ is_online: true, country_code: nextCountry, city_id: state?.city_id ?? null, lat: point.lat, lng: point.lng }));
+  }
+
+  async function resolveAndPush(point: Point) {
+    const geo = await reverseGeocode(point.lat, point.lng).catch(() => null);
+    if (geo?.countryCode) setCountryCode(geo.countryCode);
+    setLocationLabel(geo?.address || `${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}`);
+    await pushLocation(point, geo?.countryCode || countryCode);
+  }
+
+  function stopAutoLocation() {
+    if (watchIdRef.current != null && typeof navigator !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+    }
+    watchIdRef.current = null;
+    setAutoLocation(false);
+  }
+
+  function startAutoLocation() {
+    if (typeof navigator === 'undefined' || !navigator.geolocation || watchIdRef.current != null) return;
+    setAutoLocation(true);
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      (position) => {
+        const point = { lat: position.coords.latitude, lng: position.coords.longitude };
+        const last = lastPointRef.current;
+        const movedEnough = !last || Math.abs(last.lat - point.lat) > 0.00015 || Math.abs(last.lng - point.lng) > 0.00015;
+        if (movedEnough) void resolveAndPush(point).catch(() => setError(t(lang, 'locationError')));
+      },
+      () => setError(t(lang, 'locationError')),
+      { enableHighAccuracy: true, maximumAge: 15000, timeout: 15000 },
+    );
+  }
 
   async function load() {
     setError(null);
     setLoading(true);
     try {
-      const [onlineState, profileData] = await Promise.all([
+      const [user, onlineState, profileData] = await Promise.all([
+        getMe().catch(() => null),
         getDriverOnline().catch(() => null),
         getDriverProfile().catch(() => null),
       ]);
+      setMe(user);
       setState(onlineState);
       setProfile(profileData);
       if (onlineState?.country_code) setCountryCode(onlineState.country_code);
       else if (profileData?.country_code) setCountryCode(profileData.country_code);
       if (onlineState?.lat != null && onlineState?.lng != null) {
+        lastPointRef.current = { lat: onlineState.lat, lng: onlineState.lng };
         setLocationLabel(`${onlineState.lat.toFixed(5)}, ${onlineState.lng.toFixed(5)}`);
       }
+      if (onlineState?.is_online) startAutoLocation();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось загрузить статус водителя');
+      setError(err instanceof Error ? err.message : t(lang, 'loadDriverStatusFailed'));
     } finally {
       setLoading(false);
     }
@@ -61,11 +109,10 @@ export default function DriverOnlinePage() {
       const geo = await reverseGeocode(point.lat, point.lng).catch(() => null);
       if (geo?.countryCode) setCountryCode(geo.countryCode);
       setLocationLabel(geo?.address || `${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}`);
-      if (state?.is_online) {
-        setState(await setDriverOnline({ is_online: true, country_code: geo?.countryCode || countryCode, city_id: state.city_id ?? null }));
-      }
+      lastPointRef.current = point;
+      if (state?.is_online) await pushLocation(point, geo?.countryCode || countryCode);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось получить геолокацию');
+      setError(err instanceof Error ? err.message : t(lang, 'locationError'));
     } finally {
       setLocating(false);
     }
@@ -76,15 +123,30 @@ export default function DriverOnlinePage() {
     setError(null);
     try {
       await updateRole('driver');
-      setState(await setDriverOnline({ is_online: next, country_code: countryCode }));
+      if (next) {
+        const point = await getCurrentPosition();
+        const geo = await reverseGeocode(point.lat, point.lng).catch(() => null);
+        if (geo?.countryCode) setCountryCode(geo.countryCode);
+        setLocationLabel(geo?.address || `${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}`);
+        lastPointRef.current = point;
+        setState(await setDriverOnline({ is_online: true, country_code: geo?.countryCode || countryCode, lat: point.lat, lng: point.lng }));
+        startAutoLocation();
+      } else {
+        stopAutoLocation();
+        setState(await setDriverOnline({ is_online: false, country_code: countryCode }));
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось изменить статус');
+      setError(err instanceof Error ? err.message : t(lang, 'changeStatusFailed'));
     } finally {
       setSaving(false);
     }
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    void load();
+    return () => stopAutoLocation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const confirmed = isConfirmedDriver(profile);
 
@@ -93,9 +155,9 @@ export default function DriverOnlinePage() {
       <section className="premium-hero">
         <div className="relative z-10 row">
           <div>
-            <p className="metric-label">Водитель</p>
-            <h1 className="title">Эфир заказов</h1>
-            <p className="subtitle mt-2">Включите эфир, чтобы получать городские и межгородские предложения.</p>
+            <p className="metric-label">{t(lang, 'driver')}</p>
+            <h1 className="title">{t(lang, 'driverAir')}</h1>
+            <p className="subtitle mt-2">{t(lang, 'driverAirHint')}</p>
           </div>
           <Radio className="text-brand-yellow" size={34} />
         </div>
@@ -107,35 +169,36 @@ export default function DriverOnlinePage() {
         <section className="card stack">
           <div className="row">
             <div>
-              <p className="metric-label">Доступ</p>
-              <h2 className="title" style={{ fontSize: 22 }}>Нужна проверка водителя</h2>
-              <p className="subtitle mt-2">После подтверждения профиля здесь появится полноценный выход в эфир.</p>
+              <p className="metric-label">{t(lang, 'status')}</p>
+              <h2 className="title" style={{ fontSize: 22 }}>{t(lang, 'needDriverCheck')}</h2>
+              <p className="subtitle mt-2">{t(lang, 'driverCheckHint')}</p>
             </div>
             <ShieldAlert className="text-brand-yellow" />
           </div>
-          <Link href="/driver/register" className="button primary">Подать заявку</Link>
+          <Link href="/driver/register" className="button primary">{t(lang, 'applyDriver')}</Link>
         </section>
       ) : null}
 
       <section className="metric-grid">
-        <div className="metric-card"><div className="metric-label">Статус</div><div className="metric-value">{loading ? '...' : statusLabel(state)}</div></div>
-        <div className="metric-card"><div className="metric-label">Страна</div><div className="metric-value">{countryCode.toUpperCase()}</div></div>
-        <div className="metric-card"><div className="metric-label">Занятость</div><div className="metric-value">{state?.is_busy ? 'Занят' : 'Свободен'}</div></div>
-        <div className="metric-card"><div className="metric-label">Проверка</div><div className="metric-value">{confirmed ? 'ОК' : 'Нет'}</div></div>
+        <div className="metric-card"><div className="metric-label">{t(lang, 'status')}</div><div className="metric-value">{loading ? '...' : statusLabel(lang, state)}</div></div>
+        <div className="metric-card"><div className="metric-label">{t(lang, 'country')}</div><div className="metric-value">{countryCode.toUpperCase()}</div></div>
+        <div className="metric-card"><div className="metric-label">{t(lang, 'busy')}</div><div className="metric-value">{state?.is_busy ? t(lang, 'busy') : t(lang, 'free')}</div></div>
+        <div className="metric-card"><div className="metric-label">{t(lang, 'check')}</div><div className="metric-value">{confirmed ? t(lang, 'ok') : t(lang, 'no')}</div></div>
       </section>
 
       <section className="card stack">
         <div className="row">
           <div>
-            <p className="metric-label">Локация</p>
-            <h2 className="title" style={{ fontSize: 22 }}>Где принимать заказы?</h2>
-            <p className="subtitle mt-2">Для корректного эфира обновите текущую точку перед выходом online.</p>
+            <p className="metric-label">{t(lang, 'location')}</p>
+            <h2 className="title" style={{ fontSize: 22 }}>{t(lang, 'locationQuestion')}</h2>
+            <p className="subtitle mt-2">{t(lang, 'locationHint')}</p>
           </div>
           <MapPin className="text-brand-yellow" />
         </div>
-        <div className="wallet-box"><code>{locationLabel}</code></div>
-        <button className="button secondary" type="button" onClick={useMyLocation} disabled={locating || saving}>{locating ? 'Определяем...' : 'Обновить геолокацию'}</button>
-        <label className="label">Код страны
+        <div className="wallet-box"><code>{locationLabel || t(lang, 'locationNotUpdated')}</code></div>
+        <p className="subtitle">{autoLocation && state?.is_online ? t(lang, 'autoLocationOn') : t(lang, 'autoLocationOff')}</p>
+        <button className="button secondary" type="button" onClick={useMyLocation} disabled={locating || saving}>{locating ? t(lang, 'locating') : t(lang, 'refreshLocation')}</button>
+        <label className="label">{t(lang, 'countryCode')}
           <input className="input" value={countryCode.toUpperCase()} onChange={(event) => setCountryCode(event.target.value.toLowerCase().slice(0, 2))} placeholder="UZ" />
         </label>
       </section>
@@ -143,18 +206,18 @@ export default function DriverOnlinePage() {
       <section className="card stack">
         <div className="row">
           <div>
-            <p className="metric-label">Эфир</p>
-            <h2 className="title" style={{ fontSize: 22 }}>{state?.is_online ? 'Вы сейчас в эфире' : 'Вы не в эфире'}</h2>
-            <p className="subtitle mt-2">Когда эфир включён, водитель может видеть доступные заказы по своей зоне.</p>
+            <p className="metric-label">{t(lang, 'air')}</p>
+            <h2 className="title" style={{ fontSize: 22 }}>{state?.is_online ? t(lang, 'youAreOnline') : t(lang, 'youAreOffline')}</h2>
+            <p className="subtitle mt-2">{t(lang, 'airHint')}</p>
           </div>
           <Power className={state?.is_online ? 'text-brand-yellow' : 'text-slate-300'} />
         </div>
         <div className="grid grid-2">
           <button className="button primary" type="button" disabled={saving || loading || !confirmed || state?.is_online} onClick={() => toggle(true)}>
-            Выйти в эфир
+            {t(lang, 'goOnline')}
           </button>
           <button className="button secondary" type="button" disabled={saving || loading || !state?.is_online} onClick={() => toggle(false)}>
-            Завершить эфир
+            {t(lang, 'goOffline')}
           </button>
         </div>
       </section>
@@ -162,10 +225,10 @@ export default function DriverOnlinePage() {
       {confirmed ? (
         <section className="grid grid-2">
           <Link href={APP_ROUTES.cityOffers} className="intercity-action primary">
-            <CarFront size={22} /><div><strong>Город</strong><span>Эфир заказов</span></div>
+            <CarFront size={22} /><div><strong>{t(lang, 'city')}</strong><span>{t(lang, 'cityAir')}</span></div>
           </Link>
           <Link href={APP_ROUTES.intercityOffers} className="intercity-action dark">
-            <Radio size={22} /><div><strong>Межгород</strong><span>Заявки и маршруты</span></div>
+            <Radio size={22} /><div><strong>{t(lang, 'intercity')}</strong><span>{t(lang, 'intercityAir')}</span></div>
           </Link>
         </section>
       ) : null}
