@@ -143,6 +143,7 @@ export default function CityOffersPage() {
             <OrderCard
               key={order.id}
               order={order}
+              lang={lang}
               actionLabel={t(lang, 'accept')}
               disabled={actionId === order.id}
               onAction={() => accept(order.id)}
