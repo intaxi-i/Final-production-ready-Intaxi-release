@@ -2,27 +2,26 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { getCurrentCityTrip, listMyCityOrders } from '@/lib/api';
+import { getCurrentCityTrip, getMe, listMyCityOrders } from '@/lib/api';
 import { APP_ROUTES } from '@/lib/constants';
-import type { CityOrder, CityTrip } from '@/lib/types';
+import { t } from '@/lib/i18n';
+import type { CityOrder, CityTrip, UserMe } from '@/lib/types';
 
 type Activity =
-  | { kind: 'trip'; id: number; status: string; from: string; to: string; price: number; currency: string }
-  | { kind: 'order'; id: number; status: string; from: string; to: string; price: number; currency: string; seen: number };
+  | { kind: 'trip'; id: number; status: string; from: string; to: string; price: number; currency: string; orderId: number | null }
+  | { kind: 'order'; id: number; status: string; from: string; to: string; price: number; currency: string; seen: number; seats: number };
 
 const LIVE_ORDER_STATUSES = new Set(['active', 'search', 'accepted']);
 const LIVE_TRIP_STATUSES = new Set(['accepted', 'driver_on_way', 'driver_arrived', 'in_progress']);
 
-function statusText(status: string) {
-  const map: Record<string, string> = {
-    active: 'Ищем водителя',
-    search: 'Ищем водителя',
-    accepted: 'Водитель найден',
-    driver_on_way: 'Водитель в пути',
-    driver_arrived: 'Водитель прибыл',
-    in_progress: 'Поездка идёт',
-  };
-  return map[status] || status || 'Активно';
+function statusText(lang: string | undefined | null, status: string, role: string | undefined | null) {
+  const isDriver = role === 'driver';
+  if (status === 'active' || status === 'search') return t(lang, 'searchingDriver');
+  if (status === 'accepted') return t(lang, isDriver ? 'driverFoundDriver' : 'driverFoundPassenger');
+  if (status === 'driver_on_way') return t(lang, isDriver ? 'driverOnWayDriver' : 'driverOnWayPassenger');
+  if (status === 'driver_arrived') return t(lang, isDriver ? 'driverArrivedDriver' : 'driverArrivedPassenger');
+  if (status === 'in_progress') return t(lang, isDriver ? 'tripInProgressDriver' : 'tripInProgressPassenger');
+  return status || t(lang, 'activeStatus');
 }
 
 function tripToActivity(trip: CityTrip | null): Activity | null {
@@ -30,9 +29,10 @@ function tripToActivity(trip: CityTrip | null): Activity | null {
   return {
     kind: 'trip',
     id: trip.id,
+    orderId: trip.order_id || null,
     status: trip.status,
-    from: trip.pickup_address || 'Точка A',
-    to: trip.destination_address || 'Точка B',
+    from: trip.pickup_address || '',
+    to: trip.destination_address || '',
     price: Number(trip.final_price || 0),
     currency: trip.currency || 'UZS',
   };
@@ -44,22 +44,26 @@ function orderToActivity(order: CityOrder | null): Activity | null {
     kind: 'order',
     id: order.id,
     status: order.status,
-    from: order.pickup_address || 'Точка A',
-    to: order.destination_address || 'Точка B',
+    from: order.pickup_address || '',
+    to: order.destination_address || '',
     price: Number(order.passenger_price || 0),
     currency: order.currency || 'UZS',
     seen: Number(order.seen_by_drivers || 0),
+    seats: Number(order.seats || 1),
   };
 }
 
 export function ActiveRideBar() {
   const [activity, setActivity] = useState<Activity | null>(null);
+  const [me, setMe] = useState<UserMe | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
       try {
+        const user = await getMe().catch(() => null);
+        if (!cancelled) setMe(user);
         const trip = tripToActivity(await getCurrentCityTrip());
         if (cancelled) return;
         if (trip) {
@@ -76,10 +80,15 @@ export function ActiveRideBar() {
     }
 
     void load();
-    const timer = window.setInterval(() => void load(), 8000);
+    const timer = window.setInterval(() => void load(), 5000);
+    const onFocus = () => void load();
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onFocus);
     return () => {
       cancelled = true;
       window.clearInterval(timer);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onFocus);
     };
   }, []);
 
@@ -90,17 +99,21 @@ export function ActiveRideBar() {
 
   if (!activity) return null;
 
+  const lang = me?.language;
+  const fallbackFrom = t(lang, 'fromWhere');
+  const fallbackTo = t(lang, 'toWhere');
+
   return (
     <div className="active-ride-wrap">
       <Link href={href} className="active-ride-bar">
         <span className="active-ride-dot" />
         <span className="active-ride-main">
-          <strong>{statusText(activity.status)}</strong>
-          <small>{activity.from} → {activity.to}</small>
+          <strong>{statusText(lang, activity.status, me?.active_role)}</strong>
+          <small>{activity.from || fallbackFrom} → {activity.to || fallbackTo}</small>
         </span>
         <span className="active-ride-price">
           {Math.round(activity.price).toLocaleString('ru-RU')} {activity.currency}
-          {activity.kind === 'order' ? <small>{activity.seen} вод.</small> : null}
+          {activity.kind === 'order' ? <small>{activity.seen} {t(lang, 'seenShort')} · {activity.seats}</small> : null}
         </span>
       </Link>
     </div>
