@@ -6,34 +6,8 @@ import { CalendarDays, RefreshCw, Route, Users } from 'lucide-react';
 import { APP_ROUTES } from '@/lib/constants';
 import { acceptIntercityOffer, getMe, listIntercityOffers } from '@/lib/api';
 import { getDriverProfile } from '@/lib/api-extra';
+import { t } from '@/lib/i18n';
 import type { DriverProfile, IntercityOffer, UserMe } from '@/lib/types';
-
-function kindLabel(kind: string) {
-  if (kind === 'request') return 'Заявка пассажира';
-  if (kind === 'route') return 'Маршрут водителя';
-  return 'Неизвестный тип';
-}
-
-function actionLabel(kind: string) {
-  if (kind === 'request') return 'Принять как водитель';
-  if (kind === 'route') return 'Поехать пассажиром';
-  return 'Открыть предложение';
-}
-
-function statusLabel(value?: string | null) {
-  if (value === 'search') return 'Идёт поиск';
-  if (value === 'active') return 'Активно';
-  if (value === 'accepted') return 'Принято';
-  if (value === 'completed') return 'Завершено';
-  if (value === 'cancelled') return 'Отменено';
-  return 'Неизвестный статус';
-}
-
-function modeLabel(value?: string | null) {
-  if (value === 'regular') return 'Обычный режим';
-  if (value === 'women') return 'Женский режим';
-  return 'Неизвестный режим';
-}
 
 function isConfirmedDriver(profile: DriverProfile | null) {
   if (!profile?.status) return false;
@@ -56,15 +30,42 @@ export default function IntercityOffersPage() {
   const [items, setItems] = useState<IntercityOffer[]>([]);
   const [me, setMe] = useState<UserMe | null>(null);
   const [driverProfile, setDriverProfile] = useState<DriverProfile | null>(null);
-  const [filter, setFilter] = useState<'all' | 'request' | 'route'>('all');
   const [fromFilter, setFromFilter] = useState('');
   const [toFilter, setToFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const lang = me?.language;
   const confirmedDriver = me?.active_role === 'driver' && isConfirmedDriver(driverProfile);
-  const filterOptions: Array<'all' | 'request' | 'route'> = confirmedDriver ? ['all', 'request', 'route'] : ['all', 'route'];
+  const targetKind = confirmedDriver ? 'request' : 'route';
+
+  function kindLabel(kind: string) {
+    if (kind === 'request') return t(lang, 'requestKind');
+    if (kind === 'route') return t(lang, 'routeKind');
+    return t(lang, 'unknownMode');
+  }
+
+  function actionLabel(kind: string) {
+    if (kind === 'request') return t(lang, 'acceptAsDriver');
+    if (kind === 'route') return t(lang, 'goAsPassenger');
+    return t(lang, 'openOffer');
+  }
+
+  function statusLabel(value?: string | null) {
+    if (value === 'search') return t(lang, 'searchStatus');
+    if (value === 'active') return t(lang, 'activeStatus');
+    if (value === 'accepted') return t(lang, 'acceptedStatus');
+    if (value === 'completed') return t(lang, 'completedStatus');
+    if (value === 'cancelled') return t(lang, 'cancelledStatus');
+    return t(lang, 'unknownStatus');
+  }
+
+  function modeLabel(value?: string | null) {
+    if (value === 'regular') return t(lang, 'regularMode');
+    if (value === 'women') return t(lang, 'womenMode');
+    return t(lang, 'unknownMode');
+  }
 
   async function load() {
     setError(null);
@@ -76,7 +77,7 @@ export default function IntercityOffersPage() {
       setDriverProfile(profile);
       setItems(await listIntercityOffers());
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось загрузить предложения');
+      setError(err instanceof Error ? err.message : t(lang, 'operationFailed'));
     } finally {
       setLoading(false);
     }
@@ -84,7 +85,7 @@ export default function IntercityOffersPage() {
 
   async function accept(item: IntercityOffer) {
     if (item.kind === 'request' && !confirmedDriver) {
-      setError('Заявки пассажиров доступны только подтверждённым водителям.');
+      setError(t(lang, 'driverRequestsOnly'));
       return;
     }
 
@@ -95,7 +96,7 @@ export default function IntercityOffersPage() {
       await acceptIntercityOffer(item.kind, item.id);
       window.location.href = APP_ROUTES.currentTrip;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось принять предложение');
+      setError(err instanceof Error ? err.message : t(lang, 'operationFailed'));
     } finally {
       setActionId(null);
     }
@@ -104,21 +105,21 @@ export default function IntercityOffersPage() {
   useEffect(() => { void load(); }, []);
 
   const visibleItems = useMemo(() => {
-    const roleSafeItems = confirmedDriver ? items : items.filter((item) => item.kind !== 'request');
-    const kindItems = filter === 'all' ? roleSafeItems : roleSafeItems.filter((item) => item.kind === filter);
-    return kindItems.filter((item) => routeMatches(item, fromFilter, toFilter));
-  }, [confirmedDriver, filter, fromFilter, items, toFilter]);
+    return items
+      .filter((item) => item.kind === targetKind)
+      .filter((item) => routeMatches(item, fromFilter, toFilter));
+  }, [fromFilter, items, targetKind, toFilter]);
 
   return (
     <main className="shell stack with-bottom-nav">
       <section className="premium-hero">
         <div className="relative z-10 row">
           <div>
-            <p className="metric-label">Межгород</p>
-            <h1 className="title">Предложения</h1>
-            <p className="subtitle mt-2">{confirmedDriver ? 'Активные заявки пассажиров и маршруты водителей.' : 'Укажите направление и смотрите маршруты водителей по вашему пути.'}</p>
+            <p className="metric-label">{t(lang, 'intercity')}</p>
+            <h1 className="title">{t(lang, 'intercityOffersTitle')}</h1>
+            <p className="subtitle mt-2">{confirmedDriver ? t(lang, 'intercityDriverHint') : t(lang, 'intercityPassengerHint')}</p>
           </div>
-          <button className="button secondary !min-h-[48px] !px-4" type="button" onClick={load} disabled={loading} aria-label="Обновить">
+          <button className="button secondary !min-h-[48px] !px-4" type="button" onClick={load} disabled={loading} aria-label={t(lang, 'refreshLocation')}>
             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
           </button>
         </div>
@@ -126,34 +127,21 @@ export default function IntercityOffersPage() {
       </section>
 
       <section className="card stack">
-        <p className="metric-label">Фильтр маршрута</p>
+        <p className="metric-label">{t(lang, 'routeFilter')}</p>
         <div className="grid grid-2">
-          <label className="label">Откуда<input className="input" value={fromFilter} onChange={(event) => setFromFilter(event.target.value)} placeholder="Например: Ташкент" /></label>
-          <label className="label">Куда<input className="input" value={toFilter} onChange={(event) => setToFilter(event.target.value)} placeholder="Например: Самарканд" /></label>
+          <label className="label">{t(lang, 'fromWhere')}<input className="input" value={fromFilter} onChange={(event) => setFromFilter(event.target.value)} placeholder={t(lang, 'exampleFrom')} /></label>
+          <label className="label">{t(lang, 'toWhere')}<input className="input" value={toFilter} onChange={(event) => setToFilter(event.target.value)} placeholder={t(lang, 'exampleTo')} /></label>
         </div>
-        <p className="subtitle">Пассажиру не показывается всё подряд: список сужается по направлению.</p>
+        <p className="subtitle">{confirmedDriver ? t(lang, 'driverRequestsOnly') : t(lang, 'passengerRoutesOnly')}</p>
       </section>
 
-      <section className={`grid gap-2 ${confirmedDriver ? 'grid-cols-3' : 'grid-cols-2'}`}>
-        {filterOptions.map((item) => (
-          <button
-            key={item}
-            type="button"
-            className={`min-h-[50px] rounded-2xl text-xs font-black uppercase tracking-[0.08em] transition active:scale-95 ${filter === item ? 'bg-brand-yellow text-brand-dark' : 'bg-white text-slate-500 border border-slate-100'}`}
-            onClick={() => setFilter(item)}
-          >
-            {item === 'all' ? 'Все' : item === 'request' ? 'Заявки' : 'Маршруты'}
-          </button>
-        ))}
-      </section>
-
-      {loading ? <section className="card"><p className="subtitle">Загрузка предложений...</p></section> : null}
+      {loading ? <section className="card"><p className="subtitle">{t(lang, 'loadingOffers')}</p></section> : null}
       {!loading && visibleItems.length === 0 ? (
         <section className="card stack text-center">
-          <p className="subtitle">По этому направлению пока нет активных предложений.</p>
+          <p className="subtitle">{t(lang, 'noRouteOffers')}</p>
           <div className="grid grid-2">
-            <Link href={APP_ROUTES.intercityRequest} className="button primary">Создать заявку</Link>
-            {confirmedDriver ? <Link href={APP_ROUTES.intercityRoute} className="button secondary">Опубликовать маршрут</Link> : null}
+            <Link href={APP_ROUTES.intercityRequest} className="button primary">{t(lang, 'createRequest')}</Link>
+            {confirmedDriver ? <Link href={APP_ROUTES.intercityRoute} className="button secondary">{t(lang, 'publishRoute')}</Link> : null}
           </div>
         </section>
       ) : null}
@@ -173,19 +161,19 @@ export default function IntercityOffersPage() {
                   <div className="route-line" />
                   <div className="route-point">
                     <div className="route-dot" />
-                    <div><div className="route-kicker">Откуда</div><div className="route-address">{item.from_text}</div></div>
+                    <div><div className="route-kicker">{t(lang, 'fromWhere')}</div><div className="route-address">{item.from_text}</div></div>
                   </div>
                   <div className="route-point">
                     <div className="route-dot end" />
-                    <div><div className="route-kicker">Куда</div><div className="route-address muted">{item.to_text}</div></div>
+                    <div><div className="route-kicker">{t(lang, 'toWhere')}</div><div className="route-address muted">{item.to_text}</div></div>
                   </div>
                 </div>
 
                 <div className="metric-grid">
-                  <div className="metric-card"><div className="metric-label">Цена</div><div className="metric-value">{Math.round(item.price).toLocaleString('ru-RU')} {item.currency}</div></div>
-                  <div className="metric-card"><div className="metric-label">Страна</div><div className="metric-value">{item.country_code.toUpperCase()}</div></div>
-                  <div className="metric-card"><div className="metric-label">Дата</div><div className="metric-value">{item.date || 'Гибко'}</div></div>
-                  <div className="metric-card"><div className="metric-label">Время</div><div className="metric-value">{item.time || 'Гибко'}</div></div>
+                  <div className="metric-card"><div className="metric-label">{t(lang, 'price')}</div><div className="metric-value">{Math.round(item.price).toLocaleString('ru-RU')} {item.currency}</div></div>
+                  <div className="metric-card"><div className="metric-label">{t(lang, 'country')}</div><div className="metric-value">{item.country_code.toUpperCase()}</div></div>
+                  <div className="metric-card"><div className="metric-label">{t(lang, 'date')}</div><div className="metric-value">{item.date || t(lang, 'flexible')}</div></div>
+                  <div className="metric-card"><div className="metric-label">{t(lang, 'time')}</div><div className="metric-value">{item.time || t(lang, 'flexible')}</div></div>
                 </div>
 
                 <div className="row rounded-3xl bg-slate-50 p-4">
@@ -196,7 +184,7 @@ export default function IntercityOffersPage() {
                 </div>
 
                 <button className="button primary mt-4 w-full" type="button" onClick={() => accept(item)} disabled={actionId === key}>
-                  {actionId === key ? 'Принимаем...' : actionLabel(item.kind)}
+                  {actionId === key ? t(lang, 'accepting') : actionLabel(item.kind)}
                 </button>
               </div>
             </article>
