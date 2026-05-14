@@ -8,10 +8,10 @@ import { MapPointPicker } from '@/components/MapPointPicker';
 import { ModeToggle } from '@/components/ModeToggle';
 import { OrderCard } from '@/components/OrderCard';
 import { APP_ROUTES } from '@/lib/constants';
-import { createCityOrder, listMyCityOrders, raiseCityOrderPrice } from '@/lib/api';
+import { createCityOrder, getMe, listMyCityOrders, raiseCityOrderPrice } from '@/lib/api';
 import { haversineKm } from '@/lib/geo';
 import { t } from '@/lib/i18n';
-import type { CityOrder, RideMode } from '@/lib/types';
+import type { CityOrder, RideMode, UserMe } from '@/lib/types';
 
 const FALLBACK_PRICE_PER_KM: Record<string, { currency: string; pricePerKm: number; minPrice: number }> = {
   uz: { currency: 'UZS', pricePerKm: 2500, minPrice: 10000 },
@@ -19,19 +19,6 @@ const FALLBACK_PRICE_PER_KM: Record<string, { currency: string; pricePerKm: numb
   kz: { currency: 'KZT', pricePerKm: 120, minPrice: 800 },
   sa: { currency: 'SAR', pricePerKm: 2.5, minPrice: 15 },
 };
-
-const CREATED_STATUS_LABELS: Record<string, string> = {
-  search: 'Ищем водителя',
-  active: 'Активно',
-  accepted: 'Принято',
-  finished: 'Завершено',
-  completed: 'Завершено',
-  cancelled: 'Отменено',
-};
-
-function createdStatusLabel(value?: string | null) {
-  return value ? CREATED_STATUS_LABELS[value] || 'Неизвестный статус' : 'Неизвестный статус';
-}
 
 function searchDots(seconds: number) {
   return '.'.repeat((seconds % 3) + 1);
@@ -57,6 +44,7 @@ function hasPoint(address: string, lat: string, lng: string) {
 }
 
 export default function CityCreatePage() {
+  const [me, setMe] = useState<UserMe | null>(null);
   const [mode, setMode] = useState<RideMode>('regular');
   const [country, setCountry] = useState('uz');
   const [pickup, setPickup] = useState('');
@@ -77,6 +65,7 @@ export default function CityCreatePage() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const lang = me?.language;
 
   const tariff = FALLBACK_PRICE_PER_KM[country] || FALLBACK_PRICE_PER_KM.uz;
   const pickupLatNum = parseCoordinate(pickupLat);
@@ -94,6 +83,19 @@ export default function CityCreatePage() {
     if (estimatedDistance == null) return tariff.minPrice;
     return Math.max(roundPrice(estimatedDistance * tariff.pricePerKm, country), tariff.minPrice);
   }, [country, estimatedDistance, tariff.minPrice, tariff.pricePerKm]);
+
+  function createdStatusLabel(value?: string | null) {
+    if (value === 'search') return t(lang, 'searchStatus');
+    if (value === 'active') return t(lang, 'activeStatus');
+    if (value === 'accepted') return t(lang, 'acceptedStatus');
+    if (value === 'finished' || value === 'completed') return t(lang, 'completedStatus');
+    if (value === 'cancelled') return t(lang, 'cancelledStatus');
+    return t(lang, 'unknownStatus');
+  }
+
+  useEffect(() => {
+    void getMe().then(setMe).catch(() => null);
+  }, []);
 
   useEffect(() => {
     if (routeReady && estimatedDistance != null) {
@@ -140,13 +142,13 @@ export default function CityCreatePage() {
     setMessage(null);
 
     if (!pickup.trim() || !destination.trim()) {
-      setError('Укажите адрес отправления и назначения.');
+      setError(t(lang, 'routeRequired'));
       setRouteOpen(true);
       return;
     }
 
     if (!routeReady) {
-      setError('Выберите адрес из подсказок, используйте геолокацию или отметьте точку на карте.');
+      setError(t(lang, 'chooseAddressFromSuggestions'));
       setRouteOpen(true);
       return;
     }
@@ -172,7 +174,7 @@ export default function CityCreatePage() {
       setSecondsPassed(0);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
-      setError(err instanceof Error ? err?.message : 'Не удалось создать заказ');
+      setError(err instanceof Error ? err?.message : t(lang, 'createOrderFailed'));
     } finally {
       setLoading(false);
     }
@@ -186,9 +188,9 @@ export default function CityCreatePage() {
       const next = await raiseCityOrderPrice(created.id, nextPrice);
       setCreated(next);
       setPrice(String(next?.passenger_price ?? 0));
-      setMessage(t('ru', 'updatedSuccessfully'));
+      setMessage(t(lang, 'updatedSuccessfully'));
     } catch (err) {
-      setError(err instanceof Error ? err?.message : t('ru', 'operationFailed'));
+      setError(err instanceof Error ? err?.message : t(lang, 'operationFailed'));
     }
   }
 
@@ -197,23 +199,23 @@ export default function CityCreatePage() {
       <main className={`shell stack with-bottom-nav ${mode === 'women' ? 'women-mode' : ''}`}>
         <section className="premium-hero">
           <div className="relative z-10">
-            <p className="metric-label">Заказ создан</p>
-            <h1 className="title">Ищем водителя{searchDots(secondsPassed)}</h1>
-            <p className="subtitle mt-2">Водители увидят цену и смогут принять заказ или предложить свою.</p>
+            <p className="metric-label">{t(lang, 'orderCreated')}</p>
+            <h1 className="title">{t(lang, 'searchingDriver')}{searchDots(secondsPassed)}</h1>
+            <p className="subtitle mt-2">{t(lang, 'createdOrderHint')}</p>
           </div>
         </section>
         <section className="metric-grid">
-          <div className="metric-card"><div className="metric-label">Увидели</div><div className="metric-value">{driversSeen}</div></div>
-          <div className="metric-card"><div className="metric-label">Статус</div><div className="metric-value">{createdStatusLabel(created.status)}</div></div>
-          <div className="metric-card"><div className="metric-label">Цена</div><div className="metric-value">{created.passenger_price} {created.currency}</div></div>
-          <div className="metric-card"><div className="metric-label">Время</div><div className="metric-value">{secondsPassed}s</div></div>
+          <div className="metric-card"><div className="metric-label">{t(lang, 'seen')}</div><div className="metric-value">{driversSeen}</div></div>
+          <div className="metric-card"><div className="metric-label">{t(lang, 'status')}</div><div className="metric-value">{createdStatusLabel(created.status)}</div></div>
+          <div className="metric-card"><div className="metric-label">{t(lang, 'price')}</div><div className="metric-value">{created.passenger_price} {created.currency}</div></div>
+          <div className="metric-card"><div className="metric-label">{t(lang, 'time')}</div><div className="metric-value">{secondsPassed}s</div></div>
         </section>
-        <OrderCard order={created} />
+        <OrderCard order={created} lang={lang} />
         <section className="card stack">
           {error ? <p className="error">{error}</p> : null}
           {message ? <p className="success">{message}</p> : null}
-          {secondsPassed >= 30 ? <button className="button primary" type="button" onClick={raisePrice}>{t('ru', 'raisePrice')}</button> : <p className="subtitle">{t('ru', 'raisePriceHint')}</p>}
-          <Link className="button secondary" href={APP_ROUTES.cityMyOrders}>Открыть мои заказы</Link>
+          {secondsPassed >= 30 ? <button className="button primary" type="button" onClick={raisePrice}>{t(lang, 'raisePrice')}</button> : <p className="subtitle">{t(lang, 'raisePriceHint')}</p>}
+          <Link className="button secondary" href={APP_ROUTES.cityMyOrders}>{t(lang, 'openMyOrders')}</Link>
         </section>
       </main>
     );
@@ -223,52 +225,52 @@ export default function CityCreatePage() {
     <main className={`shell stack with-bottom-nav ${mode === 'women' ? 'women-mode' : ''}`}>
       <section className="premium-hero">
         <div className="relative z-10">
-          <p className="metric-label">Городская поездка</p>
-          <h1 className="title">Куда едем?</h1>
-          <p className="subtitle mt-2">Сначала укажите маршрут. Цена появится после выбора точек.</p>
+          <p className="metric-label">{t(lang, 'cityTrip')}</p>
+          <h1 className="title">{t(lang, 'whereGo')}</h1>
+          <p className="subtitle mt-2">{t(lang, 'cityCreateHint')}</p>
         </div>
       </section>
       <form className="stack" onSubmit={submit}>
         <section className="card stack">
           <button type="button" className="route-summary" onClick={() => setRouteOpen((prev) => !prev)}>
-            <span><strong>Маршрут</strong><small>{routeReady ? `${pickup} → ${destination}` : 'Откуда и куда поедем'}</small></span>
+            <span><strong>{t(lang, 'route')}</strong><small>{routeReady ? `${pickup} → ${destination}` : t(lang, 'routeEmptyHint')}</small></span>
             {routeOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
           </button>
           {routeOpen ? (
             <div className="stack">
-              <AddressField lang="ru" label="Откуда" address={pickup} setAddress={setPickup} lat={pickupLat} setLat={setPickupLat} lng={pickupLng} setLng={setPickupLng} countryCode={country} placeholder="Адрес подачи" onResolved={(payload) => { if (payload?.countryCode) setCountry(payload.countryCode); }} />
-              <MapPointPicker lang="ru" triggerLabel="Указать подачу на карте" title="Точка подачи" confirmLabel="Подтвердить точку" cancelLabel="Отмена" initialLat={pickupLatNum} initialLng={pickupLngNum} onConfirm={(payload) => { setPickup(payload?.address ?? ''); setPickupLat(payload?.lat ?? ''); setPickupLng(payload?.lng ?? ''); if (payload?.countryCode) setCountry(payload.countryCode); }} />
-              <AddressField lang="ru" label="Куда" address={destination} setAddress={setDestination} lat={destinationLat} setLat={setDestinationLat} lng={destinationLng} setLng={setDestinationLng} countryCode={country} allowCurrentLocation={false} placeholder="Адрес назначения" />
-              <MapPointPicker lang="ru" triggerLabel="Указать точку назначения на карте" title="Точка назначения" confirmLabel="Подтвердить точку" cancelLabel="Отмена" initialLat={destinationLatNum || pickupLatNum} initialLng={destinationLngNum || pickupLngNum} onConfirm={(payload) => { setDestination(payload?.address ?? ''); setDestinationLat(payload?.lat ?? ''); setDestinationLng(payload?.lng ?? ''); }} />
+              <AddressField lang={lang || 'ru'} label={t(lang, 'fromWhere')} address={pickup} setAddress={setPickup} lat={pickupLat} setLat={setPickupLat} lng={pickupLng} setLng={setPickupLng} countryCode={country} placeholder={t(lang, 'pickupPlaceholder')} onResolved={(payload) => { if (payload?.countryCode) setCountry(payload.countryCode); }} />
+              <MapPointPicker lang={lang || 'ru'} triggerLabel={t(lang, 'pickPickupOnMap')} title={t(lang, 'pickupPoint')} confirmLabel={t(lang, 'confirmPoint')} cancelLabel={t(lang, 'cancel')} initialLat={pickupLatNum} initialLng={pickupLngNum} onConfirm={(payload) => { setPickup(payload?.address ?? ''); setPickupLat(payload?.lat ?? ''); setPickupLng(payload?.lng ?? ''); if (payload?.countryCode) setCountry(payload.countryCode); }} />
+              <AddressField lang={lang || 'ru'} label={t(lang, 'toWhere')} address={destination} setAddress={setDestination} lat={destinationLat} setLat={setDestinationLat} lng={destinationLng} setLng={setDestinationLng} countryCode={country} allowCurrentLocation={false} placeholder={t(lang, 'destinationPlaceholder')} />
+              <MapPointPicker lang={lang || 'ru'} triggerLabel={t(lang, 'pickDestinationOnMap')} title={t(lang, 'destinationPoint')} confirmLabel={t(lang, 'confirmPoint')} cancelLabel={t(lang, 'cancel')} initialLat={destinationLatNum || pickupLatNum} initialLng={destinationLngNum || pickupLngNum} onConfirm={(payload) => { setDestination(payload?.address ?? ''); setDestinationLat(payload?.lat ?? ''); setDestinationLng(payload?.lng ?? ''); }} />
             </div>
           ) : null}
         </section>
         {routeReady ? (
           <section className="card stack">
-            <div><p className="metric-label">Цена</p><h2 className="title" style={{ fontSize: 24 }}>Предложите свою цену</h2><p className="subtitle mt-1">Можно выбрать расчёт системы или указать свою сумму.</p></div>
+            <div><p className="metric-label">{t(lang, 'price')}</p><h2 className="title" style={{ fontSize: 24 }}>{t(lang, 'offerYourPrice')}</h2><p className="subtitle mt-1">{t(lang, 'priceHint')}</p></div>
             <button type="button" className="recommended-price" onClick={() => setPrice(String(recommendedPrice))}>
-              <Sparkles size={18} /><span><strong>{formatMoney(recommendedPrice, tariff.currency)}</strong><small>{estimatedDistance != null ? `Примерно ${estimatedDistance.toFixed(1)} km · расчёт системы` : 'Расчёт системы'}</small></span><em>Выбрать</em>
+              <Sparkles size={18} /><span><strong>{formatMoney(recommendedPrice, tariff.currency)}</strong><small>{estimatedDistance != null ? `${t(lang, 'about')} ${estimatedDistance.toFixed(1)} km · ${t(lang, 'systemCalculation')}` : t(lang, 'systemCalculation')}</small></span><em>{t(lang, 'choose')}</em>
             </button>
-            <label className="label">Ваша цена<input className="input price-input" inputMode="numeric" value={price} onChange={(event) => setPrice(event.target.value)} placeholder={formatMoney(recommendedPrice, tariff.currency)} required /></label>
+            <label className="label">{t(lang, 'yourPrice')}<input className="input price-input" inputMode="numeric" value={price} onChange={(event) => setPrice(event.target.value)} placeholder={formatMoney(recommendedPrice, tariff.currency)} required /></label>
           </section>
         ) : null}
         <section className="card-soft stack">
-          <button type="button" className="route-summary" onClick={() => setSettingsOpen((prev) => !prev)}><span><strong>Дополнительно</strong><small>Страна, места, женский режим, комментарий</small></span>{settingsOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}</button>
+          <button type="button" className="route-summary" onClick={() => setSettingsOpen((prev) => !prev)}><span><strong>{t(lang, 'additional')}</strong><small>{t(lang, 'additionalHint')}</small></span>{settingsOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}</button>
           {settingsOpen ? (
             <div className="stack">
               <div className="grid grid-2">
-                <label className="label">Страна<input className="input" value={country.toUpperCase()} onChange={(event) => setCountry(event.target.value.toLowerCase().slice(0, 2))} placeholder="UZ" /></label>
-                <label className="label">Мест<input className="input" inputMode="numeric" min="1" value={seats} onChange={(event) => setSeats(event.target.value)} required /></label>
+                <label className="label">{t(lang, 'country')}<input className="input" value={country.toUpperCase()} onChange={(event) => setCountry(event.target.value.toLowerCase().slice(0, 2))} placeholder="UZ" /></label>
+                <label className="label">{t(lang, 'seats')}<input className="input" inputMode="numeric" min="1" value={seats} onChange={(event) => setSeats(event.target.value)} required /></label>
               </div>
               <ModeToggle value={mode} onChange={setMode} />
-              <button type="button" className="button secondary" onClick={() => setCommentOpen((prev) => !prev)}>{commentOpen ? 'Скрыть комментарий' : 'Добавить комментарий'}</button>
-              {commentOpen ? <label className="label">Комментарий<textarea className="input" value={comment} onChange={(event) => setComment(event.target.value)} rows={3} placeholder="Например: подъезд, ориентир, багаж" /></label> : null}
+              <button type="button" className="button secondary" onClick={() => setCommentOpen((prev) => !prev)}>{commentOpen ? t(lang, 'hideComment') : t(lang, 'addComment')}</button>
+              {commentOpen ? <label className="label">{t(lang, 'comment')}<textarea className="input" value={comment} onChange={(event) => setComment(event.target.value)} rows={3} placeholder={t(lang, 'commentPlaceholder')} /></label> : null}
             </div>
           ) : null}
         </section>
         {error ? <p className="error">{error}</p> : null}
         {message ? <p className="success">{message}</p> : null}
-        <button className="button primary full-submit" type="submit" disabled={loading || !routeReady}>{loading ? 'Создаём...' : 'Подтвердить заказ'}</button>
+        <button className="button primary full-submit" type="submit" disabled={loading || !routeReady}>{loading ? t(lang, 'creating') : t(lang, 'confirmOrder')}</button>
       </form>
     </main>
   );
