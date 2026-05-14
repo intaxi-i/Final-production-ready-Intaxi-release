@@ -12,25 +12,7 @@ import {
 } from '@/lib/api';
 import type { CityTrip, DriverPaymentMethod, IntercityTrip, UserMe } from '@/lib/types';
 import { TripCard } from '@/components/TripCard';
-
-const STATUS_LABELS: Record<string, string> = {
-  accepted: 'Принято',
-  driver_on_way: 'Водитель едет',
-  driver_arrived: 'Водитель прибыл',
-  in_progress: 'В пути',
-  completed: 'Завершено',
-  cancelled: 'Отменено',
-};
-
-const SOURCE_LABELS: Record<string, string> = {
-  request: 'Заявка пассажира',
-  route: 'Маршрут водителя',
-};
-
-const MODE_LABELS: Record<string, string> = {
-  regular: 'Обычный',
-  women: 'Женский',
-};
+import { t } from '@/lib/i18n';
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
   card: 'Карта',
@@ -39,20 +21,30 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
   crypto: 'Криптовалюта',
 };
 
-function statusLabel(value?: string | null) {
-  return value ? STATUS_LABELS[value] || 'Неизвестный статус' : 'Неизвестный статус';
+function statusLabel(lang: string | undefined | null, value?: string | null, driverView = false) {
+  if (value === 'accepted') return t(lang, driverView ? 'driverFoundDriver' : 'driverFoundPassenger');
+  if (value === 'driver_on_way') return t(lang, driverView ? 'driverOnWayDriver' : 'driverOnWayPassenger');
+  if (value === 'driver_arrived') return t(lang, driverView ? 'driverArrivedDriver' : 'driverArrivedPassenger');
+  if (value === 'in_progress') return t(lang, driverView ? 'tripInProgressDriver' : 'tripInProgressPassenger');
+  if (value === 'completed') return t(lang, 'completedStatus');
+  if (value === 'cancelled') return t(lang, 'cancelledStatus');
+  return t(lang, 'unknownStatus');
 }
 
-function sourceLabel(value?: string | null) {
-  return value ? SOURCE_LABELS[value] || 'Неизвестный источник' : 'Неизвестный источник';
+function sourceLabel(lang: string | undefined | null, value?: string | null) {
+  if (value === 'request') return t(lang, 'requestKind');
+  if (value === 'route') return t(lang, 'routeKind');
+  return t(lang, 'unknownStatus');
 }
 
-function modeLabel(value?: string | null) {
-  return value ? MODE_LABELS[value] || 'Неизвестный режим' : 'Неизвестный режим';
+function modeLabel(lang: string | undefined | null, value?: string | null) {
+  if (value === 'regular') return t(lang, 'regularMode');
+  if (value === 'women') return t(lang, 'womenMode');
+  return t(lang, 'unknownMode');
 }
 
 function paymentMethodLabel(value?: string | null) {
-  return value ? PAYMENT_METHOD_LABELS[value] || 'Неизвестный способ' : 'Неизвестный способ';
+  return value ? PAYMENT_METHOD_LABELS[value] || value : '';
 }
 
 function isTripDriver(me: UserMe | null, trip?: { driver_user_id?: number | null } | null) {
@@ -88,7 +80,7 @@ export default function CurrentTripPage() {
       setShowPayment(false);
       setPaymentMethods([]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось загрузить поездку');
+      setError(err instanceof Error ? err.message : t(me?.language, 'operationFailed'));
     } finally {
       setLoading(false);
     }
@@ -101,7 +93,7 @@ export default function CurrentTripPage() {
     try {
       setCityTrip(await updateCityTripStatus(cityTrip.id, status));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось изменить статус');
+      setError(err instanceof Error ? err.message : t(me?.language, 'changeStatusFailed'));
     } finally {
       setAction(false);
     }
@@ -114,7 +106,7 @@ export default function CurrentTripPage() {
     try {
       setIntercityTrip(await updateIntercityTripStatus(intercityTrip.id, status));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось изменить статус');
+      setError(err instanceof Error ? err.message : t(me?.language, 'changeStatusFailed'));
     } finally {
       setAction(false);
     }
@@ -128,7 +120,7 @@ export default function CurrentTripPage() {
       setPaymentMethods(await getDriverPaymentMethodsForTrip(cityTrip.id));
       setShowPayment(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Реквизиты пока недоступны');
+      setError(err instanceof Error ? err.message : t(me?.language, 'operationFailed'));
     } finally {
       setAction(false);
     }
@@ -136,48 +128,50 @@ export default function CurrentTripPage() {
 
   useEffect(() => { load(); }, []);
 
+  const lang = me?.language;
   const canControlCityTrip = isTripDriver(me, cityTrip);
   const canPayCityDriver = isTripPassenger(me, cityTrip);
   const canControlIntercityTrip = isTripDriver(me, intercityTrip);
+  const cityViewerRole = canControlCityTrip ? 'driver' : canPayCityDriver ? 'passenger' : 'unknown';
 
   return (
     <main className="shell stack with-bottom-nav">
       <section className="premium-hero">
         <div className="relative z-10 row">
-          <div>
-            <p className="metric-label">Поездка</p>
-            <h1 className="title">Текущая поездка</h1>
-            <p className="subtitle mt-2">Активные городские и межгородские поездки.</p>
+          <div className="min-w-0">
+            <p className="metric-label">{t(lang, 'cityTrip')}</p>
+            <h1 className="title break-words">{t(lang, 'currentTrip')}</h1>
+            <p className="subtitle mt-2 break-words">{t(lang, 'activeTrip')}</p>
           </div>
-          <button className="button secondary !min-h-[48px] !px-4" type="button" onClick={load} disabled={loading} aria-label="Обновить">
+          <button className="button secondary !min-h-[48px] !px-4" type="button" onClick={load} disabled={loading} aria-label={t(lang, 'refreshLocation')}>
             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
           </button>
         </div>
-        {error ? <p className="error mt-4">{error}</p> : null}
+        {error ? <p className="error mt-4 break-words">{error}</p> : null}
       </section>
 
-      {loading ? <section className="card"><p className="subtitle">Загрузка...</p></section> : null}
-      {!loading && !cityTrip && !intercityTrip ? <section className="card"><p className="subtitle">Активной поездки нет.</p></section> : null}
+      {loading ? <section className="card"><p className="subtitle">{t(lang, 'loading')}</p></section> : null}
+      {!loading && !cityTrip && !intercityTrip ? <section className="card"><p className="subtitle">{t(lang, 'noData')}</p></section> : null}
 
       {cityTrip ? (
         <>
-          <TripCard trip={cityTrip} onStatus={changeCityStatus} disabled={action} canControl={canControlCityTrip} />
+          <TripCard trip={cityTrip} onStatus={changeCityStatus} disabled={action} canControl={canControlCityTrip} viewerRole={cityViewerRole} lang={lang} />
           {canPayCityDriver ? (
-            <section className="card stack">
-              <div>
-                <h2 className="title" style={{ fontSize: 22 }}>Оплата водителю</h2>
-                <p className="subtitle">Реквизиты доступны только участникам поездки.</p>
+            <section className="card stack min-w-0 overflow-hidden">
+              <div className="min-w-0">
+                <h2 className="title break-words" style={{ fontSize: 22 }}>{t(lang, 'paymentMethods')}</h2>
+                <p className="subtitle break-words">{t(lang, 'createdOrderHint')}</p>
               </div>
-              <button className="button secondary" type="button" onClick={loadPaymentMethods} disabled={action}>Показать реквизиты водителя</button>
+              <button className="button secondary" type="button" onClick={loadPaymentMethods} disabled={action}>{t(lang, 'paymentMethods')}</button>
               {showPayment ? (
                 <div className="grid grid-2">
-                  {paymentMethods.length === 0 ? <p className="subtitle">Водитель ещё не добавил реквизиты.</p> : null}
+                  {paymentMethods.length === 0 ? <p className="subtitle">{t(lang, 'noData')}</p> : null}
                   {paymentMethods.map((method) => (
-                    <div className="card-soft" key={method.id}>
-                      <strong>{paymentMethodLabel(method.method_type)}</strong>
-                      <p className="subtitle">Карта: {method.card_number_masked || 'не указана'}</p>
-                      <p className="subtitle">Владелец: {method.card_holder_name || 'не указан'}</p>
-                      <p className="subtitle">Банк: {method.bank_name || 'не указан'}</p>
+                    <div className="card-soft min-w-0 overflow-hidden" key={method.id}>
+                      <strong className="break-words">{paymentMethodLabel(method.method_type)}</strong>
+                      <p className="subtitle break-words">{method.card_number_masked || ''}</p>
+                      <p className="subtitle break-words">{method.card_holder_name || ''}</p>
+                      <p className="subtitle break-words">{method.bank_name || ''}</p>
                     </div>
                   ))}
                 </div>
@@ -188,32 +182,32 @@ export default function CurrentTripPage() {
       ) : null}
 
       {intercityTrip ? (
-        <section className="order-card">
-          <div className="order-card-inner stack">
-            <div className="order-topline">
-              <span className="order-badge">Межгород · №{intercityTrip.id}</span>
-              <span className="order-badge bg-brand-yellow text-brand-dark">{statusLabel(intercityTrip.status)}</span>
+        <section className="order-card min-w-0 overflow-hidden">
+          <div className="order-card-inner stack min-w-0">
+            <div className="order-topline min-w-0 gap-2">
+              <span className="order-badge min-w-0 max-w-full truncate">{t(lang, 'intercity')} · №{intercityTrip.id}</span>
+              <span className="order-badge shrink-0 bg-brand-yellow text-brand-dark">{statusLabel(lang, intercityTrip.status, canControlIntercityTrip)}</span>
             </div>
             <div className="row rounded-3xl bg-slate-50 p-4">
-              <div>
-                <p className="metric-label">Цена</p>
-                <h2 className="title" style={{ fontSize: 28 }}>{Math.round(intercityTrip.final_price).toLocaleString('ru-RU')} {intercityTrip.currency}</h2>
-                <p className="subtitle mt-1">{sourceLabel(intercityTrip.source_type)}</p>
+              <div className="min-w-0">
+                <p className="metric-label">{t(lang, 'price')}</p>
+                <h2 className="title break-words" style={{ fontSize: 28 }}>{Math.round(intercityTrip.final_price).toLocaleString('ru-RU')} {intercityTrip.currency}</h2>
+                <p className="subtitle mt-1 break-words">{sourceLabel(lang, intercityTrip.source_type)}</p>
               </div>
-              <Globe2 className="text-brand-yellow" />
+              <Globe2 className="shrink-0 text-brand-yellow" />
             </div>
             <div className="metric-grid">
-              <div className="metric-card"><div className="metric-label">Статус</div><div className="metric-value">{statusLabel(intercityTrip.status)}</div></div>
-              <div className="metric-card"><div className="metric-label">Источник</div><div className="metric-value">{sourceLabel(intercityTrip.source_type)}</div></div>
-              <div className="metric-card"><div className="metric-label">Режим</div><div className="metric-value">{modeLabel(intercityTrip.mode)}</div></div>
-              <div className="metric-card"><div className="metric-label">Поездка</div><div className="metric-value">#{intercityTrip.id}</div></div>
+              <div className="metric-card min-w-0 overflow-hidden"><div className="metric-label">{t(lang, 'status')}</div><div className="metric-value break-words">{statusLabel(lang, intercityTrip.status, canControlIntercityTrip)}</div></div>
+              <div className="metric-card min-w-0 overflow-hidden"><div className="metric-label">{t(lang, 'route')}</div><div className="metric-value break-words">{sourceLabel(lang, intercityTrip.source_type)}</div></div>
+              <div className="metric-card min-w-0 overflow-hidden"><div className="metric-label">{t(lang, 'passengerMode')}</div><div className="metric-value break-words">{modeLabel(lang, intercityTrip.mode)}</div></div>
+              <div className="metric-card min-w-0 overflow-hidden"><div className="metric-label">{t(lang, 'order')}</div><div className="metric-value break-words">#{intercityTrip.id}</div></div>
             </div>
             {canControlIntercityTrip ? (
               <div className="grid grid-2">
-                <button className="button secondary" type="button" disabled={action} onClick={() => changeIntercityStatus('driver_on_way')}>Выехал</button>
-                <button className="button secondary" type="button" disabled={action} onClick={() => changeIntercityStatus('in_progress')}>В пути</button>
-                <button className="button primary" type="button" disabled={action} onClick={() => changeIntercityStatus('completed')}>Завершить</button>
-                <button className="button danger" type="button" disabled={action} onClick={() => changeIntercityStatus('cancelled')}>Отменить</button>
+                <button className="button secondary" type="button" disabled={action} onClick={() => changeIntercityStatus('driver_on_way')}>{t(lang, 'driverOnWayDriver')}</button>
+                <button className="button secondary" type="button" disabled={action} onClick={() => changeIntercityStatus('in_progress')}>{t(lang, 'tripInProgressDriver')}</button>
+                <button className="button primary" type="button" disabled={action} onClick={() => changeIntercityStatus('completed')}>{t(lang, 'completedStatus')}</button>
+                <button className="button danger" type="button" disabled={action} onClick={() => changeIntercityStatus('cancelled')}>{t(lang, 'cancelledStatus')}</button>
               </div>
             ) : null}
           </div>
