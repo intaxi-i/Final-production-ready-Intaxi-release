@@ -37,12 +37,12 @@ function modeLabel(lang: string | undefined | null, value?: string | null) {
 }
 
 function actionLabel(lang: string | undefined | null, value?: string | null) {
-  if (value === 'driver_on_way') return t(lang, 'driverActionOnWay');
-  if (value === 'driver_arrived') return t(lang, 'driverActionArrived');
-  if (value === 'in_progress') return t(lang, 'driverActionStartTrip');
-  if (value === 'completed') return t(lang, 'driverActionFinishTrip');
-  if (value === 'cancelled') return t(lang, 'driverActionCancelTrip');
-  return t(lang, 'unknownAction');
+  if (value === 'driver_on_way') return t(lang, 'driverOnWayDriver');
+  if (value === 'driver_arrived') return t(lang, 'driverArrivedDriver');
+  if (value === 'in_progress') return t(lang, 'tripInProgressDriver');
+  if (value === 'completed') return t(lang, 'completedStatus');
+  if (value === 'cancelled') return t(lang, 'cancelledStatus');
+  return t(lang, 'unknownStatus');
 }
 
 function formatMoney(value: number, currency: string) {
@@ -81,9 +81,9 @@ export function TripCard({ trip, onStatus, disabled, canControl = true, viewerRo
 
         <section className="metric-grid">
           <div className="metric-card min-w-0 overflow-hidden"><div className="metric-label">{t(lang, 'price')}</div><div className="metric-value break-words">{formatMoney(trip.final_price, trip.currency)}</div></div>
-          <div className="metric-card min-w-0 overflow-hidden"><div className="metric-label">{t(lang, 'mode')}</div><div className="metric-value break-words">{modeLabel(lang, trip.mode)}</div></div>
+          <div className="metric-card min-w-0 overflow-hidden"><div className="metric-label">{t(lang, 'status')}</div><div className="metric-value break-words">{modeLabel(lang, trip.mode)}</div></div>
           <div className="metric-card min-w-0 overflow-hidden"><div className="metric-label">{t(lang, 'driver')}</div><div className="metric-value break-words">#{trip.driver_user_id}</div></div>
-          <div className="metric-card min-w-0 overflow-hidden"><div className="metric-label">{t(lang, 'passenger')}</div><div className="metric-value break-words">#{trip.passenger_user_id}</div></div>
+          <div className="metric-card min-w-0 overflow-hidden"><div className="metric-label">{t(lang, 'passengerMode')}</div><div className="metric-value break-words">#{trip.passenger_user_id}</div></div>
         </section>
 
         <div className="row rounded-3xl bg-slate-50 p-4">
@@ -91,7 +91,7 @@ export function TripCard({ trip, onStatus, disabled, canControl = true, viewerRo
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-brand-yellow"><Navigation size={20} /></div>
             <div className="min-w-0">
               <strong className="break-words">{statusLabel(lang, trip.status, viewerRole)}</strong>
-              <p className="subtitle mt-1 break-words">{viewerRole === 'driver' ? t(lang, 'driverTripHint') : t(lang, 'passengerTripHint')}</p>
+              <p className="subtitle mt-1 break-words">{viewerRole === 'driver' ? t(lang, 'driverCheckHint') : t(lang, 'createdOrderHint')}</p>
             </div>
           </div>
           <Clock3 className="shrink-0 text-slate-300" />
