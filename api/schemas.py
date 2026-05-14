@@ -96,11 +96,20 @@ class DriverOnlineStateResponse(BaseModel):
     is_online: bool
     lat: float | None = None
     lng: float | None = None
+    country: str | None = None
+    city: str | None = None
+    is_busy: bool = False
     updated_at: str | None = None
 
 
 class DriverOnlineUpdateRequest(BaseModel):
     is_online: bool
+    country: str | None = None
+    country_code: str | None = None
+    city: str | None = None
+    city_id: int | None = None
+    lat: float | None = None
+    lng: float | None = None
 
 
 class DriverLocationUpdateRequest(BaseModel):
