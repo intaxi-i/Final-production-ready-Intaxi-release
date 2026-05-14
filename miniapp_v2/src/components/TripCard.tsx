@@ -1,115 +1,100 @@
 import { Banknote, Clock3, MapPin, Navigation } from 'lucide-react';
 import type { CityTrip } from '@/lib/types';
+import { t } from '@/lib/i18n';
+
+type ViewerRole = 'driver' | 'passenger' | 'unknown';
 
 type Props = {
   trip: CityTrip;
   onStatus?: (status: string) => void;
   disabled?: boolean;
   canControl?: boolean;
+  viewerRole?: ViewerRole;
+  lang?: string | null;
 };
 
-const NEXT_STATUSES: Record<string, string[]> = {
+const NEXT_DRIVER_STATUSES: Record<string, string[]> = {
   accepted: ['driver_on_way', 'driver_arrived', 'cancelled'],
   driver_on_way: ['driver_arrived', 'cancelled'],
   driver_arrived: ['in_progress', 'cancelled'],
   in_progress: ['completed', 'cancelled'],
 };
 
-const ACTION_LABELS: Record<string, string> = {
-  driver_on_way: 'Выехал к пассажиру',
-  driver_arrived: 'Я на месте',
-  in_progress: 'Начать поездку',
-  completed: 'Завершить поездку',
-  cancelled: 'Отменить поездку',
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  accepted: 'Принято',
-  driver_on_way: 'Водитель едет',
-  driver_arrived: 'Водитель прибыл',
-  in_progress: 'В пути',
-  completed: 'Завершено',
-  cancelled: 'Отменено',
-};
-
-const MODE_LABELS: Record<string, string> = {
-  regular: 'Обычный режим',
-  women: 'Женский режим',
-};
-
-function statusLabel(value?: string | null) {
-  return value ? STATUS_LABELS[value] || 'Неизвестный статус' : 'Неизвестный статус';
+function statusLabel(lang: string | undefined | null, value?: string | null, viewerRole: ViewerRole = 'unknown') {
+  if (value === 'accepted') return t(lang, viewerRole === 'driver' ? 'driverFoundDriver' : 'driverFoundPassenger');
+  if (value === 'driver_on_way') return t(lang, viewerRole === 'driver' ? 'driverOnWayDriver' : 'driverOnWayPassenger');
+  if (value === 'driver_arrived') return t(lang, viewerRole === 'driver' ? 'driverArrivedDriver' : 'driverArrivedPassenger');
+  if (value === 'in_progress') return t(lang, viewerRole === 'driver' ? 'tripInProgressDriver' : 'tripInProgressPassenger');
+  if (value === 'completed') return t(lang, 'completedStatus');
+  if (value === 'cancelled') return t(lang, 'cancelledStatus');
+  return t(lang, 'unknownStatus');
 }
 
-function modeLabel(value?: string | null) {
-  return value ? MODE_LABELS[value] || 'Неизвестный режим' : 'Неизвестный режим';
+function modeLabel(lang: string | undefined | null, value?: string | null) {
+  if (value === 'regular') return t(lang, 'regularMode');
+  if (value === 'women') return t(lang, 'womenMode');
+  return t(lang, 'unknownMode');
 }
 
-function actionLabel(value?: string | null) {
-  return value ? ACTION_LABELS[value] || 'Неизвестное действие' : 'Неизвестное действие';
+function actionLabel(lang: string | undefined | null, value?: string | null) {
+  if (value === 'driver_on_way') return t(lang, 'driverActionOnWay');
+  if (value === 'driver_arrived') return t(lang, 'driverActionArrived');
+  if (value === 'in_progress') return t(lang, 'driverActionStartTrip');
+  if (value === 'completed') return t(lang, 'driverActionFinishTrip');
+  if (value === 'cancelled') return t(lang, 'driverActionCancelTrip');
+  return t(lang, 'unknownAction');
 }
 
 function formatMoney(value: number, currency: string) {
   return `${Math.round(value).toLocaleString('ru-RU')} ${currency}`;
 }
 
-export function TripCard({ trip, onStatus, disabled, canControl = true }: Props) {
-  const next = canControl ? NEXT_STATUSES[trip.status] || [] : [];
+export function TripCard({ trip, onStatus, disabled, canControl = true, viewerRole = 'unknown', lang }: Props) {
+  const canDriverControl = canControl && viewerRole === 'driver';
+  const next = canDriverControl ? NEXT_DRIVER_STATUSES[trip.status] || [] : [];
 
   return (
-    <article className="order-card">
-      <div className="order-card-inner stack">
-        <div className="order-topline">
-          <span className="order-badge">Город · №{trip.id}</span>
-          <span className="order-badge bg-brand-yellow text-brand-dark">{statusLabel(trip.status)}</span>
+    <article className="order-card min-w-0 overflow-hidden">
+      <div className="order-card-inner stack min-w-0">
+        <div className="order-topline min-w-0 gap-2">
+          <span className="order-badge min-w-0 max-w-full truncate">{t(lang, 'city')} · №{trip.id}</span>
+          <span className="order-badge shrink-0 bg-brand-yellow text-brand-dark">{statusLabel(lang, trip.status, viewerRole)}</span>
         </div>
 
-        <div className="route-panel">
+        <div className="route-panel min-w-0 overflow-hidden">
           <div className="route-line" />
-          <div className="route-point">
-            <div className="route-dot" />
-            <div>
-              <div className="route-kicker">Откуда</div>
-              <div className="route-address">{trip.pickup_address}</div>
+          <div className="route-point min-w-0">
+            <div className="route-dot shrink-0" />
+            <div className="min-w-0">
+              <div className="route-kicker">{t(lang, 'fromWhere')}</div>
+              <div className="route-address break-words">{trip.pickup_address || t(lang, 'pickupAddressMissing')}</div>
             </div>
           </div>
-          <div className="route-point">
-            <div className="route-dot end" />
-            <div>
-              <div className="route-kicker">Куда</div>
-              <div className="route-address muted">{trip.destination_address}</div>
+          <div className="route-point min-w-0">
+            <div className="route-dot end shrink-0" />
+            <div className="min-w-0">
+              <div className="route-kicker">{t(lang, 'toWhere')}</div>
+              <div className="route-address muted break-words">{trip.destination_address || t(lang, 'destinationAddressMissing')}</div>
             </div>
           </div>
         </div>
 
         <section className="metric-grid">
-          <div className="metric-card">
-            <div className="metric-label">Цена</div>
-            <div className="metric-value">{formatMoney(trip.final_price, trip.currency)}</div>
-          </div>
-          <div className="metric-card">
-            <div className="metric-label">Режим</div>
-            <div className="metric-value">{modeLabel(trip.mode)}</div>
-          </div>
-          <div className="metric-card">
-            <div className="metric-label">Водитель</div>
-            <div className="metric-value">#{trip.driver_user_id}</div>
-          </div>
-          <div className="metric-card">
-            <div className="metric-label">Пассажир</div>
-            <div className="metric-value">#{trip.passenger_user_id}</div>
-          </div>
+          <div className="metric-card min-w-0 overflow-hidden"><div className="metric-label">{t(lang, 'price')}</div><div className="metric-value break-words">{formatMoney(trip.final_price, trip.currency)}</div></div>
+          <div className="metric-card min-w-0 overflow-hidden"><div className="metric-label">{t(lang, 'mode')}</div><div className="metric-value break-words">{modeLabel(lang, trip.mode)}</div></div>
+          <div className="metric-card min-w-0 overflow-hidden"><div className="metric-label">{t(lang, 'driver')}</div><div className="metric-value break-words">#{trip.driver_user_id}</div></div>
+          <div className="metric-card min-w-0 overflow-hidden"><div className="metric-label">{t(lang, 'passenger')}</div><div className="metric-value break-words">#{trip.passenger_user_id}</div></div>
         </section>
 
         <div className="row rounded-3xl bg-slate-50 p-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-brand-yellow"><Navigation size={20} /></div>
-            <div>
-              <strong>{statusLabel(trip.status)}</strong>
-              <p className="subtitle mt-1">Следуйте статусам поездки по порядку.</p>
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-brand-yellow"><Navigation size={20} /></div>
+            <div className="min-w-0">
+              <strong className="break-words">{statusLabel(lang, trip.status, viewerRole)}</strong>
+              <p className="subtitle mt-1 break-words">{viewerRole === 'driver' ? t(lang, 'driverTripHint') : t(lang, 'passengerTripHint')}</p>
             </div>
           </div>
-          <Clock3 className="text-slate-300" />
+          <Clock3 className="shrink-0 text-slate-300" />
         </div>
 
         {onStatus && next.length > 0 ? (
@@ -123,7 +108,7 @@ export function TripCard({ trip, onStatus, disabled, canControl = true }: Props)
                 onClick={() => onStatus(status)}
               >
                 {status === 'completed' ? <Banknote size={18} /> : <MapPin size={18} />}
-                {actionLabel(status)}
+                {actionLabel(lang, status)}
               </button>
             ))}
           </div>
