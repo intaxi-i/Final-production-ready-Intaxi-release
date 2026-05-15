@@ -200,7 +200,8 @@ async def city_driver_online(current_user: User = Depends(_current_user)) -> Dri
         if not driver:
             raise HTTPException(status_code=404, detail="User not found")
         row = await _ensure_online_state(session, driver)
-        return DriverOnlineStateResponse(is_online=bool(row.is_online), lat=row.lat, lng=row.lng, updated_at=row.updated_at.replace(microsecond=0).isoformat() if row.updated_at else None)
+        busy = await _driver_has_live_trip(session, driver.tg_id)
+        return DriverOnlineStateResponse(is_online=bool(row.is_online), lat=row.lat, lng=row.lng, country=row.country, city=row.city, is_busy=busy, updated_at=row.updated_at.replace(microsecond=0).isoformat() if row.updated_at else None)
 
 
 async def set_city_driver_online(payload: DriverOnlineUpdateRequest, current_user: User = Depends(_current_user)) -> DriverOnlineStateResponse:
@@ -212,12 +213,17 @@ async def set_city_driver_online(payload: DriverOnlineUpdateRequest, current_use
             raise HTTPException(status_code=404, detail="User not found")
         row = await _ensure_online_state(session, driver)
         row.is_online = bool(payload.is_online)
-        row.country = driver.country
-        row.city = driver.city
+        row.country = _clean(payload.country_code or payload.country or driver.country) or row.country
+        row.city = str(payload.city or payload.city_id or driver.city or row.city or "").strip()
+        if payload.lat is not None:
+            row.lat = payload.lat
+        if payload.lng is not None:
+            row.lng = payload.lng
         row.updated_at = _now()
         await session.commit()
         await session.refresh(row)
-        return DriverOnlineStateResponse(is_online=bool(row.is_online), lat=row.lat, lng=row.lng, updated_at=row.updated_at.replace(microsecond=0).isoformat() if row.updated_at else None)
+        busy = await _driver_has_live_trip(session, driver.tg_id)
+        return DriverOnlineStateResponse(is_online=bool(row.is_online), lat=row.lat, lng=row.lng, country=row.country, city=row.city, is_busy=busy, updated_at=row.updated_at.replace(microsecond=0).isoformat() if row.updated_at else None)
 
 
 async def create_city_order(payload: CityOrderCreateRequest, current_user: User = Depends(_current_user)) -> CityOrderCreateResponse:
@@ -258,7 +264,7 @@ async def city_offers(kind: str = Query("all"), current_user: User = Depends(_cu
         for order in rows:
             if order.creator_tg_id == user.tg_id or (wanted and order.role != wanted):
                 continue
-            if _clean(user.active_role) == "driver" and (not _same_or_empty(order.country, user.country) or not _same_or_empty(order.city, user.city)):
+            if _clean(user.active_role) == "driver" and (not _same_or_empty(order.country, driver_state.country) or not _same_or_empty(order.city, driver_state.city)):
                 continue
             runtime = await session.scalar(select(CityOrderRuntime).where(CityOrderRuntime.order_id == order.id))
             if runtime and runtime.active_trip_id:
@@ -355,14 +361,19 @@ async def update_city_trip_status(trip_id: int | None = None, id: int | None = N
         trip.status = target_status
         trip.updated_at = _now()
         order = await session.scalar(select(CityOrderV1).where(CityOrderV1.id == trip.order_id))
+        runtime = await session.scalar(select(CityOrderRuntime).where(CityOrderRuntime.order_id == trip.order_id))
         if target_status == "completed":
             trip.completed_at = _now()
             if order:
                 order.status = "completed"
+            if runtime:
+                runtime.active_trip_id = None
         elif target_status == "cancelled":
             trip.cancelled_at = _now()
             if order:
                 order.status = "cancelled"
+            if runtime:
+                runtime.active_trip_id = None
         await session.commit()
         await session.refresh(trip)
         return CityTripEnvelope(item=await _trip_schema(session, trip))
