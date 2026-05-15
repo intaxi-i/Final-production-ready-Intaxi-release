@@ -8,7 +8,6 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
 from app.database.models import async_main
-from app.handlers.admin_broadcast_hotfix import router as admin_broadcast_hotfix_router
 from app.handlers.city_driver_guard_hotfix import router as city_driver_guard_hotfix_router
 from app.handlers.live_city_hotfix import router as live_city_hotfix_router
 from app.handlers.profile_hotfix import router as profile_hotfix_router
@@ -33,7 +32,6 @@ async def main():
     )
     dp = Dispatcher()
 
-    dp.include_router(admin_broadcast_hotfix_router)
     dp.include_router(admin_router)
     dp.include_router(driver_router)
     dp.include_router(city_driver_guard_hotfix_router)
