@@ -4,8 +4,7 @@ from aiogram import Router, types
 from aiogram.fsm.context import FSMContext
 
 import app.database.requests as rq
-import app.keyboards as kb
-from app.handlers.live_city_hotfix import CityCreateFlow
+from app.handlers.live_city import CityCreateFlow
 from app.hotfix_menu import home_webapp_menu
 from app.miniapp_routes import city_main_url, profile_url
 from app.strings import MESSAGES
