@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import html
+
 from aiogram import F, Bot, Router, types
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -76,13 +78,23 @@ async def _admin_context(user_id: int):
 
 
 async def _ensure_permission(target: types.Message | types.CallbackQuery, permission: str) -> bool:
-    allowed = await rq.admin_has_permission(target.from_user.id, permission)
+    if permission == 'broadcast':
+        allowed = await rq.is_admin_user(target.from_user.id)
+    else:
+        allowed = await rq.admin_has_permission(target.from_user.id, permission)
     if not allowed:
         try:
-            await target.answer('Недостаточно прав', show_alert=True)
+            if isinstance(target, types.CallbackQuery):
+                await target.answer('Недостаточно прав', show_alert=True)
+            else:
+                await target.answer('Недостаточно прав')
         except Exception:
             pass
     return allowed
+
+
+async def _broadcast_target_count() -> int:
+    return len(await rq.list_recent_users(100000))
 
 
 async def _send_broadcast(bot: Bot, text: str) -> tuple[int, int, int]:
@@ -91,7 +103,7 @@ async def _send_broadcast(bot: Bot, text: str) -> tuple[int, int, int]:
     failed = 0
     for user in users:
         try:
-            await bot.send_message(user.tg_id, text, disable_web_page_preview=True)
+            await bot.send_message(user.tg_id, text, parse_mode=None, disable_web_page_preview=True)
             sent += 1
         except Exception:
             failed += 1
@@ -222,8 +234,9 @@ async def open_admin_section(message: types.Message, state: FSMContext):
         return
 
     if section == 'broadcast':
+        total = await _broadcast_target_count()
         await state.set_state(AdminFlows.broadcast_text)
-        await _send_admin_block(message, '<b>Рассылка</b>\n\nОтправь текст рассылки одним сообщением. Для отмены напиши: <code>отмена</code>')
+        await _send_admin_block(message, f'<b>Рассылка</b>\n\nПолучателей сейчас: {total}\n\nОтправь текст рассылки одним сообщением. Для отмены напиши: <code>отмена</code>')
         return
 
     if section == 'lookup':
@@ -239,7 +252,7 @@ async def open_admin_section(message: types.Message, state: FSMContext):
         for row in rows:
             body = (row.text_value or '').strip()
             preview = body[:80] + ('…' if len(body) > 80 else '') if body else row.content_type
-            lines.append(f'• #{row.id} | TG <code>{row.user_tg_id}</code> | {row.kind} | {preview}')
+            lines.append(f'• #{row.id} | TG <code>{row.user_tg_id}</code> | {preview}')
         await _send_admin_block(message, '\n'.join(lines))
         return
 
@@ -281,11 +294,16 @@ async def broadcast_receive_text(message: types.Message, state: FSMContext):
     if len(text) < 2:
         await message.answer('Текст слишком короткий. Отправь текст рассылки или напиши отмена.')
         return
+    if len(text) > 3900:
+        await message.answer('Текст слишком длинный. Максимум 3900 символов для безопасной отправки.')
+        return
     await state.update_data(broadcast_text=text)
+    total = await _broadcast_target_count()
     builder = InlineKeyboardBuilder()
-    builder.button(text='✅ Отправить всем', callback_data='broadcast_confirm')
+    builder.button(text=f'✅ Отправить всем ({total})', callback_data='broadcast_confirm')
     builder.button(text='❌ Отменить', callback_data='broadcast_cancel')
-    await _send_admin_block(message, f'<b>Предпросмотр рассылки</b>\n\n{text}', reply_markup=builder.adjust(1).as_markup())
+    preview = html.escape(text)
+    await _send_admin_block(message, f'<b>Предпросмотр рассылки</b>\nПолучателей: {total}\n\n{preview}', reply_markup=builder.adjust(1).as_markup())
 
 
 @router.callback_query(F.data == 'broadcast_cancel')
