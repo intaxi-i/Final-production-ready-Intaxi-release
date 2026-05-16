@@ -3,11 +3,7 @@ from __future__ import annotations
 import importlib
 from copy import deepcopy
 
-from aiogram import types
-from aiogram.utils.keyboard import InlineKeyboardBuilder
-
 from app.country_config import DEFAULT_TARIFFS, country_code_from_address
-from app.strings import MESSAGES
 
 COUNTRY_LABELS = {
     'ru': {'kz': 'Казахстан'},
@@ -59,6 +55,9 @@ def _patch_messages() -> None:
 
 
 def _country_keyboard(lang: str, prefix: str):
+    from aiogram.utils.keyboard import InlineKeyboardBuilder
+    from app.strings import MESSAGES
+
     builder = InlineKeyboardBuilder()
     pack = MESSAGES.get(lang, MESSAGES['ru'])
     for country_code, label in pack.get('countries', {}).items():
