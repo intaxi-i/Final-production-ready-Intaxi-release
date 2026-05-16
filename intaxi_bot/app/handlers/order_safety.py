@@ -9,6 +9,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 import app.database.requests as rq
 import app.keyboards as kb
+import app.order_actions as order_actions
 from app.miniapp_routes import city_main_url, current_trip_url, intercity_main_url
 from app.strings import MESSAGES
 
@@ -20,24 +21,28 @@ TEXTS = {
         'moved_to_miniapp': 'Этот сценарий переведён в Mini App. Откройте актуальный раздел ниже.',
         'complaint_prompt': 'Напишите жалобу одним сообщением. Она будет отправлена администраторам.',
         'complaint_new': 'Новая жалоба', 'from_user': 'От', 'target': 'Цель', 'text': 'Текст', 'complaint_sent': '✅ Жалоба отправлена.',
+        'not_found': 'Не найдено или нет доступа', 'city_order_closed': 'Городской заказ #{id} закрыт.',
     },
     'uz': {
         'current_trip': '📌 Joriy safar', 'open_city': 'Shaharni ochish', 'open_intercity': 'Shaharlararoni ochish',
         'moved_to_miniapp': 'Bu ssenariy Mini Appga o‘tkazilgan. Quyidagi aktual bo‘limni oching.',
         'complaint_prompt': 'Shikoyatni bitta xabar bilan yozing. U administratorlarga yuboriladi.',
         'complaint_new': 'Yangi shikoyat', 'from_user': 'Kimdan', 'target': 'Maqsad', 'text': 'Matn', 'complaint_sent': '✅ Shikoyat yuborildi.',
+        'not_found': 'Topilmadi yoki ruxsat yo‘q', 'city_order_closed': 'Shahar buyurtmasi #{id} yopildi.',
     },
     'en': {
         'current_trip': '📌 Current trip', 'open_city': 'Open city', 'open_intercity': 'Open intercity',
         'moved_to_miniapp': 'This scenario has been moved to the Mini App. Open the current section below.',
         'complaint_prompt': 'Send your complaint in one message. It will be forwarded to the admins.',
         'complaint_new': 'New complaint', 'from_user': 'From', 'target': 'Target', 'text': 'Text', 'complaint_sent': '✅ Complaint sent.',
+        'not_found': 'Not found or access denied', 'city_order_closed': 'City order #{id} has been closed.',
     },
     'ar': {
         'current_trip': '📌 الرحلة الحالية', 'open_city': 'فتح المدينة', 'open_intercity': 'فتح بين المدن',
         'moved_to_miniapp': 'تم نقل هذا السيناريو إلى Mini App. افتح القسم الحالي أدناه.',
         'complaint_prompt': 'اكتب الشكوى في رسالة واحدة. سيتم إرسالها إلى المشرفين.',
         'complaint_new': 'شكوى جديدة', 'from_user': 'من', 'target': 'الهدف', 'text': 'النص', 'complaint_sent': '✅ تم إرسال الشكوى.',
+        'not_found': 'غير موجود أو لا توجد صلاحية', 'city_order_closed': 'تم إغلاق طلب المدينة #{id}.',
     },
 }
 
@@ -78,6 +83,19 @@ def _recovery_markup(lang: str, callback_data: str):
     else:
         builder.button(text=_t(lang, 'open_city'), web_app=types.WebAppInfo(url=city_main_url()))
     return builder.adjust(1).as_markup()
+
+
+@router.callback_query(F.data.startswith('cancl_'))
+async def close_city_order(callback: types.CallbackQuery):
+    order_id = int((callback.data or '').rsplit('_', 1)[1])
+    user = await rq.get_or_create_user(callback.from_user.id, callback.from_user.full_name, callback.from_user.username)
+    lang = user.language or 'ru'
+    row = await order_actions.close_city_order_for_user(order_id, callback.from_user.id)
+    if not row:
+        await callback.answer(_t(lang, 'not_found'), show_alert=True)
+        return
+    await callback.message.answer(_t(lang, 'city_order_closed').format(id=order_id))
+    await callback.answer('OK')
 
 
 @router.callback_query(F.data.startswith(UNSUPPORTED_INLINE_PREFIXES))
