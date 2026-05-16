@@ -7,6 +7,7 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
+from app.country_bootstrap import apply_country_config
 from app.database.models import async_main
 from app.handlers.city_driver_guard import router as city_driver_guard_router
 from app.handlers.live_city import router as live_city_router
@@ -16,10 +17,9 @@ from app.handlers.order import router as order_router
 from app.handlers.admin import router as admin_router
 from app.handlers.driver_reg import router as driver_router
 from app.miniapp_routes import home_url
-from app.runtime_hotfixes import apply_runtime_hotfixes
 
 load_dotenv()
-apply_runtime_hotfixes()
+apply_country_config()
 
 
 async def main():
