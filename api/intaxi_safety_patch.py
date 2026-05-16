@@ -1,23 +1,32 @@
 from __future__ import annotations
 
+from math import asin, cos, radians, sin, sqrt
 from typing import Any, Callable
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Query
 from sqlalchemy import or_, select
 
 from api.auth import get_current_user
 from api.order_actions import close_city_order_for_user
-from api.schemas import CurrentTripResponse, HistoryResponse
+from api.schemas import (
+    CityOrderListResponse,
+    CurrentTripResponse,
+    DriverOnlineStateResponse,
+    DriverOnlineUpdateRequest,
+    HistoryResponse,
+)
 from intaxi_bot.app.database.models import (
     CityOrderRuntime,
     CityOrderV1,
     CityTripV1,
+    DriverOnlineState,
     IntercityRequestV1,
     IntercityRouteMeta,
     IntercityRouteV1,
     User,
     Vehicle,
     async_session,
+    utcnow,
 )
 
 LIVE_CITY_STATUSES = {'accepted', 'driver_on_way', 'driver_arrived', 'in_progress'}
@@ -28,6 +37,24 @@ def _iso(value: Any) -> str | None:
     if value is None:
         return None
     return value.replace(microsecond=0).isoformat() if hasattr(value, 'replace') and hasattr(value, 'isoformat') else str(value)
+
+
+def _clean(value: Any) -> str:
+    return str(value or '').strip().lower()
+
+
+def _same_or_empty(left: Any, right: Any) -> bool:
+    left_value = _clean(left)
+    right_value = _clean(right)
+    return not left_value or not right_value or left_value == right_value
+
+
+def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    radius = 6371.0
+    dlat = radians(lat2 - lat1)
+    dlon = radians(lon2 - lon1)
+    a = sin(dlat / 2) ** 2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon / 2) ** 2
+    return radius * 2 * asin(sqrt(a))
 
 
 def _map_provider(country: str | None) -> str:
@@ -60,11 +87,134 @@ def _vehicle_dict(vehicle: Vehicle | None) -> dict | None:
     }
 
 
+async def _driver_has_live_trip(session, driver_tg_id: int) -> bool:
+    trip = await session.scalar(
+        select(CityTripV1)
+        .where(CityTripV1.driver_tg_id == driver_tg_id, CityTripV1.status.in_(list(LIVE_CITY_STATUSES)))
+        .order_by(CityTripV1.id.desc())
+    )
+    return trip is not None
+
+
+async def _ensure_online_state(session, driver: User) -> DriverOnlineState:
+    row = await session.scalar(select(DriverOnlineState).where(DriverOnlineState.driver_tg_id == driver.tg_id))
+    if not row:
+        row = DriverOnlineState(driver_tg_id=driver.tg_id, is_online=False, country=driver.country, city=driver.city)
+        session.add(row)
+        await session.flush()
+    return row
+
+
+async def safe_driver_online_update(payload: DriverOnlineUpdateRequest, current_user: User = Depends(get_current_user)) -> DriverOnlineStateResponse:
+    if not current_user.is_verified:
+        raise HTTPException(status_code=403, detail='Only verified drivers can use this feature')
+    async with async_session() as session:
+        row = await _ensure_online_state(session, current_user)
+        row.is_online = bool(payload.is_online)
+        row.country = payload.country_code or payload.country or current_user.country
+        row.city = payload.city or current_user.city
+        if payload.lat is not None:
+            row.lat = payload.lat
+        if payload.lng is not None:
+            row.lng = payload.lng
+        row.updated_at = utcnow()
+        busy = await _driver_has_live_trip(session, current_user.tg_id)
+        await session.commit()
+        await session.refresh(row)
+        return DriverOnlineStateResponse(
+            is_online=row.is_online,
+            lat=row.lat,
+            lng=row.lng,
+            country=row.country,
+            city=row.city,
+            is_busy=busy,
+            updated_at=_iso(row.updated_at),
+        )
+
+
 async def safe_city_close(order_id: int, current_user: User = Depends(get_current_user)) -> dict:
     row = await close_city_order_for_user(order_id, current_user.tg_id)
     if not row:
         raise HTTPException(status_code=404, detail='Order not found')
     return {'id': row.id, 'status': row.status}
+
+
+async def _city_order_item(session, row: CityOrderV1, current_user: User, driver_state: DriverOnlineState | None = None) -> dict:
+    runtime = await session.scalar(select(CityOrderRuntime).where(CityOrderRuntime.order_id == row.id))
+    creator = await session.scalar(select(User).where(User.tg_id == row.creator_tg_id))
+    vehicle = None
+    if row.role == 'driver' and creator:
+        vehicle = await session.scalar(select(Vehicle).where(Vehicle.user_id == creator.id))
+    distance = None
+    eta = None
+    if driver_state and runtime and runtime.from_lat is not None and runtime.from_lng is not None and driver_state.lat is not None and driver_state.lng is not None:
+        distance = round(_haversine_km(float(runtime.from_lat), float(runtime.from_lng), float(driver_state.lat), float(driver_state.lng)), 2)
+        eta = max(2, int(distance / 0.45))
+    return {
+        'id': row.id,
+        'creator_tg_id': row.creator_tg_id,
+        'creator_name': creator.full_name if creator else None,
+        'creator_rating': float(creator.rating or 0) if creator else None,
+        'role': row.role,
+        'country': row.country,
+        'city': row.city or '',
+        'from_address': row.from_address or '',
+        'to_address': row.to_address,
+        'seats': int(row.seats or 1),
+        'price': float(row.price or 0),
+        'recommended_price': float(runtime.recommended_price) if runtime and runtime.recommended_price is not None else None,
+        'seen_by_drivers': int(runtime.seen_by_drivers) if runtime else None,
+        'can_raise_price_after': 30,
+        'estimated_distance_km': float(runtime.estimated_distance_km) if runtime and runtime.estimated_distance_km is not None else None,
+        'estimated_trip_min': int(runtime.estimated_trip_min) if runtime and runtime.estimated_trip_min is not None else None,
+        'driver_distance_km': distance,
+        'driver_eta_min': eta,
+        'comment': row.comment,
+        'status': row.status,
+        'created_at': _iso(row.created_at),
+        'is_mine': current_user.tg_id == row.creator_tg_id,
+        'active_trip_id': int(runtime.active_trip_id) if runtime and runtime.active_trip_id is not None else None,
+        'vehicle': _vehicle_dict(vehicle),
+        'currency': runtime.currency if runtime else None,
+        'tariff_hint': runtime.tariff_hint if runtime else None,
+    }
+
+
+async def safe_city_offers(kind: str = Query('all'), current_user: User = Depends(get_current_user)) -> CityOrderListResponse:
+    async with async_session() as session:
+        driver_mode = bool(current_user.is_verified and _clean(current_user.active_role) == 'driver')
+        driver_state = None
+        wanted_role = None
+        if driver_mode:
+            driver_state = await session.scalar(select(DriverOnlineState).where(DriverOnlineState.driver_tg_id == current_user.tg_id))
+            if not driver_state or not driver_state.is_online or await _driver_has_live_trip(session, current_user.tg_id):
+                return CityOrderListResponse(items=[])
+            wanted_role = 'passenger'
+        else:
+            wanted_role = 'driver'
+
+        if kind in {'driver', 'passenger'} and kind != wanted_role:
+            return CityOrderListResponse(items=[])
+
+        rows = (await session.scalars(
+            select(CityOrderV1)
+            .where(CityOrderV1.status == 'active', CityOrderV1.role == wanted_role, CityOrderV1.creator_tg_id != current_user.tg_id)
+            .order_by(CityOrderV1.id.desc())
+            .limit(100)
+        )).all()
+        items = []
+        for row in rows:
+            if driver_mode:
+                if not _same_or_empty(row.country, driver_state.country) or not _same_or_empty(row.city, driver_state.city):
+                    continue
+            else:
+                if not _same_or_empty(row.country, current_user.country) or not _same_or_empty(row.city, current_user.city):
+                    continue
+                creator = await session.scalar(select(User).where(User.tg_id == row.creator_tg_id))
+                if not creator or not creator.is_verified:
+                    continue
+            items.append(await _city_order_item(session, row, current_user, driver_state))
+    return CityOrderListResponse(items=items)
 
 
 async def safe_current_trip(current_user: User = Depends(get_current_user)) -> CurrentTripResponse:
@@ -217,8 +367,12 @@ def install_intaxi_safety_patch() -> None:
     def patched_add_api_route(self, path: str, endpoint: Callable, *args: Any, **kwargs: Any):
         methods = {str(m).upper() for m in (kwargs.get('methods') or [])}
         replacement = endpoint
-        if path == '/city/orders/{order_id}/close' and 'POST' in methods:
+        if path == '/driver/online' and 'POST' in methods:
+            replacement = safe_driver_online_update
+        elif path == '/city/orders/{order_id}/close' and 'POST' in methods:
             replacement = safe_city_close
+        elif path == '/city/offers' and 'GET' in methods:
+            replacement = safe_city_offers
         elif path == '/trip/current' and 'GET' in methods:
             replacement = safe_current_trip
         elif path == '/history/all' and 'GET' in methods:
