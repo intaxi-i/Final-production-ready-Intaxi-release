@@ -29,6 +29,7 @@ KZ_MODELS = {
 }
 
 _BOOTSTRAP_APPLIED = False
+_LIGHT_BOOTSTRAP_APPLIED = False
 
 
 def _copy_models() -> dict[str, list[str]]:
@@ -95,10 +96,16 @@ def _patch_profile_geo() -> None:
         setattr(module, '_country_code_from_address', country_code_from_address)
 
 
-def apply_country_config() -> None:
-    global _BOOTSTRAP_APPLIED
+def apply_country_light_config() -> None:
+    global _LIGHT_BOOTSTRAP_APPLIED
     _patch_messages()
     _patch_tariffs()
+    _LIGHT_BOOTSTRAP_APPLIED = True
+
+
+def apply_country_config() -> None:
+    global _BOOTSTRAP_APPLIED
+    apply_country_light_config()
     _patch_profile_geo()
     _patch_legacy_order_keyboards()
     _BOOTSTRAP_APPLIED = True
