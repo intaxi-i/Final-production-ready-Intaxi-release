@@ -2,9 +2,7 @@ from __future__ import annotations
 
 import os
 import sqlite3
-from typing import Iterable
-
-from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
+from typing import Iterable, Any
 
 ADMIN_LABELS = {
     'dashboard': '📊 Dashboard',
@@ -49,9 +47,11 @@ def _db_admin_role(user_id: int | None) -> str | None:
         return None
 
 
-def _rows(keys: Iterable[str]) -> list[list[KeyboardButton]]:
-    rows: list[list[KeyboardButton]] = []
-    current: list[KeyboardButton] = []
+def _rows(keys: Iterable[str]) -> list[list[Any]]:
+    from aiogram.types import KeyboardButton
+
+    rows: list[list[Any]] = []
+    current: list[Any] = []
     for key in keys:
         label = ADMIN_LABELS.get(key)
         if not label:
@@ -67,6 +67,8 @@ def _rows(keys: Iterable[str]) -> list[list[KeyboardButton]]:
 
 
 def patched_admin_main_kb(lang: str = 'ru', user_id: int | None = None):
+    from aiogram.types import ReplyKeyboardMarkup
+
     role = _db_admin_role(user_id)
     permissions = ROLE_PERMISSIONS.get(role, ['dashboard'])
     return ReplyKeyboardMarkup(keyboard=_rows(permissions), resize_keyboard=True)
