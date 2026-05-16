@@ -11,6 +11,7 @@ from app.database.models import (
     CityOrderV1,
     CityTripV1,
     DriverOnlineState,
+    IntercityChatAccess,
     IntercityRequestV1,
     IntercityRouteV1,
     User,
@@ -67,6 +68,27 @@ async def _driver_has_live_trip(session, driver_tg_id: int) -> bool:
         .order_by(CityTripV1.id.desc())
     )
     return trip is not None
+
+
+async def _grant_intercity_chat_access(session, *, trip_type: str, trip_id: int, user_ids: list[int], granted_by_tg_id: int | None) -> None:
+    for user_id in dict.fromkeys([u for u in user_ids if u]):
+        existing = await session.scalar(
+            select(IntercityChatAccess).where(
+                IntercityChatAccess.trip_type == trip_type,
+                IntercityChatAccess.trip_id == trip_id,
+                IntercityChatAccess.user_tg_id == user_id,
+            )
+        )
+        if existing:
+            continue
+        session.add(
+            IntercityChatAccess(
+                trip_type=trip_type,
+                trip_id=trip_id,
+                user_tg_id=user_id,
+                granted_by_tg_id=granted_by_tg_id,
+            )
+        )
 
 
 async def close_city_order_for_user(order_id: int, tg_id: int) -> CityOrderV1 | None:
@@ -285,6 +307,7 @@ async def accept_intercity_offer_for_user(*, kind: str, item_id: int, tg_id: int
                 return None
             row.accepted_by_tg_id = tg_id
             row.status = 'accepted'
+            await _grant_intercity_chat_access(session, trip_type='intercity_route', trip_id=row.id, user_ids=[row.creator_tg_id, tg_id], granted_by_tg_id=tg_id)
             await session.commit()
             await session.refresh(row)
             return row
@@ -299,6 +322,7 @@ async def accept_intercity_offer_for_user(*, kind: str, item_id: int, tg_id: int
                 return None
             row.accepted_by_tg_id = tg_id
             row.status = 'accepted'
+            await _grant_intercity_chat_access(session, trip_type='intercity_request', trip_id=row.id, user_ids=[row.creator_tg_id, tg_id], granted_by_tg_id=tg_id)
             await session.commit()
             await session.refresh(row)
             return row
