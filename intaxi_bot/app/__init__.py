@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 try:
-    from app.country_bootstrap import apply_country_config
+    from app.country_bootstrap import apply_country_light_config
 except Exception:
-    apply_country_config = None
+    apply_country_light_config = None
 
-if apply_country_config is not None:
+if apply_country_light_config is not None:
     try:
-        apply_country_config()
+        apply_country_light_config()
     except Exception:
         pass
