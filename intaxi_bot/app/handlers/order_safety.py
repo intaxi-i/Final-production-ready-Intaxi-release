@@ -10,7 +10,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 import app.database.requests as rq
 import app.keyboards as kb
 import app.order_actions as order_actions
-from app.miniapp_routes import city_main_url, current_trip_url, intercity_main_url
+from app.miniapp_routes import city_create_url, city_main_url, current_trip_url, intercity_main_url, intercity_request_url, intercity_route_url
 from app.strings import MESSAGES
 
 router = Router()
@@ -97,6 +97,19 @@ def _recovery_markup(lang: str, callback_data: str):
     return builder.adjust(1).as_markup()
 
 
+def _create_markup(lang: str, callback_data: str):
+    builder = InlineKeyboardBuilder()
+    if callback_data == 'citybot_create_driver':
+        builder.button(text=_t(lang, 'open_city'), web_app=types.WebAppInfo(url=city_create_url('driver')))
+    elif callback_data == 'citybot_create_passenger':
+        builder.button(text=_t(lang, 'open_city'), web_app=types.WebAppInfo(url=city_create_url('passenger')))
+    elif callback_data == 'interbot_create_route':
+        builder.button(text=_t(lang, 'open_intercity'), web_app=types.WebAppInfo(url=intercity_route_url()))
+    else:
+        builder.button(text=_t(lang, 'open_intercity'), web_app=types.WebAppInfo(url=intercity_request_url()))
+    return builder.adjust(1).as_markup()
+
+
 def _intercity_text(row, lang: str, kind: str) -> str:
     from_city = html.escape(getattr(row, 'from_city', None) or '—')
     to_city = html.escape(getattr(row, 'to_city', None) or '—')
@@ -112,6 +125,14 @@ def _intercity_text(row, lang: str, kind: str) -> str:
         f"{_t(lang, 'seats')}: {seats}\n"
         f"{_t(lang, 'price')}: {price:g}"
     )
+
+
+@router.callback_query(F.data.in_({'citybot_create_passenger', 'citybot_create_driver', 'interbot_create_route', 'interbot_create_request'}))
+async def safe_create_flow(callback: types.CallbackQuery):
+    user = await rq.get_or_create_user(callback.from_user.id, callback.from_user.full_name, callback.from_user.username)
+    lang = user.language or 'ru'
+    await callback.message.answer(_t(lang, 'moved_to_miniapp'), reply_markup=_create_markup(lang, callback.data or ''))
+    await callback.answer()
 
 
 @router.callback_query(F.data.in_({'interbot_list_routes', 'interbot_list_requests'}))
