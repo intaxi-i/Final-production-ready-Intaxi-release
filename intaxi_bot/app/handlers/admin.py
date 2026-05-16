@@ -5,6 +5,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
+import app.admin_actions as admin_actions
 import app.database.requests as rq
 import app.keyboards as kb
 
@@ -416,11 +417,11 @@ async def admin_cancel_active_order(callback: types.CallbackQuery):
     _, kind, raw_id = callback.data.split('_', 2)
     item_id = int(raw_id)
     if kind == 'city':
-        row = await rq.cancel_city_order(item_id)
+        row = await admin_actions.cancel_city_order(item_id)
     elif kind == 'route':
-        row = await rq.cancel_intercity_route(item_id)
+        row = await admin_actions.cancel_intercity_route(item_id)
     else:
-        row = await rq.cancel_intercity_request(item_id)
+        row = await admin_actions.cancel_intercity_request(item_id)
     if not row:
         await callback.answer('Не найдено', show_alert=True)
         return
