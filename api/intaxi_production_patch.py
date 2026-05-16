@@ -33,7 +33,6 @@ from intaxi_bot.app.database.models import (
     CityTripV1,
     DriverOnlineState,
     IntercityRequestV1,
-    IntercityRouteMeta,
     IntercityRouteV1,
     TariffSetting,
     User,
@@ -85,6 +84,29 @@ def _vehicle_to_schema(vehicle: Vehicle | None) -> VehicleInfo | None:
     if not vehicle:
         return None
     return VehicleInfo(brand=vehicle.brand, model=vehicle.model, plate=vehicle.plate, color=vehicle.color, capacity=vehicle.capacity, vehicle_class=vehicle.vehicle_class)
+
+
+def _map_provider(country: str | None) -> str:
+    return "yandex" if country in {"uz", "tr"} else "google"
+
+
+def _map_urls(country: str | None, lat: float | None, lng: float | None, to_lat: float | None = None, to_lng: float | None = None) -> tuple[str, str | None, str | None]:
+    provider = _map_provider(country)
+    if lat is None or lng is None:
+        return provider, None, None
+    if provider == "yandex":
+        embed = f"https://yandex.com/map-widget/v1/?ll={lng}%2C{lat}&z=12&pt={lng},{lat},pm2rdm"
+        if to_lat is not None and to_lng is not None:
+            action = f"https://yandex.com/maps/?rtext={lat},{lng}~{to_lat},{to_lng}&rtt=auto"
+        else:
+            action = f"https://yandex.com/maps/?ll={lng},{lat}&z=12&pt={lng},{lat},pm2rdm"
+        return provider, embed, action
+    query = f"{lat},{lng}"
+    if to_lat is not None and to_lng is not None:
+        action = f"https://www.google.com/maps/dir/?api=1&origin={lat},{lng}&destination={to_lat},{to_lng}"
+    else:
+        action = f"https://www.google.com/maps?q={query}"
+    return provider, f"https://maps.google.com/maps?q={query}&z=12&output=embed", action
 
 
 async def _tariff(country: str | None) -> tuple[str, float]:
@@ -190,6 +212,10 @@ async def _trip_schema(session, trip: CityTripV1) -> CityTripResponse:
     passenger = await session.scalar(select(User).where(User.tg_id == trip.passenger_tg_id))
     driver = await session.scalar(select(User).where(User.tg_id == trip.driver_tg_id))
     vehicle = await _vehicle_for_driver(session, trip.driver_tg_id)
+    provider, embed, action = _map_urls(trip.country, trip.pickup_lat, trip.pickup_lng, trip.destination_lat, trip.destination_lng)
+    eta = None
+    if trip.driver_lat is not None and trip.driver_lng is not None and trip.pickup_lat is not None and trip.pickup_lng is not None:
+        eta = max(2, ceil(haversine_km(float(trip.driver_lat), float(trip.driver_lng), float(trip.pickup_lat), float(trip.pickup_lng)) / 0.45))
     return CityTripResponse(
         id=trip.id, order_id=trip.order_id, status=trip.status, price=float(trip.price or 0), country=trip.country, city=trip.city,
         from_address=trip.from_address, to_address=trip.to_address, seats=trip.seats, comment=trip.comment,
@@ -198,7 +224,7 @@ async def _trip_schema(session, trip: CityTripV1) -> CityTripResponse:
         driver_username=driver.username if driver else None, driver_rating=float(driver.rating or 0) if driver else None,
         vehicle=_vehicle_to_schema(vehicle), trip_type="city_trip", pickup_lat=trip.pickup_lat, pickup_lng=trip.pickup_lng,
         destination_lat=trip.destination_lat, destination_lng=trip.destination_lng, driver_lat=trip.driver_lat, driver_lng=trip.driver_lng,
-        passenger_lat=trip.passenger_lat, passenger_lng=trip.passenger_lng, eta_min=None,
+        passenger_lat=trip.passenger_lat, passenger_lng=trip.passenger_lng, map_provider=provider, map_embed_url=embed, map_action_url=action, eta_min=eta,
     )
 
 
