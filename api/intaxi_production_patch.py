@@ -51,6 +51,51 @@ CITY_STATUS_NEXT = {
     "in_progress": {"completed", "cancelled"},
 }
 
+TEXTS = {
+    "ru": {
+        "accept_order": "✅ Принять заказ",
+        "counteroffer": "💰 Предложить свою цену",
+        "new_order": "🆕 Новый городской заказ",
+        "from": "A",
+        "to": "B",
+        "passenger_price": "Цена пассажира",
+        "seats": "Мест",
+        "trip_distance": "Дистанция поездки",
+        "distance_to_passenger": "До пассажира",
+        "accept_price": "✅ Принять цену",
+        "reject": "❌ Отклонить",
+        "driver_offered_price": "💰 Водитель предложил свою цену",
+    },
+    "uz": {
+        "accept_order": "✅ Buyurtmani qabul qilish",
+        "counteroffer": "💰 O‘z narxini taklif qilish",
+        "new_order": "🆕 Yangi shahar buyurtmasi",
+        "from": "A",
+        "to": "B",
+        "passenger_price": "Yo‘lovchi narxi",
+        "seats": "Joylar",
+        "trip_distance": "Safar masofasi",
+        "distance_to_passenger": "Yo‘lovchigacha",
+        "accept_price": "✅ Narxni qabul qilish",
+        "reject": "❌ Rad etish",
+        "driver_offered_price": "💰 Haydovchi o‘z narxini taklif qildi",
+    },
+    "en": {
+        "accept_order": "✅ Accept order",
+        "counteroffer": "💰 Offer your price",
+        "new_order": "🆕 New city order",
+        "from": "A",
+        "to": "B",
+        "passenger_price": "Passenger price",
+        "seats": "Seats",
+        "trip_distance": "Trip distance",
+        "distance_to_passenger": "To passenger",
+        "accept_price": "✅ Accept price",
+        "reject": "❌ Reject",
+        "driver_offered_price": "💰 Driver offered a price",
+    },
+}
+
 
 async def _current_user(authorization: str | None = Header(default=None)) -> User:
     return await get_current_user(authorization)
@@ -68,6 +113,13 @@ def _iso(value: Any) -> str | None:
     if isinstance(value, datetime):
         return value.replace(microsecond=0).isoformat()
     return str(value)
+
+
+def _text(lang: str | None, key: str) -> str:
+    code = (lang or "ru").lower()
+    if code not in TEXTS:
+        code = "ru"
+    return TEXTS[code].get(key) or TEXTS["ru"].get(key) or key
 
 
 def _clean(value: Any) -> str:
@@ -134,6 +186,11 @@ async def _vehicle_for_driver(session, driver_tg_id: int) -> Vehicle | None:
     if not driver:
         return None
     return await session.scalar(select(Vehicle).where(Vehicle.user_id == driver.id))
+
+
+async def _user_lang(session, tg_id: int, default: str = "ru") -> str:
+    user = await session.scalar(select(User).where(User.tg_id == tg_id))
+    return (user.language if user and user.language else default) or default
 
 
 async def _ensure_online_state(session, driver: User) -> DriverOnlineState:
@@ -300,29 +357,35 @@ async def _notify_city_drivers(order_id: int) -> int:
         runtime.dispatch_stage = stage
         runtime.seen_by_drivers = len(selected)
         await session.commit()
-        payload = [(driver.tg_id, distance) for distance, driver, _ in selected]
-        distance_line = f"Дистанция поездки: {float(runtime.estimated_distance_km):.1f} км\n" if runtime.estimated_distance_km is not None else ""
-        text = (
-            "🆕 Новый городской заказ\n\n"
-            f"A: {order.from_address or '—'}\n"
-            f"B: {order.to_address or '—'}\n"
-            f"Цена пассажира: {float(order.price or 0):g}\n"
-            f"Мест: {int(order.seats or 1)}\n"
-            f"{distance_line}"
-        )
+        payload = [(driver.tg_id, distance, driver.language or "ru") for distance, driver, _ in selected]
+        order_from = order.from_address or "—"
+        order_to = order.to_address or "—"
+        order_price = float(order.price or 0)
+        order_seats = int(order.seats or 1)
+        trip_distance = float(runtime.estimated_distance_km) if runtime.estimated_distance_km is not None else None
     if not token or not payload:
         return len(payload)
     bot = Bot(token=token)
     try:
         from aiogram.utils.keyboard import InlineKeyboardBuilder
-        for driver_tg_id, distance in payload:
+        for driver_tg_id, distance, lang in payload:
             builder = InlineKeyboardBuilder()
-            builder.button(text="✅ Принять заказ", callback_data=f"lccacc_{order_id}")
-            builder.button(text="💰 Предложить свою цену", callback_data=f"lccoffer_{order_id}")
+            builder.button(text=_text(lang, "accept_order"), callback_data=f"lccacc_{order_id}")
+            builder.button(text=_text(lang, "counteroffer"), callback_data=f"lccoffer_{order_id}")
             builder.adjust(1)
-            near = f"\nДо пассажира: {float(distance):.1f} км" if distance is not None else ""
+            distance_line = f"{_text(lang, 'trip_distance')}: {trip_distance:.1f} km\n" if trip_distance is not None else ""
+            near = f"\n{_text(lang, 'distance_to_passenger')}: {float(distance):.1f} km" if distance is not None else ""
+            text = (
+                f"{_text(lang, 'new_order')}\n\n"
+                f"{_text(lang, 'from')}: {order_from}\n"
+                f"{_text(lang, 'to')}: {order_to}\n"
+                f"{_text(lang, 'passenger_price')}: {order_price:g}\n"
+                f"{_text(lang, 'seats')}: {order_seats}\n"
+                f"{distance_line}"
+                f"{near}"
+            )
             try:
-                await bot.send_message(driver_tg_id, text + near, reply_markup=builder.as_markup())
+                await bot.send_message(driver_tg_id, text, reply_markup=builder.as_markup())
             except Exception:
                 pass
     finally:
@@ -415,6 +478,7 @@ async def city_counteroffer(order_id: int, payload: RaisePriceRequest, current_u
         if order.creator_tg_id == current_user.tg_id or order.role != "passenger":
             raise HTTPException(status_code=403, detail="Counteroffer is not allowed for this order")
         passenger_tg_id = order.creator_tg_id
+        passenger_lang = await _user_lang(session, passenger_tg_id)
     token = get_bot_token()
     if token:
         bot = Bot(token=token)
@@ -422,10 +486,10 @@ async def city_counteroffer(order_id: int, payload: RaisePriceRequest, current_u
             from aiogram.utils.keyboard import InlineKeyboardBuilder
             price_int = int(float(payload.price))
             builder = InlineKeyboardBuilder()
-            builder.button(text="✅ Принять цену", callback_data=f"lcpacc_{order_id}_{current_user.tg_id}_{price_int}")
-            builder.button(text="❌ Отклонить", callback_data=f"lcprej_{order_id}_{current_user.tg_id}")
+            builder.button(text=_text(passenger_lang, "accept_price"), callback_data=f"lcpacc_{order_id}_{current_user.tg_id}_{price_int}")
+            builder.button(text=_text(passenger_lang, "reject"), callback_data=f"lcprej_{order_id}_{current_user.tg_id}")
             builder.adjust(1)
-            await bot.send_message(passenger_tg_id, f"💰 Водитель предложил свою цену: {float(payload.price):g}", reply_markup=builder.as_markup())
+            await bot.send_message(passenger_tg_id, f"{_text(passenger_lang, 'driver_offered_price')}: {float(payload.price):g}", reply_markup=builder.as_markup())
         finally:
             await bot.session.close()
     return {"id": order_id, "status": "sent", "price": float(payload.price)}
