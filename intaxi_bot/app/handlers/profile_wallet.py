@@ -92,6 +92,7 @@ async def deposit_start(callback: types.CallbackQuery, state: FSMContext):
     user = await rq.get_or_create_user(callback.from_user.id, callback.from_user.full_name, callback.from_user.username)
     lang = user.language or 'ru'
     currency = MESSAGES[lang].get('currencies', {}).get(user.country, 'USD')
+    await state.clear()
     await callback.message.answer(f"{tr(lang, 'enter_amount')} ({currency}):")
     await state.set_state(DepositMoney.amount)
     await callback.answer()
@@ -117,6 +118,14 @@ async def deposit_amount(message: types.Message, state: FSMContext):
 async def choose_pay_card(callback: types.CallbackQuery, state: FSMContext):
     user = await rq.get_or_create_user(callback.from_user.id, callback.from_user.full_name, callback.from_user.username)
     lang = user.language or 'ru'
+    data = await state.get_data()
+    amount = float(data.get('topup_amount', 0) or 0)
+    if amount <= 0:
+        await state.clear()
+        await callback.message.answer(f"{tr(lang, 'enter_amount')}:")
+        await state.set_state(DepositMoney.amount)
+        await callback.answer()
+        return
     card_country = callback.data.split('_', 1)[1]
     card_data = ADMIN_RECEIVING_CARDS.get(card_country)
     if not card_data:
@@ -137,6 +146,11 @@ async def receive_payment_receipt(message: types.Message, state: FSMContext, bot
     lang = user.language or 'ru'
     data = await state.get_data()
     amount = float(data.get('topup_amount', 0) or 0)
+    if amount <= 0:
+        await state.clear()
+        await message.answer(f"{tr(lang, 'enter_amount')}:")
+        await state.set_state(DepositMoney.amount)
+        return
     payment_request = await rq.create_driver_payment_request(
         driver_tg_id=message.from_user.id,
         card_country=data.get('admin_card_country'),
