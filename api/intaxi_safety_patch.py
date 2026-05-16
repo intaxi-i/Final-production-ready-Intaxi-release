@@ -7,7 +7,7 @@ from sqlalchemy import or_, select
 
 from api.auth import get_current_user
 from api.order_actions import close_city_order_for_user
-from api.schemas import CurrentTripResponse
+from api.schemas import CurrentTripResponse, HistoryResponse
 from intaxi_bot.app.database.models import (
     CityOrderRuntime,
     CityOrderV1,
@@ -22,6 +22,12 @@ from intaxi_bot.app.database.models import (
 
 LIVE_CITY_STATUSES = {'accepted', 'driver_on_way', 'driver_arrived', 'in_progress'}
 LIVE_INTERCITY_STATUSES = {'active', 'accepted', 'in_progress'}
+
+
+def _iso(value: Any) -> str | None:
+    if value is None:
+        return None
+    return value.replace(microsecond=0).isoformat() if hasattr(value, 'replace') and hasattr(value, 'isoformat') else str(value)
 
 
 def _map_provider(country: str | None) -> str:
@@ -39,6 +45,19 @@ def _map_urls(country: str | None, lat: float | None, lng: float | None, to_lat:
     query = f'{lat},{lng}'
     action = f'https://www.google.com/maps/dir/?api=1&origin={lat},{lng}&destination={to_lat},{to_lng}' if to_lat is not None and to_lng is not None else f'https://www.google.com/maps?q={query}'
     return provider, f'https://maps.google.com/maps?q={query}&z=12&output=embed', action
+
+
+def _vehicle_dict(vehicle: Vehicle | None) -> dict | None:
+    if not vehicle:
+        return None
+    return {
+        'brand': vehicle.brand,
+        'model': vehicle.model,
+        'plate': vehicle.plate,
+        'color': vehicle.color,
+        'capacity': vehicle.capacity,
+        'vehicle_class': vehicle.vehicle_class,
+    }
 
 
 async def safe_city_close(order_id: int, current_user: User = Depends(get_current_user)) -> dict:
@@ -61,48 +80,24 @@ async def safe_current_trip(current_user: User = Depends(get_current_user)) -> C
         if trip:
             passenger = await session.scalar(select(User).where(User.tg_id == trip.passenger_tg_id))
             driver = await session.scalar(select(User).where(User.tg_id == trip.driver_tg_id))
-            vehicle = None
-            if driver:
-                vehicle = await session.scalar(select(Vehicle).where(Vehicle.user_id == driver.id))
+            vehicle = await session.scalar(select(Vehicle).where(Vehicle.user_id == driver.id)) if driver else None
             provider, embed, action = _map_urls(trip.country, trip.pickup_lat, trip.pickup_lng, trip.destination_lat, trip.destination_lng)
             return CurrentTripResponse(item={
-                'id': trip.id,
-                'order_id': trip.order_id,
-                'trip_type': 'city_trip',
-                'status': trip.status,
-                'price': float(trip.price or 0),
-                'country': trip.country,
-                'city': trip.city,
-                'from_address': trip.from_address,
-                'to_address': trip.to_address,
-                'seats': trip.seats,
-                'comment': trip.comment,
-                'passenger_tg_id': trip.passenger_tg_id,
-                'driver_tg_id': trip.driver_tg_id,
+                'id': trip.id, 'order_id': trip.order_id, 'trip_type': 'city_trip', 'status': trip.status,
+                'price': float(trip.price or 0), 'country': trip.country, 'city': trip.city,
+                'from_address': trip.from_address, 'to_address': trip.to_address, 'seats': trip.seats,
+                'comment': trip.comment, 'passenger_tg_id': trip.passenger_tg_id, 'driver_tg_id': trip.driver_tg_id,
                 'passenger_name': passenger.full_name if passenger else None,
                 'passenger_username': passenger.username if passenger else None,
                 'driver_name': driver.full_name if driver else None,
                 'driver_username': driver.username if driver else None,
                 'driver_rating': float(driver.rating or 0) if driver else None,
-                'vehicle': {
-                    'brand': vehicle.brand,
-                    'model': vehicle.model,
-                    'plate': vehicle.plate,
-                    'color': vehicle.color,
-                    'capacity': vehicle.capacity,
-                    'vehicle_class': vehicle.vehicle_class,
-                } if vehicle else None,
-                'pickup_lat': trip.pickup_lat,
-                'pickup_lng': trip.pickup_lng,
-                'destination_lat': trip.destination_lat,
-                'destination_lng': trip.destination_lng,
-                'driver_lat': trip.driver_lat,
-                'driver_lng': trip.driver_lng,
-                'passenger_lat': trip.passenger_lat,
-                'passenger_lng': trip.passenger_lng,
-                'map_provider': provider,
-                'map_embed_url': embed,
-                'map_action_url': action,
+                'vehicle': _vehicle_dict(vehicle),
+                'pickup_lat': trip.pickup_lat, 'pickup_lng': trip.pickup_lng,
+                'destination_lat': trip.destination_lat, 'destination_lng': trip.destination_lng,
+                'driver_lat': trip.driver_lat, 'driver_lng': trip.driver_lng,
+                'passenger_lat': trip.passenger_lat, 'passenger_lng': trip.passenger_lng,
+                'map_provider': provider, 'map_embed_url': embed, 'map_action_url': action,
             })
 
         order = await session.scalar(
@@ -113,21 +108,12 @@ async def safe_current_trip(current_user: User = Depends(get_current_user)) -> C
         if order:
             runtime = await session.scalar(select(CityOrderRuntime).where(CityOrderRuntime.order_id == order.id))
             return CurrentTripResponse(item={
-                'id': order.id,
-                'trip_type': 'city_order',
-                'status': order.status,
-                'price': float(order.price or 0),
-                'country': order.country,
-                'city': order.city,
-                'from_address': order.from_address,
-                'to_address': order.to_address,
-                'seats': order.seats,
-                'comment': order.comment,
-                'creator_tg_id': order.creator_tg_id,
-                'is_mine': True,
+                'id': order.id, 'trip_type': 'city_order', 'status': order.status, 'price': float(order.price or 0),
+                'country': order.country, 'city': order.city, 'from_address': order.from_address,
+                'to_address': order.to_address, 'seats': order.seats, 'comment': order.comment,
+                'creator_tg_id': order.creator_tg_id, 'is_mine': True,
                 'active_trip_id': int(runtime.active_trip_id) if runtime and runtime.active_trip_id is not None else None,
-                'currency': runtime.currency if runtime else None,
-                'tariff_hint': runtime.tariff_hint if runtime else None,
+                'currency': runtime.currency if runtime else None, 'tariff_hint': runtime.tariff_hint if runtime else None,
             })
 
         route = await session.scalar(
@@ -142,24 +128,12 @@ async def safe_current_trip(current_user: User = Depends(get_current_user)) -> C
             meta = await session.scalar(select(IntercityRouteMeta).where(IntercityRouteMeta.route_id == route.id))
             provider, embed, action = _map_urls(route.country, meta.meeting_lat if meta else None, meta.meeting_lng if meta else None)
             return CurrentTripResponse(item={
-                'id': route.id,
-                'trip_type': 'intercity_route',
-                'status': route.status,
-                'price': float(route.price or 0),
-                'country': route.country,
-                'from_city': route.from_city,
-                'to_city': route.to_city,
-                'comment': route.comment,
-                'pickup_mode': meta.pickup_mode if meta else 'ask_driver',
-                'map_provider': provider,
-                'map_embed_url': embed,
-                'map_action_url': action,
-                'date': route.departure_date,
-                'time': route.departure_time,
-                'seats': route.seats,
-                'accepted_by_tg_id': route.accepted_by_tg_id,
-                'creator_tg_id': route.creator_tg_id,
-                'is_mine': current_user.tg_id == route.creator_tg_id,
+                'id': route.id, 'trip_type': 'intercity_route', 'status': route.status, 'price': float(route.price or 0),
+                'country': route.country, 'from_city': route.from_city, 'to_city': route.to_city, 'comment': route.comment,
+                'pickup_mode': meta.pickup_mode if meta else 'ask_driver', 'map_provider': provider,
+                'map_embed_url': embed, 'map_action_url': action, 'date': route.departure_date,
+                'time': route.departure_time, 'seats': route.seats, 'accepted_by_tg_id': route.accepted_by_tg_id,
+                'creator_tg_id': route.creator_tg_id, 'is_mine': current_user.tg_id == route.creator_tg_id,
             })
 
         req = await session.scalar(
@@ -173,25 +147,66 @@ async def safe_current_trip(current_user: User = Depends(get_current_user)) -> C
         if req:
             provider, embed, action = _map_urls(req.country, None, None)
             return CurrentTripResponse(item={
-                'id': req.id,
-                'trip_type': 'intercity_request',
-                'status': req.status,
-                'price': float(req.price_offer or 0),
-                'country': req.country,
-                'from_city': req.from_city,
-                'to_city': req.to_city,
-                'comment': req.comment,
-                'map_provider': provider,
-                'map_embed_url': embed,
-                'map_action_url': action,
-                'date': req.desired_date,
-                'time': req.desired_time,
-                'seats': req.seats_needed,
-                'accepted_by_tg_id': req.accepted_by_tg_id,
-                'creator_tg_id': req.creator_tg_id,
-                'is_mine': current_user.tg_id == req.creator_tg_id,
+                'id': req.id, 'trip_type': 'intercity_request', 'status': req.status,
+                'price': float(req.price_offer or 0), 'country': req.country, 'from_city': req.from_city,
+                'to_city': req.to_city, 'comment': req.comment, 'map_provider': provider,
+                'map_embed_url': embed, 'map_action_url': action, 'date': req.desired_date,
+                'time': req.desired_time, 'seats': req.seats_needed, 'accepted_by_tg_id': req.accepted_by_tg_id,
+                'creator_tg_id': req.creator_tg_id, 'is_mine': current_user.tg_id == req.creator_tg_id,
             })
     return CurrentTripResponse(item=None)
+
+
+async def safe_history_all(current_user: User = Depends(get_current_user)) -> HistoryResponse:
+    async with async_session() as session:
+        city_orders = (await session.scalars(select(CityOrderV1).where(CityOrderV1.creator_tg_id == current_user.tg_id).order_by(CityOrderV1.id.desc()).limit(30))).all()
+        city_trips = (await session.scalars(select(CityTripV1).where(or_(CityTripV1.passenger_tg_id == current_user.tg_id, CityTripV1.driver_tg_id == current_user.tg_id)).order_by(CityTripV1.id.desc()).limit(30))).all()
+        routes = (await session.scalars(select(IntercityRouteV1).where(or_(IntercityRouteV1.creator_tg_id == current_user.tg_id, IntercityRouteV1.accepted_by_tg_id == current_user.tg_id)).order_by(IntercityRouteV1.id.desc()).limit(30))).all()
+        requests = (await session.scalars(select(IntercityRequestV1).where(or_(IntercityRequestV1.creator_tg_id == current_user.tg_id, IntercityRequestV1.accepted_by_tg_id == current_user.tg_id)).order_by(IntercityRequestV1.id.desc()).limit(30))).all()
+
+        city_order_items = []
+        for row in city_orders:
+            runtime = await session.scalar(select(CityOrderRuntime).where(CityOrderRuntime.order_id == row.id))
+            city_order_items.append({
+                'id': row.id, 'creator_tg_id': row.creator_tg_id, 'role': row.role or 'passenger',
+                'country': row.country, 'city': row.city or '', 'from_address': row.from_address or '',
+                'to_address': row.to_address, 'seats': int(row.seats or 1), 'price': float(row.price or 0),
+                'comment': row.comment, 'status': row.status, 'created_at': _iso(row.created_at),
+                'is_mine': current_user.tg_id == row.creator_tg_id,
+                'active_trip_id': int(runtime.active_trip_id) if runtime and runtime.active_trip_id is not None else None,
+                'currency': runtime.currency if runtime else None, 'tariff_hint': runtime.tariff_hint if runtime else None,
+            })
+
+        city_trip_items = []
+        for trip in city_trips:
+            city_trip_items.append({
+                'id': trip.id, 'order_id': trip.order_id, 'status': trip.status or '', 'price': float(trip.price or 0),
+                'country': trip.country, 'city': trip.city, 'from_address': trip.from_address, 'to_address': trip.to_address,
+                'seats': trip.seats, 'comment': trip.comment, 'passenger_tg_id': trip.passenger_tg_id,
+                'driver_tg_id': trip.driver_tg_id, 'trip_type': 'city_trip', 'pickup_lat': trip.pickup_lat,
+                'pickup_lng': trip.pickup_lng, 'destination_lat': trip.destination_lat, 'destination_lng': trip.destination_lng,
+                'driver_lat': trip.driver_lat, 'driver_lng': trip.driver_lng, 'passenger_lat': trip.passenger_lat,
+                'passenger_lng': trip.passenger_lng,
+            })
+
+        route_items = []
+        for row in routes:
+            meta = await session.scalar(select(IntercityRouteMeta).where(IntercityRouteMeta.route_id == row.id))
+            route_items.append({
+                'id': row.id, 'country': row.country, 'from_city': row.from_city or '', 'to_city': row.to_city or '',
+                'date': row.departure_date or '', 'time': row.departure_time or '', 'seats': int(row.seats or 1),
+                'price': float(row.price or 0), 'comment': row.comment, 'status': row.status,
+                'created_at': _iso(row.created_at), 'pickup_mode': meta.pickup_mode if meta else 'ask_driver',
+            })
+
+        request_items = [{
+            'id': row.id, 'country': row.country, 'from_city': row.from_city or '', 'to_city': row.to_city or '',
+            'date': row.desired_date or '', 'time': row.desired_time or '', 'seats_needed': int(row.seats_needed or 1),
+            'price_offer': float(row.price_offer or 0), 'comment': row.comment, 'status': row.status,
+            'created_at': _iso(row.created_at),
+        } for row in requests]
+
+    return HistoryResponse(city_orders=city_order_items, city_trips=city_trip_items, intercity_routes=route_items, intercity_requests=request_items)
 
 
 def install_intaxi_safety_patch() -> None:
@@ -206,6 +221,8 @@ def install_intaxi_safety_patch() -> None:
             replacement = safe_city_close
         elif path == '/trip/current' and 'GET' in methods:
             replacement = safe_current_trip
+        elif path == '/history/all' and 'GET' in methods:
+            replacement = safe_history_all
         return previous_add_api_route(self, path, replacement, *args, **kwargs)
 
     FastAPI.add_api_route = patched_add_api_route
