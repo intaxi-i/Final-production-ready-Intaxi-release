@@ -13,6 +13,7 @@ from app.handlers.city_driver_guard import router as city_driver_guard_router
 from app.handlers.live_city import router as live_city_router
 from app.handlers.start import router as start_router
 from app.handlers.profile_feedback import router as profile_feedback_router
+from app.handlers.profile_wallet import router as profile_wallet_router
 from app.handlers.profile import router as profile_router
 from app.handlers.order import router as order_router
 from app.handlers.admin import router as admin_router
@@ -35,6 +36,7 @@ async def main():
     dp.include_router(live_city_router)
     dp.include_router(start_router)
     dp.include_router(profile_feedback_router)
+    dp.include_router(profile_wallet_router)
     dp.include_router(profile_router)
     dp.include_router(order_router)
 
