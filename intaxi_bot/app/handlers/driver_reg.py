@@ -1,4 +1,5 @@
 import hashlib
+import html
 import os
 import secrets
 from pathlib import Path
@@ -12,7 +13,6 @@ from sqlalchemy import select
 
 import app.database.requests as rq
 import app.keyboards as kb
-from app.miniapp_routes import profile_url
 from app.strings import MESSAGES
 from app.database.models import async_session, Vehicle
 
@@ -109,10 +109,14 @@ async def driver_reg_start(message: types.Message, state: FSMContext):
         sent = await message.answer(tr(lang, 'service_not_available').format(country=user.country))
         await _track(sent, 'driver_reg')
         return
+    await state.clear()
     await _cleanup_context(message.bot, message.from_user.id, 'driver_reg')
-    sent = await message.answer(tr(lang, 'commission_prompt'))
+    builder = InlineKeyboardBuilder()
+    builder.button(text=tr(lang, 'commission_yes'), callback_data='driveragree_yes')
+    builder.button(text=tr(lang, 'commission_no'), callback_data='driveragree_no')
+    sent = await message.answer(tr(lang, 'commission_prompt'), reply_markup=builder.adjust(1).as_markup())
     await _track(sent, 'driver_reg')
-    await _start_brand_flow(message, state, user)
+    await state.set_state(DriverReg.commission_agreement)
 
 
 async def _start_brand_flow(target, state: FSMContext, user):
@@ -340,8 +344,9 @@ async def reject_driver_reason(message: types.Message, state: FSMContext):
         await rq.reject_user_vehicle(user_id)
         target = await rq.get_or_create_user(user_id, '')
         lang = target.language or 'ru'
+        safe_reason = html.escape(reason or '—')
         try:
-            await message.bot.send_message(user_id, tr(lang, 'reject_title').format(reason=reason), parse_mode='HTML')
+            await message.bot.send_message(user_id, tr(lang, 'reject_title').format(reason=safe_reason), parse_mode='HTML')
         except Exception:
             pass
     await state.clear()
