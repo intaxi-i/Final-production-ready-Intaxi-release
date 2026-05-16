@@ -11,6 +11,14 @@ from app.strings import MESSAGES
 
 router = Router()
 
+CANCELLED_TEXTS = {
+    'ru': '✅ Отменено.',
+    'uz': '✅ Bekor qilindi.',
+    'en': '✅ Cancelled.',
+    'ar': '✅ تم الإلغاء.',
+    'kz': '✅ Бас тартылды.',
+}
+
 
 def _match_button(message_text: str | None, key: str) -> bool:
     if not message_text:
@@ -34,6 +42,10 @@ CANCEL_TEXTS = _cancel_texts()
 
 def _driver_mode(user) -> bool:
     return bool(user.is_verified and (user.active_role or 'driver') != 'passenger')
+
+
+def _cancelled_text(lang: str | None) -> str:
+    return CANCELLED_TEXTS.get(lang or 'ru', CANCELLED_TEXTS['ru'])
 
 
 def _guide(lang: str) -> tuple[str, str, str]:
@@ -97,4 +109,4 @@ async def cancel_live_city_flow(message: types.Message, state: FSMContext):
     user = await rq.get_or_create_user(message.from_user.id, message.from_user.full_name, message.from_user.username)
     lang = user.language or 'ru'
     await state.clear()
-    await message.answer('✅ Отменено.', reply_markup=home_webapp_menu(lang, is_driver_mode=_driver_mode(user)))
+    await message.answer(_cancelled_text(lang), reply_markup=home_webapp_menu(lang, is_driver_mode=_driver_mode(user)))
