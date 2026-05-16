@@ -181,6 +181,21 @@ async def edit_uz_city_pick(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
+@router.message(lambda message: message.text in [kb.LOCAL_DEFAULTS[x]['btn_change_vehicle'] for x in kb.LOCAL_DEFAULTS])
+async def change_vehicle_start(message: types.Message, state: FSMContext):
+    user = await rq.get_or_create_user(message.from_user.id, message.from_user.full_name, message.from_user.username)
+    lang = user.language or 'ru'
+    vehicle = await _vehicle_for_user(user)
+    if not vehicle:
+        return
+    await _set_driver_offline(user.tg_id)
+    await rq.remove_vehicle_for_edit(user.tg_id)
+    await state.clear()
+    user = await rq.get_or_create_user(message.from_user.id, message.from_user.full_name, message.from_user.username)
+    await message.answer(MESSAGES[lang].get('moderation', 'Введите данные машины заново.'), reply_markup=kb.main_menu(lang, user_id=user.tg_id, as_user=True, is_driver_mode=False))
+    await message.answer(MESSAGES[lang].get('become_driver'))
+
+
 @router.message(lambda message: message.text in [kb.LOCAL_DEFAULTS[x].get('btn_toggle_small_orders_on') for x in kb.LOCAL_DEFAULTS] + [kb.LOCAL_DEFAULTS[x].get('btn_toggle_small_orders_off') for x in kb.LOCAL_DEFAULTS])
 async def toggle_small_orders_mode(message: types.Message):
     user = await rq.get_or_create_user(message.from_user.id, message.from_user.full_name, message.from_user.username)
