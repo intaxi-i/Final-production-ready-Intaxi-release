@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from math import ceil
 from typing import Any, Callable
 
@@ -14,8 +15,13 @@ from api.schemas import (
     CityOrderCreateResponse,
     CityOrderListResponse,
     CityOrderResponse,
+    CityTripEnvelope,
     CityTripResponse,
+    CityTripStatusUpdateRequest,
     CurrentTripResponse,
+    DriverLocationUpdateRequest,
+    DriverOnlineStateResponse,
+    DriverOnlineUpdateRequest,
     IntercityOfferListResponse,
     IntercityOfferResponse,
     RaisePriceRequest,
@@ -37,11 +43,32 @@ from intaxi_bot.app.database.models import (
 from intaxi_bot.app.database.requests import DEFAULT_TARIFFS, haversine_km
 
 LIVE_CITY_STATUSES = {"accepted", "driver_on_way", "driver_arrived", "in_progress"}
+FINAL_CITY_STATUSES = {"completed", "cancelled", "closed", "cancelled_by_admin"}
 CITY_RADIUS_STAGES_KM = (3, 6, 12, 15)
+CITY_STATUS_NEXT = {
+    "accepted": {"driver_on_way", "driver_arrived", "cancelled"},
+    "driver_on_way": {"driver_arrived", "cancelled"},
+    "driver_arrived": {"in_progress", "cancelled"},
+    "in_progress": {"completed", "cancelled"},
+}
 
 
 async def _current_user(authorization: str | None = Header(default=None)) -> User:
     return await get_current_user(authorization)
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _iso(value: Any) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value
+    if isinstance(value, datetime):
+        return value.replace(microsecond=0).isoformat()
+    return str(value)
 
 
 def _clean(value: Any) -> str:
@@ -85,6 +112,15 @@ async def _vehicle_for_driver(session, driver_tg_id: int) -> Vehicle | None:
     if not driver:
         return None
     return await session.scalar(select(Vehicle).where(Vehicle.user_id == driver.id))
+
+
+async def _ensure_online_state(session, driver: User) -> DriverOnlineState:
+    row = await session.scalar(select(DriverOnlineState).where(DriverOnlineState.driver_tg_id == driver.tg_id))
+    if not row:
+        row = DriverOnlineState(driver_tg_id=driver.tg_id, is_online=False, country=driver.country, city=driver.city)
+        session.add(row)
+        await session.flush()
+    return row
 
 
 async def _driver_has_live_trip(session, driver_tg_id: int) -> bool:
@@ -164,6 +200,66 @@ async def _trip_schema(session, trip: CityTripV1) -> CityTripResponse:
         destination_lat=trip.destination_lat, destination_lng=trip.destination_lng, driver_lat=trip.driver_lat, driver_lng=trip.driver_lng,
         passenger_lat=trip.passenger_lat, passenger_lng=trip.passenger_lng, eta_min=None,
     )
+
+
+async def city_driver_online_state(current_user: User = Depends(_current_user)) -> DriverOnlineStateResponse:
+    if not current_user.is_verified or _clean(current_user.active_role) != "driver":
+        raise HTTPException(status_code=403, detail="Only verified drivers in driver mode can use online status")
+    async with async_session() as session:
+        driver = await session.scalar(select(User).where(User.tg_id == current_user.tg_id))
+        if not driver:
+            raise HTTPException(status_code=404, detail="User not found")
+        row = await _ensure_online_state(session, driver)
+        busy = await _driver_has_live_trip(session, driver.tg_id)
+        await session.commit()
+        await session.refresh(row)
+        return DriverOnlineStateResponse(is_online=bool(row.is_online), lat=row.lat, lng=row.lng, country=row.country, city=row.city, is_busy=busy, updated_at=_iso(row.updated_at))
+
+
+async def city_driver_online_update(payload: DriverOnlineUpdateRequest, current_user: User = Depends(_current_user)) -> DriverOnlineStateResponse:
+    if not current_user.is_verified or _clean(current_user.active_role) != "driver":
+        raise HTTPException(status_code=403, detail="Only verified drivers in driver mode can go online")
+    async with async_session() as session:
+        driver = await session.scalar(select(User).where(User.tg_id == current_user.tg_id))
+        if not driver:
+            raise HTTPException(status_code=404, detail="User not found")
+        row = await _ensure_online_state(session, driver)
+        row.is_online = bool(payload.is_online)
+        row.country = _clean(payload.country_code or payload.country or driver.country) or row.country
+        row.city = str(payload.city or payload.city_id or driver.city or row.city or "").strip()
+        if payload.lat is not None:
+            row.lat = payload.lat
+        if payload.lng is not None:
+            row.lng = payload.lng
+        row.updated_at = _now()
+        await session.commit()
+        await session.refresh(row)
+        busy = await _driver_has_live_trip(session, driver.tg_id)
+        return DriverOnlineStateResponse(is_online=bool(row.is_online), lat=row.lat, lng=row.lng, country=row.country, city=row.city, is_busy=busy, updated_at=_iso(row.updated_at))
+
+
+async def city_driver_location_update(payload: DriverLocationUpdateRequest, current_user: User = Depends(_current_user)) -> dict[str, str]:
+    if not current_user.is_verified or _clean(current_user.active_role) != "driver":
+        raise HTTPException(status_code=403, detail="Only verified drivers in driver mode can update location")
+    async with async_session() as session:
+        driver = await session.scalar(select(User).where(User.tg_id == current_user.tg_id))
+        if not driver:
+            raise HTTPException(status_code=404, detail="User not found")
+        row = await _ensure_online_state(session, driver)
+        row.lat = payload.lat
+        row.lng = payload.lng
+        row.country = driver.country or row.country
+        row.city = driver.city or row.city
+        row.is_online = True
+        row.updated_at = _now()
+        if payload.trip_id:
+            trip = await session.scalar(select(CityTripV1).where(CityTripV1.id == payload.trip_id, CityTripV1.driver_tg_id == driver.tg_id))
+            if trip and trip.status in LIVE_CITY_STATUSES:
+                trip.driver_lat = payload.lat
+                trip.driver_lng = payload.lng
+                trip.updated_at = _now()
+        await session.commit()
+        return {"status": "ok", "updated_at": _iso(row.updated_at) or ""}
 
 
 async def _notify_city_drivers(order_id: int) -> int:
@@ -267,6 +363,8 @@ async def accept_city_order(order_id: int, current_user: User = Depends(_current
         online = await session.scalar(select(DriverOnlineState).where(DriverOnlineState.driver_tg_id == driver.tg_id))
         if not online or not online.is_online:
             raise HTTPException(status_code=403, detail="Driver must be online")
+        if not _same_or_empty(online.country, order.country) or not _same_or_empty(online.city, order.city):
+            raise HTTPException(status_code=403, detail="Order is outside the driver's active zone")
         runtime = await session.scalar(select(CityOrderRuntime).where(CityOrderRuntime.order_id == order.id))
         if runtime and runtime.active_trip_id:
             raise HTTPException(status_code=409, detail="Order is already taken")
@@ -305,6 +403,42 @@ async def city_counteroffer(order_id: int, payload: RaisePriceRequest, current_u
         finally:
             await bot.session.close()
     return {"id": order_id, "status": "sent", "price": float(payload.price)}
+
+
+async def city_trip_status(trip_id: int, payload: CityTripStatusUpdateRequest, current_user: User = Depends(_current_user)) -> CityTripEnvelope:
+    if payload.status not in LIVE_CITY_STATUSES | FINAL_CITY_STATUSES:
+        raise HTTPException(status_code=400, detail="Unsupported city trip status")
+    async with async_session() as session:
+        trip = await session.scalar(select(CityTripV1).where(CityTripV1.id == trip_id))
+        if not trip:
+            raise HTTPException(status_code=404, detail="Trip not found")
+        if current_user.tg_id == trip.driver_tg_id:
+            if payload.status != trip.status and payload.status not in CITY_STATUS_NEXT.get(trip.status, set()):
+                raise HTTPException(status_code=409, detail="Invalid city trip status transition")
+        elif current_user.tg_id == trip.passenger_tg_id:
+            if payload.status != "cancelled":
+                raise HTTPException(status_code=403, detail="Only the driver can update trip progress")
+        else:
+            raise HTTPException(status_code=403, detail="Forbidden")
+        trip.status = payload.status
+        trip.updated_at = _now()
+        order = await session.scalar(select(CityOrderV1).where(CityOrderV1.id == trip.order_id))
+        runtime = await session.scalar(select(CityOrderRuntime).where(CityOrderRuntime.order_id == trip.order_id))
+        if payload.status == "completed":
+            trip.completed_at = _now()
+            if order:
+                order.status = "completed"
+            if runtime:
+                runtime.active_trip_id = None
+        elif payload.status in {"cancelled", "closed", "cancelled_by_admin"}:
+            trip.cancelled_at = _now()
+            if order:
+                order.status = "cancelled"
+            if runtime:
+                runtime.active_trip_id = None
+        await session.commit()
+        await session.refresh(trip)
+        return CityTripEnvelope(item=await _trip_schema(session, trip))
 
 
 async def current_trip(current_user: User = Depends(_current_user)) -> CurrentTripResponse:
@@ -365,12 +499,20 @@ def install_intaxi_production_patch() -> None:
     def patched_add_api_route(self, path: str, endpoint: Callable, *args: Any, **kwargs: Any):
         methods = {str(m).upper() for m in (kwargs.get("methods") or [])}
         replacement = None
-        if path == "/city/orders" and "POST" in methods:
+        if path == "/driver/online" and "GET" in methods:
+            replacement = city_driver_online_state
+        elif path == "/driver/online" and "POST" in methods:
+            replacement = city_driver_online_update
+        elif path == "/driver/location" and "POST" in methods:
+            replacement = city_driver_location_update
+        elif path == "/city/orders" and "POST" in methods:
             replacement = create_city_order
         elif path == "/trip/current" and "GET" in methods:
             replacement = current_trip
         elif path == "/city/my-orders" and "GET" in methods:
             replacement = city_my_orders
+        elif path == "/city/trips/{trip_id}/status" and "POST" in methods:
+            replacement = city_trip_status
         elif path == "/intercity/offers" and "GET" in methods:
             replacement = intercity_filtered_offers
         elif path.startswith("/city/offers/") and path.endswith("/accept") and "POST" in methods:
