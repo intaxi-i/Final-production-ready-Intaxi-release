@@ -22,6 +22,8 @@ TEXTS = {
         'complaint_prompt': 'Напишите жалобу одним сообщением. Она будет отправлена администраторам.',
         'complaint_new': 'Новая жалоба', 'from_user': 'От', 'target': 'Цель', 'text': 'Текст', 'complaint_sent': '✅ Жалоба отправлена.',
         'not_found': 'Не найдено или нет доступа', 'city_order_closed': 'Городской заказ #{id} закрыт.',
+        'empty': 'Сейчас активных предложений не найдено.', 'accept': '✅ Принять', 'price': 'Цена', 'status': 'Статус',
+        'distance': 'До пассажира', 'created_by': 'Создатель', 'current_trip_open': 'Открыть текущую поездку', 'accepted': '✅ Заказ принят',
     },
     'uz': {
         'current_trip': '📌 Joriy safar', 'open_city': 'Shaharni ochish', 'open_intercity': 'Shaharlararoni ochish',
@@ -29,6 +31,8 @@ TEXTS = {
         'complaint_prompt': 'Shikoyatni bitta xabar bilan yozing. U administratorlarga yuboriladi.',
         'complaint_new': 'Yangi shikoyat', 'from_user': 'Kimdan', 'target': 'Maqsad', 'text': 'Matn', 'complaint_sent': '✅ Shikoyat yuborildi.',
         'not_found': 'Topilmadi yoki ruxsat yo‘q', 'city_order_closed': 'Shahar buyurtmasi #{id} yopildi.',
+        'empty': 'Hozir faol takliflar yo‘q.', 'accept': '✅ Qabul qilish', 'price': 'Narx', 'status': 'Holat',
+        'distance': 'Yo‘lovchigacha', 'created_by': 'Yaratgan', 'current_trip_open': 'Joriy safarni ochish', 'accepted': '✅ Buyurtma qabul qilindi',
     },
     'en': {
         'current_trip': '📌 Current trip', 'open_city': 'Open city', 'open_intercity': 'Open intercity',
@@ -36,6 +40,8 @@ TEXTS = {
         'complaint_prompt': 'Send your complaint in one message. It will be forwarded to the admins.',
         'complaint_new': 'New complaint', 'from_user': 'From', 'target': 'Target', 'text': 'Text', 'complaint_sent': '✅ Complaint sent.',
         'not_found': 'Not found or access denied', 'city_order_closed': 'City order #{id} has been closed.',
+        'empty': 'No active offers right now.', 'accept': '✅ Accept', 'price': 'Price', 'status': 'Status',
+        'distance': 'To passenger', 'created_by': 'Created by', 'current_trip_open': 'Open current trip', 'accepted': '✅ Order accepted',
     },
     'ar': {
         'current_trip': '📌 الرحلة الحالية', 'open_city': 'فتح المدينة', 'open_intercity': 'فتح بين المدن',
@@ -43,6 +49,8 @@ TEXTS = {
         'complaint_prompt': 'اكتب الشكوى في رسالة واحدة. سيتم إرسالها إلى المشرفين.',
         'complaint_new': 'شكوى جديدة', 'from_user': 'من', 'target': 'الهدف', 'text': 'النص', 'complaint_sent': '✅ تم إرسال الشكوى.',
         'not_found': 'غير موجود أو لا توجد صلاحية', 'city_order_closed': 'تم إغلاق طلب المدينة #{id}.',
+        'empty': 'لا توجد عروض نشطة الآن.', 'accept': '✅ قبول', 'price': 'السعر', 'status': 'الحالة',
+        'distance': 'إلى الراكب', 'created_by': 'أنشأه', 'current_trip_open': 'فتح الرحلة الحالية', 'accepted': '✅ تم قبول الطلب',
     },
 }
 
@@ -83,6 +91,62 @@ def _recovery_markup(lang: str, callback_data: str):
     else:
         builder.button(text=_t(lang, 'open_city'), web_app=types.WebAppInfo(url=city_main_url()))
     return builder.adjust(1).as_markup()
+
+
+@router.callback_query(F.data.in_({'citybot_list_driver', 'citybot_list_passenger'}))
+async def safe_city_market(callback: types.CallbackQuery):
+    wanted_role = 'driver' if callback.data == 'citybot_list_driver' else 'passenger'
+    user = await rq.get_or_create_user(callback.from_user.id, callback.from_user.full_name, callback.from_user.username)
+    lang = user.language or 'ru'
+    items = await order_actions.list_city_market_for_user(user.tg_id, wanted_role=wanted_role, limit=10)
+    if not items:
+        await callback.message.answer(_t(lang, 'empty'))
+        await callback.answer()
+        return
+    for item in items:
+        row = item['order']
+        creator = item.get('creator')
+        vehicle = item.get('vehicle')
+        distance = item.get('driver_distance_km')
+        safe_from = html.escape(row.from_address or '—')
+        safe_to = html.escape(row.to_address or '—')
+        text = (
+            f"<b>{html.escape(row.city or '—')}</b>\n"
+            f"#{row.id} · {safe_from} → {safe_to}\n"
+            f"{_t(lang, 'price')}: {float(row.price or 0):g}\n"
+        )
+        if distance is not None:
+            text += f"{_t(lang, 'distance')}: {distance:.1f} km\n"
+        if creator:
+            text += f"{_t(lang, 'created_by')}: {html.escape(creator.full_name or str(creator.tg_id))}\n"
+        if vehicle:
+            text += f"🚗 {html.escape((vehicle.brand or '') + ' ' + (vehicle.model or '') + ' ' + (vehicle.plate or '')).strip()}\n"
+        builder = InlineKeyboardBuilder()
+        builder.button(text=_t(lang, 'accept'), callback_data=f'citybot_accept_{row.id}')
+        await callback.message.answer(text, reply_markup=builder.as_markup(), parse_mode='HTML')
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith('citybot_accept_'))
+async def safe_city_accept(callback: types.CallbackQuery):
+    order_id = int((callback.data or '').rsplit('_', 1)[1])
+    user = await rq.get_or_create_user(callback.from_user.id, callback.from_user.full_name, callback.from_user.username)
+    lang = user.language or 'ru'
+    trip = await order_actions.accept_city_offer_for_user(order_id, user.tg_id)
+    if not trip:
+        await callback.answer(_t(lang, 'not_found'), show_alert=True)
+        return
+    text = (
+        f"{_t(lang, 'accepted')}\n"
+        f"#{trip.id}\n"
+        f"{html.escape(trip.from_address or '—')} → {html.escape(trip.to_address or '—')}\n"
+        f"{_t(lang, 'price')}: {float(trip.price or 0):g}\n"
+        f"{_t(lang, 'status')}: {html.escape(trip.status or 'accepted')}"
+    )
+    builder = InlineKeyboardBuilder()
+    builder.button(text=_t(lang, 'current_trip_open'), web_app=types.WebAppInfo(url=current_trip_url()))
+    await callback.message.answer(text, reply_markup=builder.as_markup(), parse_mode='HTML')
+    await callback.answer('OK')
 
 
 @router.callback_query(F.data.startswith('cancl_'))
