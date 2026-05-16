@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import html
+
 from aiogram import F, Router, types
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -109,8 +111,8 @@ async def edit_location_from_geo(message: types.Message, state: FSMContext):
         city = _extract_geo_city(address) or user.city or f'{lat}, {lng}'
         await rq.update_user_country_city(message.from_user.id, country_code, city)
         await state.clear()
-        detected_address = data.get('display_name') or city
-        detected_coords = f'{lat}, {lng}'
+        detected_address = html.escape(str(data.get('display_name') or city))
+        detected_coords = html.escape(f'{lat}, {lng}')
         await message.answer(
             f"{tr(lang, 'location_changed')}\n\n{tr(lang, 'detected_address')}: {detected_address}\n{tr(lang, 'detected_coords')}: <code>{detected_coords}</code>",
             parse_mode='HTML',
