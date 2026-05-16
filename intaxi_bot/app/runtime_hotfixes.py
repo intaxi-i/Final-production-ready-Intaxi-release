@@ -1,15 +1,8 @@
 from __future__ import annotations
 
 import importlib
-from typing import Any
 
-KZ_TARIFF = ("KZT", 120.0)
-SUPPORTED_COUNTRIES = {"uz", "tr", "kz", "sa"}
-
-
-def _country_code_with_kz(address: dict[str, Any]) -> str:
-    code = str(address.get("country_code") or "").lower()
-    return code if code in SUPPORTED_COUNTRIES else "uz"
+from app.country_config import DEFAULT_TARIFFS, country_code_from_address
 
 
 def _patch_requests_country_defaults() -> None:
@@ -20,7 +13,8 @@ def _patch_requests_country_defaults() -> None:
             continue
         default_tariffs = getattr(module, "DEFAULT_TARIFFS", None)
         if isinstance(default_tariffs, dict):
-            default_tariffs.setdefault("kz", KZ_TARIFF)
+            for country, tariff in DEFAULT_TARIFFS.items():
+                default_tariffs.setdefault(country, tariff)
 
 
 def _patch_profile_country_detection() -> None:
@@ -29,13 +23,13 @@ def _patch_profile_country_detection() -> None:
             module = importlib.import_module(module_name)
         except Exception:
             continue
-        setattr(module, "_country_code_from_address", _country_code_with_kz)
+        setattr(module, "_country_code_from_address", country_code_from_address)
 
 
 def apply_runtime_hotfixes() -> None:
-    # Temporary compatibility only: keep country support consistent until the
-    # large canonical modules are safely updated without replacing their full
-    # contents through the GitHub contents API.
+    # Temporary compatibility shim. The country/tariff data itself now lives in
+    # app.country_config; this function only applies it to older large modules
+    # until those modules are safely refactored without full-file replacement risk.
     _patch_requests_country_defaults()
     _patch_profile_country_detection()
 
