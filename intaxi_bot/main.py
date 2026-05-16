@@ -11,6 +11,7 @@ from app.admin_bootstrap import apply_admin_menu_config
 from app.country_bootstrap import apply_country_config
 from app.database.models import async_main
 from app.handlers.city_driver_guard import router as city_driver_guard_router
+from app.handlers.live_city_safety import router as live_city_safety_router
 from app.handlers.live_city import router as live_city_router
 from app.handlers.start import router as start_router
 from app.handlers.profile_feedback import router as profile_feedback_router
@@ -37,6 +38,7 @@ async def main():
     dp.include_router(admin_router)
     dp.include_router(driver_router)
     dp.include_router(city_driver_guard_router)
+    dp.include_router(live_city_safety_router)
     dp.include_router(live_city_router)
     dp.include_router(start_router)
     dp.include_router(profile_feedback_router)
