@@ -11,6 +11,8 @@ from app.database.models import (
     CityOrderV1,
     CityTripV1,
     DriverOnlineState,
+    IntercityRequestV1,
+    IntercityRouteV1,
     User,
     Vehicle,
     async_session,
@@ -32,6 +34,14 @@ def _same_or_empty(left: Any, right: Any) -> bool:
     left_value = _clean(left)
     right_value = _clean(right)
     return not left_value or not right_value or left_value == right_value
+
+
+def _city_matches(user_city: Any, row_city: Any) -> bool:
+    user_value = _clean(user_city)
+    row_value = _clean(row_city)
+    if not user_value or not row_value:
+        return True
+    return user_value == row_value or user_value in row_value or row_value in user_value
 
 
 def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -203,3 +213,94 @@ async def accept_city_offer_for_user(order_id: int, tg_id: int) -> CityTripV1 | 
         await session.commit()
         await session.refresh(trip)
         return trip
+
+
+async def list_intercity_market_for_user(tg_id: int, *, kind: str, limit: int = 10) -> list[Any]:
+    async with async_session() as session:
+        current_user = await session.scalar(select(User).where(User.tg_id == tg_id))
+        if not current_user:
+            return []
+        country = _clean(current_user.country)
+        city = current_user.city
+
+        if kind == 'route':
+            if _clean(current_user.active_role) == 'driver':
+                return []
+            query = select(IntercityRouteV1).where(
+                IntercityRouteV1.status == 'active',
+                IntercityRouteV1.creator_tg_id != tg_id,
+            )
+            if country:
+                query = query.where(IntercityRouteV1.country == country)
+            rows = (await session.scalars(query.order_by(IntercityRouteV1.id.desc()).limit(limit * 5))).all()
+            result = []
+            for row in rows:
+                if not _city_matches(city, row.from_city):
+                    continue
+                driver = await session.scalar(select(User).where(User.tg_id == row.creator_tg_id))
+                if not driver or not driver.is_verified:
+                    continue
+                result.append(row)
+                if len(result) >= limit:
+                    break
+            return result
+
+        if kind == 'request':
+            if not current_user.is_verified or _clean(current_user.active_role) != 'driver':
+                return []
+            query = select(IntercityRequestV1).where(
+                IntercityRequestV1.status == 'active',
+                IntercityRequestV1.creator_tg_id != tg_id,
+            )
+            if country:
+                query = query.where(IntercityRequestV1.country == country)
+            rows = (await session.scalars(query.order_by(IntercityRequestV1.id.desc()).limit(limit * 5))).all()
+            result = []
+            for row in rows:
+                if not _city_matches(city, row.from_city):
+                    continue
+                result.append(row)
+                if len(result) >= limit:
+                    break
+            return result
+
+        return []
+
+
+async def accept_intercity_offer_for_user(*, kind: str, item_id: int, tg_id: int):
+    async with async_session() as session:
+        current_user = await session.scalar(select(User).where(User.tg_id == tg_id))
+        if not current_user:
+            return None
+        if kind == 'route':
+            row = await session.scalar(select(IntercityRouteV1).where(IntercityRouteV1.id == item_id).with_for_update())
+            if not row or row.creator_tg_id == tg_id or row.status != 'active':
+                return None
+            if _clean(current_user.active_role) == 'driver':
+                return None
+            if not _same_or_empty(current_user.country, row.country) or not _city_matches(current_user.city, row.from_city):
+                return None
+            driver = await session.scalar(select(User).where(User.tg_id == row.creator_tg_id))
+            if not driver or not driver.is_verified:
+                return None
+            row.accepted_by_tg_id = tg_id
+            row.status = 'accepted'
+            await session.commit()
+            await session.refresh(row)
+            return row
+
+        if kind == 'request':
+            row = await session.scalar(select(IntercityRequestV1).where(IntercityRequestV1.id == item_id).with_for_update())
+            if not row or row.creator_tg_id == tg_id or row.status != 'active':
+                return None
+            if not current_user.is_verified or _clean(current_user.active_role) != 'driver':
+                return None
+            if not _same_or_empty(current_user.country, row.country) or not _city_matches(current_user.city, row.from_city):
+                return None
+            row.accepted_by_tg_id = tg_id
+            row.status = 'accepted'
+            await session.commit()
+            await session.refresh(row)
+            return row
+
+        return None
