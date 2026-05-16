@@ -20,14 +20,101 @@ router = Router()
 STORAGE_ROOT = Path('secure_driver_files')
 
 LOCAL_TEXTS = {
-    'ru': {'service_not_available':'Сервис недоступен для страны {country}','cancelled':'Регистрация водителя отменена.','approved':'✅ Ваша заявка одобрена. Теперь вы можете получать заказы.','approved_admin':'Заявка водителя {user_id} одобрена.','reject_reason_prompt':'Введите причину отказа (она будет отправлена водителю):','reject_sent':'Водителю {user_id} отправлен отказ с причиной.','main_menu':'🏠','new_application':'🆕 Новая заявка!','reject_title':'❌ <b>Ваша заявка отклонена</b>\n\nПричина: {reason}','approve_btn':'✅ Одобрить','reject_btn':'❌ Отклонить','files_saved':'Файлы сохранены в защищённом виде.','commission_prompt':'Сервис работает без комиссии: 0%. Продолжить регистрацию водителя?','commission_yes':'✅ Согласен','commission_no':'❌ Не согласен','good_deeds':'Пусть Аллах сделает наши дела благими.','driver_card_title':'Карточка водителя','driver_vehicle_media':'Фото машины'},
-    'uz': {'service_not_available':'Xizmat {country} uchun mavjud emas','cancelled':'Haydovchi ro‘yxatdan o‘tishi bekor qilindi.','approved':'✅ Arizangiz tasdiqlandi. Endi buyurtmalarni olishingiz mumkin.','approved_admin':'{user_id} haydovchi arizasi tasdiqlandi.','reject_reason_prompt':'Rad etish sababini kiriting (u haydovchiga yuboriladi):','reject_sent':'{user_id} haydovchiga rad sababi yuborildi.','main_menu':'🏠','new_application':'🆕 Yangi ariza!','reject_title':'❌ <b>Arizangiz rad etildi</b>\n\nSabab: {reason}','approve_btn':'✅ Tasdiqlash','reject_btn':'❌ Rad etish','files_saved':'Fayllar himoyalangan ko‘rinishda saqlandi.','commission_prompt':'Xizmat 0% komissiya bilan ishlaydi. Haydovchi ro‘yxatidan o‘tishni davom ettirasizmi?','commission_yes':'✅ Roziman','commission_no':'❌ Rozi emasman','good_deeds':'Alloh ishlarimizni xayrli qilsin.','driver_card_title':'Haydovchi kartasi','driver_vehicle_media':'Mashina rasmlari'},
-    'en': {'service_not_available':'Service is not available for {country}','cancelled':'Driver registration cancelled.','approved':'✅ Your application has been approved. You can receive orders now.','approved_admin':'Driver application {user_id} approved.','reject_reason_prompt':'Enter the reason for rejection (it will be sent to the driver):','reject_sent':'Rejection reason sent to driver {user_id}.','main_menu':'🏠','new_application':'🆕 New application!','reject_title':'❌ <b>Your application was rejected</b>\n\nReason: {reason}','approve_btn':'✅ Approve','reject_btn':'❌ Reject','files_saved':'Files were stored in protected form.','commission_prompt':'The service works with 0% commission. Continue driver registration?','commission_yes':'✅ I agree','commission_no':'❌ I do not agree','good_deeds':'May God make our deeds righteous.','driver_card_title':'Driver card','driver_vehicle_media':'Vehicle photos'},
-    'ar': {'service_not_available':'الخدمة غير متاحة للدولة {country}','cancelled':'تم إلغاء تسجيل السائق.','approved':'✅ تمت الموافقة على طلبك. يمكنك الآن استلام الطلبات.','approved_admin':'تمت الموافقة على طلب السائق {user_id}.','reject_reason_prompt':'أدخل سبب الرفض (سيتم إرساله إلى السائق):','reject_sent':'تم إرسال سبب الرفض إلى السائق {user_id}.','main_menu':'🏠','new_application':'🆕 طلب جديد!','reject_title':'❌ <b>تم رفض طلبك</b>\n\nالسبب: {reason}','approve_btn':'✅ قبول','reject_btn':'❌ رفض','files_saved':'تم حفظ الملفات بشكل محمي.','commission_prompt':'الخدمة تعمل بعمولة 0%. هل تريد متابعة تسجيل السائق؟','commission_yes':'✅ أوافق','commission_no':'❌ لا أوافق','good_deeds':'نسأل الله أن يجعل أعمالنا صالحة.','driver_card_title':'بطاقة السائق','driver_vehicle_media':'صور السيارة'},
+    'ru': {
+        'service_not_available': 'Сервис недоступен для страны {country}',
+        'cancelled': 'Регистрация водителя отменена.',
+        'approved': '✅ Ваша заявка одобрена. Теперь вы можете получать заказы.',
+        'approved_admin': 'Заявка водителя {user_id} одобрена.',
+        'reject_reason_prompt': 'Введите причину отказа (она будет отправлена водителю):',
+        'reject_sent': 'Водителю {user_id} отправлен отказ с причиной.',
+        'new_application': '🆕 Новая заявка!',
+        'reject_title': '❌ <b>Ваша заявка отклонена</b>\n\nПричина: {reason}',
+        'approve_btn': '✅ Одобрить',
+        'reject_btn': '❌ Отклонить',
+        'files_saved': 'Файлы сохранены в защищённом виде.',
+        'commission_prompt': 'Сервис работает без комиссии: 0%. Продолжить регистрацию водителя?',
+        'commission_yes': '✅ Согласен',
+        'commission_no': '❌ Не согласен',
+        'driver_id': 'ID',
+        'username': 'Username',
+        'open_chat': 'Открыть чат',
+        'car': 'Авто',
+        'vehicle_photos_received': '4 фото машины получены',
+    },
+    'uz': {
+        'service_not_available': 'Xizmat {country} uchun mavjud emas',
+        'cancelled': 'Haydovchi ro‘yxatdan o‘tishi bekor qilindi.',
+        'approved': '✅ Arizangiz tasdiqlandi. Endi buyurtmalarni olishingiz mumkin.',
+        'approved_admin': '{user_id} haydovchi arizasi tasdiqlandi.',
+        'reject_reason_prompt': 'Rad etish sababini kiriting (u haydovchiga yuboriladi):',
+        'reject_sent': '{user_id} haydovchiga rad sababi yuborildi.',
+        'new_application': '🆕 Yangi ariza!',
+        'reject_title': '❌ <b>Arizangiz rad etildi</b>\n\nSabab: {reason}',
+        'approve_btn': '✅ Tasdiqlash',
+        'reject_btn': '❌ Rad etish',
+        'files_saved': 'Fayllar himoyalangan ko‘rinishda saqlandi.',
+        'commission_prompt': 'Xizmat 0% komissiya bilan ishlaydi. Haydovchi ro‘yxatidan o‘tishni davom ettirasizmi?',
+        'commission_yes': '✅ Roziman',
+        'commission_no': '❌ Rozi emasman',
+        'driver_id': 'ID',
+        'username': 'Username',
+        'open_chat': 'Chatni ochish',
+        'car': 'Avto',
+        'vehicle_photos_received': 'Mashinaning 4 ta rasmi olindi',
+    },
+    'en': {
+        'service_not_available': 'Service is not available for {country}',
+        'cancelled': 'Driver registration cancelled.',
+        'approved': '✅ Your application has been approved. You can receive orders now.',
+        'approved_admin': 'Driver application {user_id} approved.',
+        'reject_reason_prompt': 'Enter the reason for rejection. It will be sent to the driver:',
+        'reject_sent': 'Rejection reason sent to driver {user_id}.',
+        'new_application': '🆕 New application!',
+        'reject_title': '❌ <b>Your application was rejected</b>\n\nReason: {reason}',
+        'approve_btn': '✅ Approve',
+        'reject_btn': '❌ Reject',
+        'files_saved': 'Files were stored in protected form.',
+        'commission_prompt': 'The service works with 0% commission. Continue driver registration?',
+        'commission_yes': '✅ I agree',
+        'commission_no': '❌ I do not agree',
+        'driver_id': 'ID',
+        'username': 'Username',
+        'open_chat': 'Open chat',
+        'car': 'Car',
+        'vehicle_photos_received': '4 vehicle photos received',
+    },
+    'ar': {
+        'service_not_available': 'الخدمة غير متاحة للدولة {country}',
+        'cancelled': 'تم إلغاء تسجيل السائق.',
+        'approved': '✅ تمت الموافقة على طلبك. يمكنك الآن استلام الطلبات.',
+        'approved_admin': 'تمت الموافقة على طلب السائق {user_id}.',
+        'reject_reason_prompt': 'أدخل سبب الرفض. سيتم إرساله إلى السائق:',
+        'reject_sent': 'تم إرسال سبب الرفض إلى السائق {user_id}.',
+        'new_application': '🆕 طلب جديد!',
+        'reject_title': '❌ <b>تم رفض طلبك</b>\n\nالسبب: {reason}',
+        'approve_btn': '✅ قبول',
+        'reject_btn': '❌ رفض',
+        'files_saved': 'تم حفظ الملفات بشكل محمي.',
+        'commission_prompt': 'الخدمة تعمل بعمولة 0%. هل تريد متابعة تسجيل السائق؟',
+        'commission_yes': '✅ أوافق',
+        'commission_no': '❌ لا أوافق',
+        'driver_id': 'ID',
+        'username': 'اسم المستخدم',
+        'open_chat': 'فتح المحادثة',
+        'car': 'السيارة',
+        'vehicle_photos_received': 'تم استلام 4 صور للسيارة',
+    },
 }
 
+
 def tr(lang: str, key: str, default: str = '') -> str:
-    return LOCAL_TEXTS.get(lang, LOCAL_TEXTS['ru']).get(key) or MESSAGES.get(lang, MESSAGES['ru']).get(key) or MESSAGES['ru'].get(key) or default
+    code = lang if lang in LOCAL_TEXTS else 'ru'
+    return LOCAL_TEXTS.get(code, LOCAL_TEXTS['ru']).get(key) or MESSAGES.get(code, MESSAGES['ru']).get(key) or MESSAGES['ru'].get(key) or default
+
+
+async def _user_lang(tg_id: int, default: str = 'ru') -> str:
+    user = await rq.get_or_create_user(tg_id, '')
+    return user.language or default
 
 
 async def notify_admin_targets(bot: Bot, permission: str, *, text: str | None = None, media_group=None, reply_markup=None, parse_mode: str | None = 'HTML'):
@@ -38,6 +125,39 @@ async def notify_admin_targets(bot: Bot, permission: str, *, text: str | None = 
                 await bot.send_media_group(admin_id, media_group)
             if text:
                 await bot.send_message(admin_id, text, reply_markup=reply_markup, parse_mode=parse_mode, disable_web_page_preview=True)
+        except Exception:
+            pass
+
+
+async def notify_driver_application_admins(bot: Bot, *, user, driver_tg_id: int, data: dict, media_group=None) -> None:
+    admin_ids = await rq.get_admin_targets_by_permission('moderation')
+    username_value = getattr(user, 'username', None)
+    brand = html.escape(str(data.get('brand') or '—'))
+    model = html.escape(str(data.get('model') or '—'))
+    plate = html.escape(str(data.get('plate') or '—'))
+    for admin_id in admin_ids:
+        try:
+            admin_lang = await _user_lang(admin_id)
+            if media_group:
+                await bot.send_media_group(admin_id, media_group)
+            builder = InlineKeyboardBuilder()
+            builder.button(text=tr(admin_lang, 'approve_btn'), callback_data=f'verify_{driver_tg_id}')
+            builder.button(text=tr(admin_lang, 'reject_btn'), callback_data=f'reject_{driver_tg_id}')
+            builder.adjust(2)
+            if username_value:
+                safe_username = html.escape(str(username_value))
+                username_line = f"👤 {tr(admin_lang, 'username')}: <a href=\"https://t.me/{safe_username}\">@{safe_username}</a>"
+            else:
+                username_line = f"👤 {tr(admin_lang, 'username')}: —\n📨 <a href=\"tg://user?id={driver_tg_id}\">{tr(admin_lang, 'open_chat')}</a>"
+            text = (
+                f"{tr(admin_lang, 'new_application')}\n"
+                f"{tr(admin_lang, 'driver_id')}: <code>{driver_tg_id}</code>\n"
+                f"{username_line}\n"
+                f"{tr(admin_lang, 'car')}: {brand} {model} ({plate})\n"
+                f"📷 {tr(admin_lang, 'vehicle_photos_received')}\n"
+                f"🔐 {tr(admin_lang, 'files_saved')}"
+            )
+            await bot.send_message(admin_id, text, reply_markup=builder.as_markup(), parse_mode='HTML', disable_web_page_preview=True)
         except Exception:
             pass
 
@@ -189,7 +309,6 @@ async def reg_model(callback: types.CallbackQuery, state: FSMContext):
     sent = await callback.message.answer('⬇️', reply_markup=cancel_reply_kb(lang))
     await _track(sent, 'driver_reg')
     await state.set_state(DriverReg.plate)
-    await callback.answer()
 
 
 @router.message(DriverReg.plate)
@@ -287,29 +406,7 @@ async def reg_photo_right(message: types.Message, state: FSMContext, bot: Bot):
         value = data.get(key)
         if value:
             media_items.append(InputMediaPhoto(media=value))
-    await notify_admin_targets(bot, 'moderation', media_group=media_items or None)
-
-    admin_lang = 'ru'
-    builder = InlineKeyboardBuilder()
-    builder.button(text=tr(admin_lang, 'approve_btn'), callback_data=f'verify_{message.from_user.id}')
-    builder.button(text=tr(admin_lang, 'reject_btn'), callback_data=f'reject_{message.from_user.id}')
-    builder.adjust(2)
-
-    username_value = getattr(user, 'username', None) or message.from_user.username
-    if username_value:
-        username_line = f"👤 Username: <a href=\"https://t.me/{username_value}\">@{username_value}</a>"
-    else:
-        username_line = f"👤 Username: —\n📨 <a href=\"tg://user?id={message.from_user.id}\">Открыть чат</a>"
-
-    text = (
-        f"{tr(admin_lang, 'new_application')}\n"
-        f"ID: <code>{message.from_user.id}</code>\n"
-        f"{username_line}\n"
-        f"Авто: {data['brand']} {data['model']} ({data['plate']})\n"
-        f"📷 4 фото машины получены\n"
-        f"🔐 {tr(admin_lang, 'files_saved')}"
-    )
-    await notify_admin_targets(bot, 'moderation', text=text, reply_markup=builder.as_markup(), parse_mode='HTML')
+    await notify_driver_application_admins(bot, user=user, driver_tg_id=message.from_user.id, data=data, media_group=media_items or None)
 
 
 @router.callback_query(F.data.startswith('verify_'))
@@ -317,9 +414,10 @@ async def verify_driver_callback(callback: types.CallbackQuery):
     user_id = int(callback.data.split('_', 1)[1])
     await rq.verify_driver(user_id)
     target = await rq.get_or_create_user(user_id, '')
+    admin_lang = await _user_lang(callback.from_user.id)
     lang = target.language or 'ru'
     await callback.answer('OK')
-    await callback.message.answer(tr('ru', 'approved_admin').format(user_id=user_id))
+    await callback.message.answer(tr(admin_lang, 'approved_admin').format(user_id=user_id))
     try:
         await callback.bot.send_message(user_id, tr(lang, 'approved'), reply_markup=kb.main_menu(lang, user_id=user_id, as_user=True, is_driver_mode=True))
     except Exception:
@@ -329,9 +427,10 @@ async def verify_driver_callback(callback: types.CallbackQuery):
 @router.callback_query(F.data.startswith('reject_'))
 async def reject_driver_callback(callback: types.CallbackQuery, state: FSMContext):
     user_id = int(callback.data.split('_', 1)[1])
+    admin_lang = await _user_lang(callback.from_user.id)
     await state.set_state(DriverReg.waiting_for_reject_reason)
-    await state.update_data(reject_user_id=user_id)
-    await callback.message.answer(tr('ru', 'reject_reason_prompt'))
+    await state.update_data(reject_user_id=user_id, admin_lang=admin_lang)
+    await callback.message.answer(tr(admin_lang, 'reject_reason_prompt'))
     await callback.answer()
 
 
@@ -339,6 +438,7 @@ async def reject_driver_callback(callback: types.CallbackQuery, state: FSMContex
 async def reject_driver_reason(message: types.Message, state: FSMContext):
     data = await state.get_data()
     user_id = int(data.get('reject_user_id', 0))
+    admin_lang = data.get('admin_lang') or await _user_lang(message.from_user.id)
     reason = (message.text or '').strip()
     if user_id:
         await rq.reject_user_vehicle(user_id)
@@ -350,4 +450,4 @@ async def reject_driver_reason(message: types.Message, state: FSMContext):
         except Exception:
             pass
     await state.clear()
-    await message.answer(tr('ru', 'reject_sent').format(user_id=user_id))
+    await message.answer(tr(admin_lang, 'reject_sent').format(user_id=user_id))
