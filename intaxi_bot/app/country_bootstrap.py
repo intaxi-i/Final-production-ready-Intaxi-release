@@ -1,8 +1,13 @@
 from __future__ import annotations
 
 import importlib
+from copy import deepcopy
+
+from aiogram import types
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from app.country_config import DEFAULT_TARIFFS, country_code_from_address
+from app.strings import MESSAGES
 
 COUNTRY_LABELS = {
     'ru': {'kz': 'Казахстан'},
@@ -27,6 +32,12 @@ KZ_MODELS = {
     'Renault': ['Logan', 'Duster', 'Kaptur'],
 }
 
+_BOOTSTRAP_APPLIED = False
+
+
+def _copy_models() -> dict[str, list[str]]:
+    return deepcopy(KZ_MODELS)
+
 
 def _patch_messages() -> None:
     for module_name in ('app.strings', 'intaxi_bot.app.strings'):
@@ -42,14 +53,29 @@ def _patch_messages() -> None:
                 continue
             country_label = COUNTRY_LABELS.get(lang, COUNTRY_LABELS['ru'])['kz']
             pack.setdefault('countries', {})['kz'] = country_label
-            pack.setdefault('cities', {})['kz'] = KZ_CITIES.get(lang, KZ_CITIES['ru'])
+            pack.setdefault('cities', {})['kz'] = list(KZ_CITIES.get(lang, KZ_CITIES['ru']))
             pack.setdefault('currencies', {})['kz'] = 'KZT'
-            pack.setdefault('models', {})['kz'] = KZ_MODELS
+            pack.setdefault('models', {})['kz'] = _copy_models()
 
 
-def apply_country_config() -> None:
-    _patch_messages()
+def _country_keyboard(lang: str, prefix: str):
+    builder = InlineKeyboardBuilder()
+    pack = MESSAGES.get(lang, MESSAGES['ru'])
+    for country_code, label in pack.get('countries', {}).items():
+        builder.button(text=label, callback_data=f'{prefix}{country_code}')
+    return builder.adjust(1).as_markup()
 
+
+def _patch_legacy_order_keyboards() -> None:
+    for module_name in ('app.handlers.order', 'intaxi_bot.app.handlers.order'):
+        try:
+            module = importlib.import_module(module_name)
+        except Exception:
+            continue
+        setattr(module, '_country_keyboard', _country_keyboard)
+
+
+def _patch_tariffs() -> None:
     for module_name in ('app.database.requests', 'intaxi_bot.app.database.requests'):
         try:
             module = importlib.import_module(module_name)
@@ -60,9 +86,20 @@ def apply_country_config() -> None:
             for country, tariff in DEFAULT_TARIFFS.items():
                 default_tariffs.setdefault(country, tariff)
 
+
+def _patch_profile_geo() -> None:
     for module_name in ('app.handlers.profile', 'intaxi_bot.app.handlers.profile'):
         try:
             module = importlib.import_module(module_name)
         except Exception:
             continue
         setattr(module, '_country_code_from_address', country_code_from_address)
+
+
+def apply_country_config() -> None:
+    global _BOOTSTRAP_APPLIED
+    _patch_messages()
+    _patch_tariffs()
+    _patch_profile_geo()
+    _patch_legacy_order_keyboards()
+    _BOOTSTRAP_APPLIED = True
