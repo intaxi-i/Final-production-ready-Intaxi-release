@@ -24,6 +24,7 @@ TEXTS = {
         'not_found': 'Не найдено или нет доступа', 'city_order_closed': 'Городской заказ #{id} закрыт.',
         'empty': 'Сейчас активных предложений не найдено.', 'accept': '✅ Принять', 'price': 'Цена', 'status': 'Статус',
         'distance': 'До пассажира', 'created_by': 'Создатель', 'current_trip_open': 'Открыть текущую поездку', 'accepted': '✅ Заказ принят',
+        'date': 'Дата', 'time': 'Время', 'seats': 'Мест', 'route': 'Маршрут', 'request': 'Заявка',
     },
     'uz': {
         'current_trip': '📌 Joriy safar', 'open_city': 'Shaharni ochish', 'open_intercity': 'Shaharlararoni ochish',
@@ -33,6 +34,7 @@ TEXTS = {
         'not_found': 'Topilmadi yoki ruxsat yo‘q', 'city_order_closed': 'Shahar buyurtmasi #{id} yopildi.',
         'empty': 'Hozir faol takliflar yo‘q.', 'accept': '✅ Qabul qilish', 'price': 'Narx', 'status': 'Holat',
         'distance': 'Yo‘lovchigacha', 'created_by': 'Yaratgan', 'current_trip_open': 'Joriy safarni ochish', 'accepted': '✅ Buyurtma qabul qilindi',
+        'date': 'Sana', 'time': 'Vaqt', 'seats': 'Joylar', 'route': 'Yo‘nalish', 'request': 'Zayavka',
     },
     'en': {
         'current_trip': '📌 Current trip', 'open_city': 'Open city', 'open_intercity': 'Open intercity',
@@ -42,6 +44,7 @@ TEXTS = {
         'not_found': 'Not found or access denied', 'city_order_closed': 'City order #{id} has been closed.',
         'empty': 'No active offers right now.', 'accept': '✅ Accept', 'price': 'Price', 'status': 'Status',
         'distance': 'To passenger', 'created_by': 'Created by', 'current_trip_open': 'Open current trip', 'accepted': '✅ Order accepted',
+        'date': 'Date', 'time': 'Time', 'seats': 'Seats', 'route': 'Route', 'request': 'Request',
     },
     'ar': {
         'current_trip': '📌 الرحلة الحالية', 'open_city': 'فتح المدينة', 'open_intercity': 'فتح بين المدن',
@@ -51,6 +54,7 @@ TEXTS = {
         'not_found': 'غير موجود أو لا توجد صلاحية', 'city_order_closed': 'تم إغلاق طلب المدينة #{id}.',
         'empty': 'لا توجد عروض نشطة الآن.', 'accept': '✅ قبول', 'price': 'السعر', 'status': 'الحالة',
         'distance': 'إلى الراكب', 'created_by': 'أنشأه', 'current_trip_open': 'فتح الرحلة الحالية', 'accepted': '✅ تم قبول الطلب',
+        'date': 'التاريخ', 'time': 'الوقت', 'seats': 'المقاعد', 'route': 'المسار', 'request': 'الطلب',
     },
 }
 
@@ -91,6 +95,73 @@ def _recovery_markup(lang: str, callback_data: str):
     else:
         builder.button(text=_t(lang, 'open_city'), web_app=types.WebAppInfo(url=city_main_url()))
     return builder.adjust(1).as_markup()
+
+
+def _intercity_text(row, lang: str, kind: str) -> str:
+    from_city = html.escape(getattr(row, 'from_city', None) or '—')
+    to_city = html.escape(getattr(row, 'to_city', None) or '—')
+    date = html.escape(getattr(row, 'departure_date', None) or getattr(row, 'desired_date', None) or '—')
+    time = html.escape(getattr(row, 'departure_time', None) or getattr(row, 'desired_time', None) or '—')
+    seats = html.escape(str(getattr(row, 'seats', None) or getattr(row, 'seats_needed', None) or '—'))
+    price = float(getattr(row, 'price', None) or getattr(row, 'price_offer', None) or 0)
+    return (
+        f"<b>{_t(lang, kind)} #{row.id}</b>\n"
+        f"{from_city} → {to_city}\n"
+        f"{_t(lang, 'date')}: {date}\n"
+        f"{_t(lang, 'time')}: {time}\n"
+        f"{_t(lang, 'seats')}: {seats}\n"
+        f"{_t(lang, 'price')}: {price:g}"
+    )
+
+
+@router.callback_query(F.data.in_({'interbot_list_routes', 'interbot_list_requests'}))
+async def safe_intercity_market(callback: types.CallbackQuery):
+    kind = 'route' if callback.data == 'interbot_list_routes' else 'request'
+    user = await rq.get_or_create_user(callback.from_user.id, callback.from_user.full_name, callback.from_user.username)
+    lang = user.language or 'ru'
+    rows = await order_actions.list_intercity_market_for_user(user.tg_id, kind=kind, limit=10)
+    if not rows:
+        await callback.message.answer(_t(lang, 'empty'))
+        await callback.answer()
+        return
+    for row in rows:
+        builder = InlineKeyboardBuilder()
+        if kind == 'route':
+            builder.button(text=_t(lang, 'accept'), callback_data=f'interbot_accept_route_{row.id}')
+        else:
+            builder.button(text=_t(lang, 'accept'), callback_data=f'interbot_accept_request_{row.id}')
+        await callback.message.answer(_intercity_text(row, lang, kind), reply_markup=builder.as_markup(), parse_mode='HTML')
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith('interbot_accept_route_'))
+async def safe_intercity_accept_route(callback: types.CallbackQuery):
+    item_id = int((callback.data or '').rsplit('_', 1)[1])
+    user = await rq.get_or_create_user(callback.from_user.id, callback.from_user.full_name, callback.from_user.username)
+    lang = user.language or 'ru'
+    row = await order_actions.accept_intercity_offer_for_user(kind='route', item_id=item_id, tg_id=user.tg_id)
+    if not row:
+        await callback.answer(_t(lang, 'not_found'), show_alert=True)
+        return
+    builder = InlineKeyboardBuilder()
+    builder.button(text=_t(lang, 'current_trip_open'), web_app=types.WebAppInfo(url=current_trip_url(trip_type='intercity_route', trip_id=row.id)))
+    await callback.message.answer(f"{_t(lang, 'accepted')}\n{_intercity_text(row, lang, 'route')}", reply_markup=builder.as_markup(), parse_mode='HTML')
+    await callback.answer('OK')
+
+
+@router.callback_query(F.data.startswith('interbot_accept_request_'))
+async def safe_intercity_accept_request(callback: types.CallbackQuery):
+    item_id = int((callback.data or '').rsplit('_', 1)[1])
+    user = await rq.get_or_create_user(callback.from_user.id, callback.from_user.full_name, callback.from_user.username)
+    lang = user.language or 'ru'
+    row = await order_actions.accept_intercity_offer_for_user(kind='request', item_id=item_id, tg_id=user.tg_id)
+    if not row:
+        await callback.answer(_t(lang, 'not_found'), show_alert=True)
+        return
+    builder = InlineKeyboardBuilder()
+    builder.button(text=_t(lang, 'current_trip_open'), web_app=types.WebAppInfo(url=current_trip_url(trip_type='intercity_request', trip_id=row.id)))
+    await callback.message.answer(f"{_t(lang, 'accepted')}\n{_intercity_text(row, lang, 'request')}", reply_markup=builder.as_markup(), parse_mode='HTML')
+    await callback.answer('OK')
 
 
 @router.callback_query(F.data.in_({'citybot_list_driver', 'citybot_list_passenger'}))
