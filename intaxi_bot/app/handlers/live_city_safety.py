@@ -1,13 +1,59 @@
 from __future__ import annotations
 
+from typing import Any
+
 from aiogram import Bot, F, Router, types
+from aiogram.fsm.context import FSMContext
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 from sqlalchemy import select
 
 import app.order_actions as order_actions
-from app.database.models import CityOrderV1, async_session
-from app.handlers.live_city import _send_trip_cards, _text, _user_lang
+from app.database.models import CityOrderV1, CityTripV1, DriverOnlineState, User, Vehicle, async_session
+from app.handlers.live_city import CityCreateFlow, _send_trip_cards, _text, _user_lang
 
 router = Router()
+
+LIVE_CITY_STATUSES = {'accepted', 'driver_on_way', 'driver_arrived', 'in_progress'}
+
+
+def _clean(value: Any) -> str:
+    return str(value or '').strip().lower()
+
+
+def _same_or_empty(left: Any, right: Any) -> bool:
+    left_value = _clean(left)
+    right_value = _clean(right)
+    return not left_value or not right_value or left_value == right_value
+
+
+async def _driver_has_live_trip(session, driver_tg_id: int) -> bool:
+    trip = await session.scalar(
+        select(CityTripV1)
+        .where(CityTripV1.driver_tg_id == driver_tg_id, CityTripV1.status.in_(list(LIVE_CITY_STATUSES)))
+        .order_by(CityTripV1.id.desc())
+    )
+    return trip is not None
+
+
+async def _can_driver_use_order(session, *, order_id: int, driver_tg_id: int) -> tuple[bool, str]:
+    lang = await _user_lang(session, driver_tg_id)
+    order = await session.scalar(select(CityOrderV1).where(CityOrderV1.id == order_id))
+    driver = await session.scalar(select(User).where(User.tg_id == driver_tg_id))
+    if not order or not driver or order.status != 'active' or order.role != 'passenger' or order.creator_tg_id == driver_tg_id:
+        return False, lang
+    if not driver.is_verified or _clean(driver.active_role) != 'driver':
+        return False, lang
+    vehicle = await session.scalar(select(Vehicle).where(Vehicle.user_id == driver.id))
+    if not vehicle:
+        return False, lang
+    state = await session.scalar(select(DriverOnlineState).where(DriverOnlineState.driver_tg_id == driver_tg_id))
+    if not state or not state.is_online:
+        return False, lang
+    if not _same_or_empty(state.country, order.country) or not _same_or_empty(state.city, order.city):
+        return False, lang
+    if await _driver_has_live_trip(session, driver_tg_id):
+        return False, lang
+    return True, lang
 
 
 @router.callback_query(F.data.startswith('lccacc_'))
@@ -21,6 +67,58 @@ async def safe_driver_accept(callback: types.CallbackQuery, bot: Bot):
         return
     await callback.answer(_text(lang, 'accepted'))
     await _send_trip_cards(bot, trip)
+
+
+@router.callback_query(F.data.startswith('lccoffer_'))
+async def safe_driver_offer_price(callback: types.CallbackQuery, state: FSMContext):
+    order_id = int((callback.data or '').split('_')[-1])
+    async with async_session() as session:
+        allowed, lang = await _can_driver_use_order(session, order_id=order_id, driver_tg_id=callback.from_user.id)
+    if not allowed:
+        await callback.answer(_text(lang, 'accept_failed'), show_alert=True)
+        return
+    await state.set_state(CityCreateFlow.offer_price)
+    await state.update_data(order_id=order_id, driver_tg_id=callback.from_user.id, lang=lang)
+    await callback.message.answer(_text(lang, 'offer_price_prompt'))
+    await callback.answer()
+
+
+@router.message(CityCreateFlow.offer_price)
+async def safe_driver_offer_price_submit(message: types.Message, state: FSMContext, bot: Bot):
+    data = await state.get_data()
+    lang = data.get('lang', 'ru')
+    try:
+        price = float((message.text or '').replace(',', '.').strip())
+    except Exception:
+        await message.answer(_text(lang, 'price_retry'))
+        return
+    if price <= 0:
+        await message.answer(_text(lang, 'price_retry'))
+        return
+    order_id = int(data.get('order_id'))
+    driver_tg_id = int(data.get('driver_tg_id'))
+    if message.from_user.id != driver_tg_id:
+        await state.clear()
+        await message.answer(_text(lang, 'order_unavailable'))
+        return
+    async with async_session() as session:
+        allowed, lang = await _can_driver_use_order(session, order_id=order_id, driver_tg_id=driver_tg_id)
+        order = await session.scalar(select(CityOrderV1).where(CityOrderV1.id == order_id)) if allowed else None
+        passenger_lang = await _user_lang(session, order.creator_tg_id) if order else lang
+    if not allowed or not order:
+        await state.clear()
+        await message.answer(_text(lang, 'order_unavailable'))
+        return
+    builder = InlineKeyboardBuilder()
+    builder.button(text=_text(passenger_lang, 'accept_price'), callback_data=f'lcpacc_{order_id}_{driver_tg_id}_{int(price)}')
+    builder.button(text=_text(passenger_lang, 'reject'), callback_data=f'lcprej_{order_id}_{driver_tg_id}')
+    builder.adjust(1)
+    try:
+        await bot.send_message(order.creator_tg_id, f"{_text(passenger_lang, 'driver_offered_price')}: {price:g}", reply_markup=builder.as_markup())
+    except Exception:
+        pass
+    await state.clear()
+    await message.answer(_text(lang, 'offer_sent'))
 
 
 @router.callback_query(F.data.startswith('lcpacc_'))
