@@ -20,8 +20,13 @@ from api.schemas import (
 )
 
 
-def _methods(kwargs: dict[str, Any]) -> set[str]:
-    return {str(m).upper() for m in (kwargs.get('methods') or [])}
+def _extract_methods(args: tuple[Any, ...], kwargs: dict[str, Any]) -> set[str]:
+    methods = kwargs.get('methods')
+    # FastAPI.add_api_route signature is (path, endpoint, *, response_model=..., methods=..., ...),
+    # but keep a defensive fallback for wrappers that pass methods positionally.
+    if methods is None and len(args) >= 2 and isinstance(args[1], (list, tuple, set)):
+        methods = args[1]
+    return {str(m).upper() for m in (methods or [])}
 
 
 def _route_kwargs(kwargs: dict[str, Any], response_model: Any | None = None) -> dict[str, Any]:
@@ -29,6 +34,22 @@ def _route_kwargs(kwargs: dict[str, Any], response_model: Any | None = None) -> 
     if response_model is not None:
         data['response_model'] = response_model
     return data
+
+
+def _route_exists(self: FastAPI, path: str, methods: set[str]) -> bool:
+    for route in getattr(self.router, 'routes', []):
+        if getattr(route, 'path', None) != path:
+            continue
+        route_methods = {str(m).upper() for m in (getattr(route, 'methods', None) or [])}
+        if methods <= route_methods:
+            return True
+    return False
+
+
+def _safe_alias(self: FastAPI, path: str, endpoint: Callable, *, methods: list[str], response_model: Any | None = None) -> None:
+    method_set = {str(m).upper() for m in methods}
+    if not _route_exists(self, path, method_set):
+        self.router.add_api_route(path, endpoint, methods=methods, response_model=response_model)
 
 
 def _direct_add(self: FastAPI, path: str, endpoint: Callable, args: tuple[Any, ...], kwargs: dict[str, Any], response_model: Any | None = None):
@@ -42,7 +63,7 @@ def install_intaxi_terminal_patch() -> None:
     previous_add_api_route = FastAPI.add_api_route
 
     def patched_add_api_route(self, path: str, endpoint: Callable, *args: Any, **kwargs: Any):
-        methods = _methods(kwargs)
+        methods = _extract_methods(args, kwargs)
 
         if path == '/driver/online' and 'POST' in methods:
             return _direct_add(self, path, safe_driver_online_update, args, kwargs, DriverOnlineStateResponse)
@@ -52,12 +73,12 @@ def install_intaxi_terminal_patch() -> None:
 
         if path == '/city/offers' and 'GET' in methods:
             result = _direct_add(self, path, safe_city_offers, args, kwargs, CityOrderListResponse)
-            self.router.add_api_route('/city/orders/available', safe_city_offers, methods=['GET'], response_model=CityOrderListResponse)
+            _safe_alias(self, '/city/orders/available', safe_city_offers, methods=['GET'], response_model=CityOrderListResponse)
             return result
 
         if path == '/city/offers/{order_id}/accept' and 'POST' in methods:
             result = _direct_add(self, path, safe_city_accept, args, kwargs, CityAcceptResponse)
-            self.router.add_api_route('/city/orders/{order_id}/accept', safe_city_accept, methods=['POST'], response_model=CityAcceptResponse)
+            _safe_alias(self, '/city/orders/{order_id}/accept', safe_city_accept, methods=['POST'], response_model=CityAcceptResponse)
             return result
 
         if path == '/trip/current' and 'GET' in methods:
@@ -68,7 +89,7 @@ def install_intaxi_terminal_patch() -> None:
 
         if path == '/intercity/offers' and 'GET' in methods:
             result = _direct_add(self, path, safe_intercity_offers, args, kwargs, IntercityOfferListResponse)
-            self.router.add_api_route('/intercity/offers/search', safe_intercity_offers, methods=['GET'], response_model=IntercityOfferListResponse)
+            _safe_alias(self, '/intercity/offers/search', safe_intercity_offers, methods=['GET'], response_model=IntercityOfferListResponse)
             return result
 
         if path == '/intercity/offers/{kind}/{item_id}' and 'GET' in methods:
