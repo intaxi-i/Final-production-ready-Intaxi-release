@@ -154,3 +154,26 @@ async def safe_passenger_accept_price(callback: types.CallbackQuery, bot: Bot):
         return
     await callback.answer(_text(lang, 'price_accepted'))
     await _send_trip_cards(bot, trip)
+
+
+@router.callback_query(F.data.startswith('lcprej_'))
+async def safe_passenger_reject_price(callback: types.CallbackQuery, bot: Bot):
+    parts = (callback.data or '').split('_')
+    if len(parts) != 3:
+        await callback.answer(show_alert=True)
+        return
+    _, order_id_raw, driver_tg_id_raw = parts
+    order_id = int(order_id_raw)
+    driver_tg_id = int(driver_tg_id_raw)
+    async with async_session() as session:
+        passenger_lang = await _user_lang(session, callback.from_user.id)
+        driver_lang = await _user_lang(session, driver_tg_id)
+        order = await session.scalar(select(CityOrderV1).where(CityOrderV1.id == order_id))
+        if not order or order.creator_tg_id != callback.from_user.id or order.status != 'active' or order.role != 'passenger':
+            await callback.answer(_text(passenger_lang, 'order_unavailable'), show_alert=True)
+            return
+    try:
+        await bot.send_message(driver_tg_id, f"{_text(driver_lang, 'price_rejected_driver')} #{order_id}.")
+    except Exception:
+        pass
+    await callback.answer(_text(passenger_lang, 'offer_rejected'))
