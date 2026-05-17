@@ -5,6 +5,7 @@ from typing import Any, Callable
 from fastapi import FastAPI
 
 from api.intaxi_accept_patch import safe_city_accept
+from api.intaxi_city_status_patch import strict_city_trip_status
 from api.intaxi_driver_patch import strict_driver_online_update
 from api.intaxi_intercity_patch import safe_intercity_accept, safe_intercity_offer_detail, safe_intercity_offers
 from api.intaxi_intercity_status_patch import safe_intercity_request_status, safe_intercity_route_status
@@ -12,6 +13,7 @@ from api.intaxi_safety_patch import safe_city_close, safe_city_offers, safe_curr
 from api.schemas import (
     CityAcceptResponse,
     CityOrderListResponse,
+    CityTripEnvelope,
     CurrentTripResponse,
     DriverOnlineStateResponse,
     HistoryResponse,
@@ -81,6 +83,9 @@ def install_intaxi_terminal_patch() -> None:
             result = _direct_add(self, path, safe_city_accept, args, kwargs, CityAcceptResponse)
             _safe_alias(self, '/city/orders/{order_id}/accept', safe_city_accept, methods=['POST'], response_model=CityAcceptResponse)
             return result
+
+        if path == '/city/trips/{trip_id}/status' and 'POST' in methods:
+            return _direct_add(self, path, strict_city_trip_status, args, kwargs, CityTripEnvelope)
 
         if path == '/trip/current' and 'GET' in methods:
             return _direct_add(self, path, safe_current_trip, args, kwargs, CurrentTripResponse)
