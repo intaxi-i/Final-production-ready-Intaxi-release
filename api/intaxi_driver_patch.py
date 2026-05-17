@@ -45,7 +45,7 @@ async def strict_driver_online_update(payload: DriverOnlineUpdateRequest, curren
             await session.flush()
         row.is_online = bool(payload.is_online)
         row.country = _clean(payload.country_code or payload.country or driver.country) or row.country
-        row.city = str(payload.city or payload.city_id or driver.city or row.city or '').strip()
+        row.city = str(payload.city or driver.city or row.city or '').strip()
         if payload.lat is not None:
             row.lat = payload.lat
         if payload.lng is not None:
