@@ -153,7 +153,7 @@ export async function updateRole(activeRole: UserRole): Promise<UserMe> { const 
 export async function getDriverOnline(): Promise<DriverOnlineState> { const data = await request<any>('/driver/online'); return { is_online: Boolean(data?.is_online), is_busy: Boolean(data?.is_busy), country_code: data?.country || data?.country_code || null, city_id: null, lat: data?.lat ?? null, lng: data?.lng ?? null }; }
 export async function setDriverOnline(input: { is_online: boolean; country_code?: string | null; city_id?: number | null; lat?: number | null; lng?: number | null }): Promise<DriverOnlineState> {
   const data = await request<any>('/driver/online', { method: 'POST', body: JSON.stringify({ is_online: input.is_online, country: input.country_code || undefined, country_code: input.country_code || undefined, city_id: input.city_id ?? undefined, lat: input.lat ?? undefined, lng: input.lng ?? undefined }) });
-  return { is_online: Boolean(data?.is_online), is_busy: Boolean(data?.is_busy), country_code: input.country_code || data?.country || data?.country_code || null, city_id: input.city_id ?? null, lat: data?.lat ?? input.lat ?? null, lng: data?.lng ?? input.lng ?? null };
+  return { is_online: Boolean(data?.is_online), is_busy: Boolean(data?.is_busy), country_code: input.country_code || data?.country || data?.country_code || null, city_id: input.city_id ?? null, lat: data?.lat ?? input.lat ?? null, lng: data?.lng ?? null };
 }
 
 export type DriverPaymentMethodInput = Record<string, unknown>;
@@ -196,4 +196,4 @@ export async function createCommissionRule(input: { scope_type: string; scope_id
 export async function listPendingPayments(): Promise<PendingPayment[]> { return []; }
 export async function approvePayment(id: number): Promise<{ id: number; status: string }> { return { id, status: 'approved' }; }
 export async function rejectPayment(id: number, reason?: string): Promise<{ id: number; status: string }> { void reason; return { id, status: 'rejected' }; }
-export async function createCityCounteroffer(orderId: number, price: number): Promise<any> { return request<any>(`/city/orders/${orderId}/counteroffers`, { method: 'POST', body: JSON.stringify({ price }) }); }
+export async function createCityCounteroffer(orderId: number, price: number): Promise<any> { void orderId; void price; throw new ApiError('Контрпредложение цены в Mini App временно недоступно. Используйте принятие заказа или Telegram-бот.', 'counteroffer_not_supported'); }
