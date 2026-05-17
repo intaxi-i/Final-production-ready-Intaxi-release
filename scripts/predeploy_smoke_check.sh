@@ -2,15 +2,16 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
+PYTHON_BIN="${PYTHON_BIN:-python3}"
 
 echo "== Python version =="
-python --version
+"$PYTHON_BIN" --version
 
 echo "== Compile Python packages =="
-python -m compileall -q api intaxi_bot
+"$PYTHON_BIN" -m compileall -q api intaxi_bot
 
 echo "== Import API and bot modules =="
-python - <<'PY'
+"$PYTHON_BIN" - <<'PY'
 import api.main
 print('api.main import ok')
 import intaxi_bot.main
@@ -18,7 +19,7 @@ print('intaxi_bot.main import ok')
 PY
 
 echo "== Check critical API routes =="
-python - <<'PY'
+"$PYTHON_BIN" - <<'PY'
 import api.main
 
 required = {
