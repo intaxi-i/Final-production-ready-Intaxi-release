@@ -70,6 +70,11 @@ def install_terminal_alias_routes(app: FastAPI) -> None:
     setattr(app.state, 'intaxi_terminal_alias_routes_installed', True)
 
 
+def _finish(self: FastAPI, result: Any) -> Any:
+    install_terminal_alias_routes(self)
+    return result
+
+
 def install_intaxi_terminal_patch() -> None:
     if getattr(FastAPI, '_intaxi_terminal_patch_installed', False):
         return
@@ -79,57 +84,51 @@ def install_intaxi_terminal_patch() -> None:
         methods = _extract_methods(args, kwargs)
 
         if path == '/me/profile' and 'POST' in methods:
-            return _direct_add(self, path, strict_update_profile, args, kwargs, UserEnvelope)
+            return _finish(self, _direct_add(self, path, strict_update_profile, args, kwargs, UserEnvelope))
 
         if path == '/me/role' and 'POST' in methods:
-            return _direct_add(self, path, strict_update_role, args, kwargs, UserEnvelope)
+            return _finish(self, _direct_add(self, path, strict_update_role, args, kwargs, UserEnvelope))
 
         if path == '/me/vehicle' and 'POST' in methods:
-            return _direct_add(self, path, strict_update_vehicle, args, kwargs, UserEnvelope)
+            return _finish(self, _direct_add(self, path, strict_update_vehicle, args, kwargs, UserEnvelope))
 
         if path == '/driver/online' and 'POST' in methods:
-            return _direct_add(self, path, strict_driver_online_update, args, kwargs, DriverOnlineStateResponse)
+            return _finish(self, _direct_add(self, path, strict_driver_online_update, args, kwargs, DriverOnlineStateResponse))
 
         if path == '/city/orders/{order_id}/close' and 'POST' in methods:
-            return _direct_add(self, path, safe_city_close, args, kwargs)
+            return _finish(self, _direct_add(self, path, safe_city_close, args, kwargs))
 
         if path == '/city/offers' and 'GET' in methods:
-            result = _direct_add(self, path, strict_city_offers, args, kwargs, CityOrderListResponse)
-            _safe_alias(self, '/city/orders/available', strict_city_offers, methods=['GET'], response_model=CityOrderListResponse)
-            return result
+            return _finish(self, _direct_add(self, path, strict_city_offers, args, kwargs, CityOrderListResponse))
 
         if path == '/city/offers/{order_id}/accept' and 'POST' in methods:
-            result = _direct_add(self, path, safe_city_accept, args, kwargs, CityAcceptResponse)
-            _safe_alias(self, '/city/orders/{order_id}/accept', safe_city_accept, methods=['POST'], response_model=CityAcceptResponse)
-            return result
+            return _finish(self, _direct_add(self, path, safe_city_accept, args, kwargs, CityAcceptResponse))
 
         if path == '/city/trips/{trip_id}/status' and 'POST' in methods:
-            return _direct_add(self, path, strict_city_trip_status, args, kwargs, CityTripEnvelope)
+            return _finish(self, _direct_add(self, path, strict_city_trip_status, args, kwargs, CityTripEnvelope))
 
         if path == '/trip/current' and 'GET' in methods:
-            return _direct_add(self, path, safe_current_trip, args, kwargs, CurrentTripResponse)
+            return _finish(self, _direct_add(self, path, safe_current_trip, args, kwargs, CurrentTripResponse))
 
         if path == '/history/all' and 'GET' in methods:
-            return _direct_add(self, path, safe_history_all, args, kwargs, HistoryResponse)
+            return _finish(self, _direct_add(self, path, safe_history_all, args, kwargs, HistoryResponse))
 
         if path == '/intercity/offers' and 'GET' in methods:
-            result = _direct_add(self, path, safe_intercity_offers, args, kwargs, IntercityOfferListResponse)
-            _safe_alias(self, '/intercity/offers/search', safe_intercity_offers, methods=['GET'], response_model=IntercityOfferListResponse)
-            return result
+            return _finish(self, _direct_add(self, path, safe_intercity_offers, args, kwargs, IntercityOfferListResponse))
 
         if path == '/intercity/offers/{kind}/{item_id}' and 'GET' in methods:
-            return _direct_add(self, path, safe_intercity_offer_detail, args, kwargs, IntercityOfferEnvelope)
+            return _finish(self, _direct_add(self, path, safe_intercity_offer_detail, args, kwargs, IntercityOfferEnvelope))
 
         if path == '/intercity/offers/{kind}/{item_id}/accept' and 'POST' in methods:
-            return _direct_add(self, path, safe_intercity_accept, args, kwargs, IntercityAcceptResponse)
+            return _finish(self, _direct_add(self, path, safe_intercity_accept, args, kwargs, IntercityAcceptResponse))
 
         if path == '/intercity/routes/{route_id}/status' and 'POST' in methods:
-            return _direct_add(self, path, safe_intercity_route_status, args, kwargs)
+            return _finish(self, _direct_add(self, path, safe_intercity_route_status, args, kwargs))
 
         if path == '/intercity/requests/{request_id}/status' and 'POST' in methods:
-            return _direct_add(self, path, safe_intercity_request_status, args, kwargs)
+            return _finish(self, _direct_add(self, path, safe_intercity_request_status, args, kwargs))
 
-        return previous_add_api_route(self, path, endpoint, *args, **kwargs)
+        return _finish(self, previous_add_api_route(self, path, endpoint, *args, **kwargs))
 
     FastAPI.add_api_route = patched_add_api_route
     setattr(FastAPI, '_intaxi_terminal_patch_installed', True)
