@@ -76,6 +76,25 @@ async def _grant_chat_access(session, *, trip_type: str, trip_id: int, user_ids:
         )
 
 
+async def _eligible_route(session, row: IntercityRouteV1 | None, current_user: User) -> bool:
+    if not row or row.status not in ACTIVE_STATUSES or row.creator_tg_id == current_user.tg_id:
+        return False
+    if _driver_mode(current_user):
+        return False
+    if not _same_or_empty(current_user.country, row.country) or not _city_matches(current_user.city, row.from_city):
+        return False
+    driver = await session.scalar(select(User).where(User.tg_id == row.creator_tg_id))
+    return bool(driver and driver.is_verified)
+
+
+async def _eligible_request(row: IntercityRequestV1 | None, current_user: User) -> bool:
+    if not row or row.status not in ACTIVE_STATUSES or row.creator_tg_id == current_user.tg_id:
+        return False
+    if not _driver_mode(current_user):
+        return False
+    return bool(_same_or_empty(current_user.country, row.country) and _city_matches(current_user.city, row.from_city))
+
+
 async def _route_response(session, row: IntercityRouteV1, current_user: User) -> IntercityOfferResponse:
     creator = await session.scalar(select(User).where(User.tg_id == row.creator_tg_id))
     meta = await session.scalar(select(IntercityRouteMeta).where(IntercityRouteMeta.route_id == row.id))
@@ -98,7 +117,7 @@ async def _route_response(session, row: IntercityRouteV1, current_user: User) ->
         is_mine=current_user.tg_id == row.creator_tg_id,
         pickup_mode=meta.pickup_mode if meta else 'ask_driver',
         accepted_by_tg_id=row.accepted_by_tg_id,
-        can_accept=(not _driver_mode(current_user) and current_user.tg_id != row.creator_tg_id and row.status == 'active'),
+        can_accept=await _eligible_route(session, row, current_user),
         map_provider=provider,
         map_embed_url=embed,
         map_action_url=action,
@@ -125,30 +144,11 @@ async def _request_response(session, row: IntercityRequestV1, current_user: User
         created_at=str(row.created_at) if row.created_at else None,
         is_mine=current_user.tg_id == row.creator_tg_id,
         accepted_by_tg_id=row.accepted_by_tg_id,
-        can_accept=(_driver_mode(current_user) and current_user.tg_id != row.creator_tg_id and row.status == 'active'),
+        can_accept=await _eligible_request(row, current_user),
         map_provider=provider,
         map_embed_url=embed,
         map_action_url=action,
     )
-
-
-async def _eligible_route(session, row: IntercityRouteV1 | None, current_user: User) -> bool:
-    if not row or row.status not in ACTIVE_STATUSES or row.creator_tg_id == current_user.tg_id:
-        return False
-    if _driver_mode(current_user):
-        return False
-    if not _same_or_empty(current_user.country, row.country) or not _city_matches(current_user.city, row.from_city):
-        return False
-    driver = await session.scalar(select(User).where(User.tg_id == row.creator_tg_id))
-    return bool(driver and driver.is_verified)
-
-
-async def _eligible_request(row: IntercityRequestV1 | None, current_user: User) -> bool:
-    if not row or row.status not in ACTIVE_STATUSES or row.creator_tg_id == current_user.tg_id:
-        return False
-    if not _driver_mode(current_user):
-        return False
-    return bool(_same_or_empty(current_user.country, row.country) and _city_matches(current_user.city, row.from_city))
 
 
 async def safe_intercity_offers(current_user: User = Depends(get_current_user)) -> IntercityOfferListResponse:
