@@ -9,6 +9,7 @@ from api.intaxi_city_status_patch import strict_city_trip_status
 from api.intaxi_driver_patch import strict_driver_online_update
 from api.intaxi_intercity_patch import safe_intercity_accept, safe_intercity_offer_detail, safe_intercity_offers
 from api.intaxi_intercity_status_patch import safe_intercity_request_status, safe_intercity_route_status
+from api.intaxi_profile_patch import strict_update_profile, strict_update_role, strict_update_vehicle
 from api.intaxi_safety_patch import safe_city_close, safe_city_offers, safe_current_trip, safe_history_all
 from api.schemas import (
     CityAcceptResponse,
@@ -20,6 +21,7 @@ from api.schemas import (
     IntercityAcceptResponse,
     IntercityOfferEnvelope,
     IntercityOfferListResponse,
+    UserEnvelope,
 )
 
 
@@ -67,6 +69,15 @@ def install_intaxi_terminal_patch() -> None:
 
     def patched_add_api_route(self, path: str, endpoint: Callable, *args: Any, **kwargs: Any):
         methods = _extract_methods(args, kwargs)
+
+        if path == '/me/profile' and 'POST' in methods:
+            return _direct_add(self, path, strict_update_profile, args, kwargs, UserEnvelope)
+
+        if path == '/me/role' and 'POST' in methods:
+            return _direct_add(self, path, strict_update_role, args, kwargs, UserEnvelope)
+
+        if path == '/me/vehicle' and 'POST' in methods:
+            return _direct_add(self, path, strict_update_vehicle, args, kwargs, UserEnvelope)
 
         if path == '/driver/online' and 'POST' in methods:
             return _direct_add(self, path, strict_driver_online_update, args, kwargs, DriverOnlineStateResponse)
