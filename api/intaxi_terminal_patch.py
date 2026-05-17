@@ -28,8 +28,6 @@ from api.schemas import (
 
 def _extract_methods(args: tuple[Any, ...], kwargs: dict[str, Any]) -> set[str]:
     methods = kwargs.get('methods')
-    # FastAPI.add_api_route signature is (path, endpoint, *, response_model=..., methods=..., ...),
-    # but keep a defensive fallback for wrappers that pass methods positionally.
     if methods is None and len(args) >= 2 and isinstance(args[1], (list, tuple, set)):
         methods = args[1]
     return {str(m).upper() for m in (methods or [])}
@@ -61,6 +59,15 @@ def _safe_alias(self: FastAPI, path: str, endpoint: Callable, *, methods: list[s
 def _direct_add(self: FastAPI, path: str, endpoint: Callable, args: tuple[Any, ...], kwargs: dict[str, Any], response_model: Any | None = None):
     self.router.add_api_route(path, endpoint, *args, **_route_kwargs(kwargs, response_model))
     return None
+
+
+def install_terminal_alias_routes(app: FastAPI) -> None:
+    if getattr(app.state, 'intaxi_terminal_alias_routes_installed', False):
+        return
+    _safe_alias(app, '/city/orders/available', strict_city_offers, methods=['GET'], response_model=CityOrderListResponse)
+    _safe_alias(app, '/city/orders/{order_id}/accept', safe_city_accept, methods=['POST'], response_model=CityAcceptResponse)
+    _safe_alias(app, '/intercity/offers/search', safe_intercity_offers, methods=['GET'], response_model=IntercityOfferListResponse)
+    setattr(app.state, 'intaxi_terminal_alias_routes_installed', True)
 
 
 def install_intaxi_terminal_patch() -> None:
