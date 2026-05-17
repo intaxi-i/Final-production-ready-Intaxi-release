@@ -3,6 +3,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 PYTHON_BIN="${PYTHON_BIN:-python3}"
+export PYTHONPATH="$PWD:$PWD/intaxi_bot${PYTHONPATH:+:$PYTHONPATH}"
 
 echo "== Python version =="
 "$PYTHON_BIN" --version
