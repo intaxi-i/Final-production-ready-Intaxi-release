@@ -64,10 +64,10 @@ def _direct_add(self: FastAPI, path: str, endpoint: Callable, args: tuple[Any, .
 def install_terminal_alias_routes(app: FastAPI) -> None:
     if getattr(app.state, 'intaxi_terminal_alias_routes_installed', False):
         return
+    setattr(app.state, 'intaxi_terminal_alias_routes_installed', True)
     _safe_alias(app, '/city/orders/available', strict_city_offers, methods=['GET'], response_model=CityOrderListResponse)
     _safe_alias(app, '/city/orders/{order_id}/accept', safe_city_accept, methods=['POST'], response_model=CityAcceptResponse)
     _safe_alias(app, '/intercity/offers/search', safe_intercity_offers, methods=['GET'], response_model=IntercityOfferListResponse)
-    setattr(app.state, 'intaxi_terminal_alias_routes_installed', True)
 
 
 def _finish(self: FastAPI, result: Any) -> Any:
@@ -75,10 +75,29 @@ def _finish(self: FastAPI, result: Any) -> Any:
     return result
 
 
+def _wrap_router_add_api_route(app: FastAPI) -> None:
+    if getattr(app.state, 'intaxi_router_add_api_route_wrapped', False):
+        return
+    original_router_add_api_route = app.router.add_api_route
+
+    def patched_router_add_api_route(path: str, endpoint: Callable, *args: Any, **kwargs: Any):
+        result = original_router_add_api_route(path, endpoint, *args, **kwargs)
+        install_terminal_alias_routes(app)
+        return result
+
+    app.router.add_api_route = patched_router_add_api_route
+    setattr(app.state, 'intaxi_router_add_api_route_wrapped', True)
+
+
 def install_intaxi_terminal_patch() -> None:
     if getattr(FastAPI, '_intaxi_terminal_patch_installed', False):
         return
+    previous_init = FastAPI.__init__
     previous_add_api_route = FastAPI.add_api_route
+
+    def patched_init(self, *args: Any, **kwargs: Any):
+        previous_init(self, *args, **kwargs)
+        _wrap_router_add_api_route(self)
 
     def patched_add_api_route(self, path: str, endpoint: Callable, *args: Any, **kwargs: Any):
         methods = _extract_methods(args, kwargs)
@@ -130,5 +149,6 @@ def install_intaxi_terminal_patch() -> None:
 
         return _finish(self, previous_add_api_route(self, path, endpoint, *args, **kwargs))
 
+    FastAPI.__init__ = patched_init
     FastAPI.add_api_route = patched_add_api_route
     setattr(FastAPI, '_intaxi_terminal_patch_installed', True)
