@@ -122,6 +122,9 @@ async def list_city_market_for_user(tg_id: int, *, wanted_role: str, limit: int 
         if wanted_role == 'passenger':
             if not current_user.is_verified or _clean(current_user.active_role) != 'driver':
                 return []
+            driver_vehicle = await session.scalar(select(Vehicle).where(Vehicle.user_id == current_user.id))
+            if not driver_vehicle:
+                return []
             driver_state = await session.scalar(select(DriverOnlineState).where(DriverOnlineState.driver_tg_id == current_user.tg_id))
             if not driver_state or not driver_state.is_online:
                 return []
@@ -183,6 +186,9 @@ async def accept_city_offer_for_user(order_id: int, tg_id: int) -> CityTripV1 | 
         if order.role == 'passenger':
             if not accepter.is_verified or _clean(accepter.active_role) != 'driver':
                 return None
+            vehicle = await session.scalar(select(Vehicle).where(Vehicle.user_id == accepter.id))
+            if not vehicle:
+                return None
             driver_state = await session.scalar(select(DriverOnlineState).where(DriverOnlineState.driver_tg_id == accepter.tg_id))
             if not driver_state or not driver_state.is_online:
                 return None
@@ -197,6 +203,9 @@ async def accept_city_offer_for_user(order_id: int, tg_id: int) -> CityTripV1 | 
                 return None
             driver = await session.scalar(select(User).where(User.tg_id == order.creator_tg_id))
             if not driver or not driver.is_verified:
+                return None
+            vehicle = await session.scalar(select(Vehicle).where(Vehicle.user_id == driver.id))
+            if not vehicle:
                 return None
             if not _same_or_empty(accepter.country, order.country) or not _same_or_empty(accepter.city, order.city):
                 return None
