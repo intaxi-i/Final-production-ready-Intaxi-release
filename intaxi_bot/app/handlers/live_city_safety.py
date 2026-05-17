@@ -26,6 +26,14 @@ def _same_or_empty(left: Any, right: Any) -> bool:
     return not left_value or not right_value or left_value == right_value
 
 
+def _price_to_minor_units(price: float) -> int:
+    return int(round(float(price) * 100))
+
+
+def _minor_units_to_price(value: str) -> float:
+    return round(int(value) / 100, 2)
+
+
 async def _driver_has_live_trip(session, driver_tg_id: int) -> bool:
     trip = await session.scalar(
         select(CityTripV1)
@@ -109,8 +117,9 @@ async def safe_driver_offer_price_submit(message: types.Message, state: FSMConte
         await state.clear()
         await message.answer(_text(lang, 'order_unavailable'))
         return
+    price_minor = _price_to_minor_units(price)
     builder = InlineKeyboardBuilder()
-    builder.button(text=_text(passenger_lang, 'accept_price'), callback_data=f'lcpacc_{order_id}_{driver_tg_id}_{int(price)}')
+    builder.button(text=_text(passenger_lang, 'accept_price'), callback_data=f'lcpacc_{order_id}_{driver_tg_id}_{price_minor}')
     builder.button(text=_text(passenger_lang, 'reject'), callback_data=f'lcprej_{order_id}_{driver_tg_id}')
     builder.adjust(1)
     try:
@@ -130,7 +139,7 @@ async def safe_passenger_accept_price(callback: types.CallbackQuery, bot: Bot):
     _, order_id_raw, driver_tg_id_raw, price_raw = parts
     order_id = int(order_id_raw)
     driver_tg_id = int(driver_tg_id_raw)
-    price = float(price_raw)
+    price = _minor_units_to_price(price_raw)
     async with async_session() as session:
         lang = await _user_lang(session, callback.from_user.id)
         order = await session.scalar(select(CityOrderV1).where(CityOrderV1.id == order_id).with_for_update())
