@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import Depends, HTTPException
-from sqlalchemy import or_, select
+from sqlalchemy import select
 
 from api.auth import get_current_user
 from api.schemas import UpdateProfileRequest, UpdateRoleRequest, UpdateVehicleRequest, UserEnvelope, UserMe, VehicleInfo
