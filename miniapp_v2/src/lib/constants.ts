@@ -2,7 +2,7 @@ export const APP_NAME = "Intaxi";
 
 export const APP_ROUTES = {
   home: "/",
-  city: "/city",
+  city: "/city/create",
   cityCreate: "/city/create",
   cityOffers: "/city/offers",
   cityMyOrders: "/city/my-orders",
