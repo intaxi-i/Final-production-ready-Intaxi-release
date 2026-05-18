@@ -22,7 +22,9 @@ def home_url(entry: str | None = None) -> str:
 
 
 def city_main_url(role: str | None = None) -> str:
-    return _build("/city", role=role)
+    if role == "driver":
+        return city_offers_url(kind="driver")
+    return city_create_url(role="passenger")
 
 
 def city_create_url(role: str | None = None) -> str:
