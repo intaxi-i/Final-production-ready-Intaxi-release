@@ -4,11 +4,10 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Radio, RefreshCw, ShieldAlert } from 'lucide-react';
-import { acceptCityOrder, createCityCounteroffer, getMe, listAvailableCityOrders } from '@/lib/api';
+import { acceptCityOrder, getMe, listAvailableCityOrders } from '@/lib/api';
 import { getDriverProfile } from '@/lib/api-extra';
 import type { CityOrder, DriverProfile, UserMe } from '@/lib/types';
 import { OrderCard } from '@/components/OrderCard';
-import { BottomNav } from '@/components/BottomNav';
 import { t } from '@/lib/i18n';
 
 function isConfirmedDriver(profile: DriverProfile | null) {
@@ -59,20 +58,6 @@ export default function CityOffersPage() {
       router.push('/trip/current');
     } catch (err) {
       setError(err instanceof Error ? err.message : t(lang, 'acceptOrderFailed'));
-      setActionId(null);
-    }
-  }
-
-  async function counterOffer(orderId: number, price: number) {
-    if (!confirmedDriver) return;
-    setActionId(orderId);
-    setError(null);
-    try {
-      await createCityCounteroffer(orderId, price);
-      await load(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t(lang, 'sendPriceFailed'));
-    } finally {
       setActionId(null);
     }
   }
@@ -147,12 +132,10 @@ export default function CityOffersPage() {
               actionLabel={t(lang, 'accept')}
               disabled={actionId === order.id}
               onAction={() => accept(order.id)}
-              onCounterOffer={(price: number) => counterOffer(order.id, price)}
             />
           ))}
         </section>
       ) : null}
-      <BottomNav />
     </main>
   );
 }
