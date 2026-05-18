@@ -22,11 +22,13 @@ from app.handlers.order_safety import router as order_safety_router
 from app.handlers.order import router as order_router
 from app.handlers.admin import router as admin_router
 from app.handlers.driver_reg import router as driver_router
+from app.menu_consistency import install_main_menu_consistency
 from app.miniapp_routes import home_url
 
 load_dotenv()
 apply_country_config()
 apply_admin_menu_config()
+install_main_menu_consistency()
 
 
 async def main():
