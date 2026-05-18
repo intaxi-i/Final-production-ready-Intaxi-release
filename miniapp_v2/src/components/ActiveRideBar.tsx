@@ -14,6 +14,19 @@ type Activity =
 const LIVE_ORDER_STATUSES = new Set(['active', 'search', 'accepted']);
 const LIVE_TRIP_STATUSES = new Set(['accepted', 'driver_on_way', 'driver_arrived', 'in_progress']);
 
+function clean(value: unknown) {
+  return String(value || '').trim();
+}
+
+function positiveNumber(value: unknown) {
+  const parsed = Number(value || 0);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function hasMeaningfulRoute(from: string, to: string) {
+  return Boolean(clean(from) || clean(to));
+}
+
 function statusText(lang: string | undefined | null, status: string, role: string | undefined | null) {
   const isDriver = role === 'driver';
   if (status === 'active' || status === 'search') return t(lang, 'searchingDriver');
@@ -25,28 +38,36 @@ function statusText(lang: string | undefined | null, status: string, role: strin
 }
 
 function tripToActivity(trip: CityTrip | null): Activity | null {
-  if (!trip || !LIVE_TRIP_STATUSES.has(trip.status)) return null;
+  if (!trip || !trip.id || !LIVE_TRIP_STATUSES.has(trip.status)) return null;
+  const from = clean(trip.pickup_address);
+  const to = clean(trip.destination_address);
+  const price = positiveNumber(trip.final_price);
+  if (!hasMeaningfulRoute(from, to) && price <= 0) return null;
   return {
     kind: 'trip',
     id: trip.id,
     orderId: trip.order_id || null,
     status: trip.status,
-    from: trip.pickup_address || '',
-    to: trip.destination_address || '',
-    price: Number(trip.final_price || 0),
+    from,
+    to,
+    price,
     currency: trip.currency || 'UZS',
   };
 }
 
 function orderToActivity(order: CityOrder | null): Activity | null {
-  if (!order || !LIVE_ORDER_STATUSES.has(order.status)) return null;
+  if (!order || !order.id || !LIVE_ORDER_STATUSES.has(order.status)) return null;
+  const from = clean(order.pickup_address);
+  const to = clean(order.destination_address);
+  const price = positiveNumber(order.passenger_price);
+  if (!hasMeaningfulRoute(from, to) && price <= 0) return null;
   return {
     kind: 'order',
     id: order.id,
     status: order.status,
-    from: order.pickup_address || '',
-    to: order.destination_address || '',
-    price: Number(order.passenger_price || 0),
+    from,
+    to,
+    price,
     currency: order.currency || 'UZS',
     seen: Number(order.seen_by_drivers || 0),
     seats: Number(order.seats || 1),
@@ -112,7 +133,7 @@ export function ActiveRideBar() {
           <small>{activity.from || fallbackFrom} → {activity.to || fallbackTo}</small>
         </span>
         <span className="active-ride-price">
-          {Math.round(activity.price).toLocaleString('ru-RU')} {activity.currency}
+          {activity.price > 0 ? `${Math.round(activity.price).toLocaleString('ru-RU')} ${activity.currency}` : activity.currency}
           {activity.kind === 'order' ? <small>{activity.seen} {t(lang, 'seenShort')} · {activity.seats}</small> : null}
         </span>
       </Link>
