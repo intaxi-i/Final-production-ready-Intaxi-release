@@ -32,8 +32,9 @@ function statusLabel(lang: string | undefined | null, value?: string | null, dri
 }
 
 function sourceLabel(lang: string | undefined | null, value?: string | null) {
-  if (value === 'request') return t(lang, 'requestKind');
-  if (value === 'route') return t(lang, 'routeKind');
+  const normalized = String(value || '').toLowerCase();
+  if (normalized.includes('request')) return t(lang, 'requestKind');
+  if (normalized.includes('route')) return t(lang, 'routeKind');
   return t(lang, 'unknownStatus');
 }
 
@@ -104,7 +105,7 @@ export default function CurrentTripPage() {
     setAction(true);
     setError(null);
     try {
-      setIntercityTrip(await updateIntercityTripStatus(intercityTrip.id, status));
+      setIntercityTrip(await updateIntercityTripStatus(intercityTrip.id, status, intercityTrip.source_type));
     } catch (err) {
       setError(err instanceof Error ? err.message : t(me?.language, 'changeStatusFailed'));
     } finally {
@@ -139,7 +140,7 @@ export default function CurrentTripPage() {
       <section className="premium-hero">
         <div className="relative z-10 row">
           <div className="min-w-0">
-            <p className="metric-label">{t(lang, 'cityTrip')}</p>
+            <p className="metric-label">{cityTrip ? t(lang, 'cityTrip') : t(lang, 'intercity')}</p>
             <h1 className="title break-words">{t(lang, 'currentTrip')}</h1>
             <p className="subtitle mt-2 break-words">{t(lang, 'activeTrip')}</p>
           </div>
@@ -204,7 +205,6 @@ export default function CurrentTripPage() {
             </div>
             {canControlIntercityTrip ? (
               <div className="grid grid-2">
-                <button className="button secondary" type="button" disabled={action} onClick={() => changeIntercityStatus('driver_on_way')}>{t(lang, 'driverOnWayDriver')}</button>
                 <button className="button secondary" type="button" disabled={action} onClick={() => changeIntercityStatus('in_progress')}>{t(lang, 'tripInProgressDriver')}</button>
                 <button className="button primary" type="button" disabled={action} onClick={() => changeIntercityStatus('completed')}>{t(lang, 'completedStatus')}</button>
                 <button className="button danger" type="button" disabled={action} onClick={() => changeIntercityStatus('cancelled')}>{t(lang, 'cancelledStatus')}</button>
