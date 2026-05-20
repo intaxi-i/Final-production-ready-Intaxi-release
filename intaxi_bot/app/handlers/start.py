@@ -6,7 +6,6 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 import app.database.requests as rq
 import app.keyboards as kb
-from app.hotfix_menu import home_webapp_menu
 from app.kazakhstan_locations import build_localities_keyboard as build_kz_localities_keyboard, build_regions_keyboard as build_kz_regions_keyboard, format_kz_location, get_locality_by_index as get_kz_locality_by_index
 from app.miniapp_routes import profile_url
 from app.strings import MESSAGES
@@ -74,6 +73,14 @@ async def _track(message: types.Message, context: str) -> None:
         pass
 
 
+def _is_driver_mode(user) -> bool:
+    return bool(user.is_verified and (user.active_role or 'driver') != 'passenger')
+
+
+def _main_menu_for_user(lang: str, user):
+    return kb.main_menu(lang, user_id=getattr(user, 'tg_id', None), is_driver_mode=_is_driver_mode(user))
+
+
 @router.message(CommandStart())
 async def cmd_start(message: types.Message, state: FSMContext):
     await state.clear()
@@ -88,10 +95,7 @@ async def cmd_start(message: types.Message, state: FSMContext):
         await _cleanup_context(message.bot, user.tg_id, 'start')
         sent = await message.answer(
             '🏠',
-            reply_markup=home_webapp_menu(
-                user.language,
-                is_driver_mode=bool(user.is_verified and (user.active_role or 'driver') != 'passenger'),
-            ),
+            reply_markup=_main_menu_for_user(user.language, user),
         )
         await _track(sent, 'anchor')
         return
@@ -193,10 +197,7 @@ async def set_city(callback: types.CallbackQuery, state: FSMContext):
     user = await rq.get_or_create_user(callback.from_user.id, callback.from_user.full_name, callback.from_user.username)
     await callback.message.answer(
         MESSAGES[lang].get('reg_done', 'Done!'),
-        reply_markup=home_webapp_menu(
-            lang,
-            is_driver_mode=bool(user.is_verified and (user.active_role or 'driver') != 'passenger'),
-        ),
+        reply_markup=_main_menu_for_user(lang, user),
     )
 
 
@@ -214,10 +215,7 @@ async def set_uz_city(callback: types.CallbackQuery, state: FSMContext):
     user = await rq.get_or_create_user(callback.from_user.id, callback.from_user.full_name, callback.from_user.username)
     await callback.message.answer(
         MESSAGES[lang].get('reg_done', 'Done!'),
-        reply_markup=home_webapp_menu(
-            lang,
-            is_driver_mode=bool(user.is_verified and (user.active_role or 'driver') != 'passenger'),
-        ),
+        reply_markup=_main_menu_for_user(lang, user),
     )
 
 
@@ -235,8 +233,5 @@ async def set_kz_city(callback: types.CallbackQuery, state: FSMContext):
     user = await rq.get_or_create_user(callback.from_user.id, callback.from_user.full_name, callback.from_user.username)
     await callback.message.answer(
         MESSAGES[lang].get('reg_done', 'Done!'),
-        reply_markup=home_webapp_menu(
-            lang,
-            is_driver_mode=bool(user.is_verified and (user.active_role or 'driver') != 'passenger'),
-        ),
+        reply_markup=_main_menu_for_user(lang, user),
     )
