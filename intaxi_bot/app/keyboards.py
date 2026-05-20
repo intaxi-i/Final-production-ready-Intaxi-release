@@ -169,6 +169,11 @@ def _t(lang: str, key: str, default: str = ''):
     return LOCAL_DEFAULTS.get(lang, LOCAL_DEFAULTS['ru']).get(key, default)
 
 
+def _message(lang: str, key: str, default: str = '') -> str:
+    code = lang if lang in MESSAGES else 'ru'
+    return MESSAGES.get(code, MESSAGES['ru']).get(key) or _t(code, key, default) or default or key
+
+
 def mini_app_base_url() -> str:
     return os.getenv('MINI_APP_URL', 'https://app.intaxi.best').rstrip('/')
 
@@ -237,21 +242,27 @@ def _db_admin_flag(user_id):
 
 
 def intercity_main_text(lang, is_driver_mode: bool = False):
-    m = MESSAGES.get(lang, MESSAGES['ru'])
     if is_driver_mode:
-        return m.get('btn_intercity_driver', _t(lang, 'btn_intercity'))
-    return m.get('btn_intercity_passenger', _t(lang, 'btn_intercity'))
+        return _message(lang, 'btn_intercity_driver', _t(lang, 'btn_intercity'))
+    return _message(lang, 'btn_intercity_passenger', _t(lang, 'btn_intercity'))
+
 
 def main_menu(lang, user_id=None, as_user=False, is_driver_mode: bool = False, is_admin: bool | None = None):
-    m = MESSAGES.get(lang, MESSAGES['ru'])
     admin_flag = _db_admin_flag(user_id) if is_admin is None else bool(is_admin)
     if admin_flag and not as_user:
         return admin_main_kb(lang, user_id=user_id)
 
+    role = 'driver' if is_driver_mode else 'passenger'
     keyboard = [
-        [KeyboardButton(text=m['btn_fast_order']), KeyboardButton(text=intercity_main_text(lang, is_driver_mode))],
-        [KeyboardButton(text=_t(lang, 'btn_current_order'))],
-        [KeyboardButton(text=m.get('btn_profile', _t(lang, 'btn_mini_profile'))), KeyboardButton(text=m.get('btn_wallet', _t(lang, 'btn_mini_wallet')))],
+        [
+            KeyboardButton(text=_message(lang, 'btn_fast_order'), web_app=types.WebAppInfo(url=city_main_url(role))),
+            KeyboardButton(text=intercity_main_text(lang, is_driver_mode), web_app=types.WebAppInfo(url=intercity_main_url(role))),
+        ],
+        [KeyboardButton(text=_t(lang, 'btn_current_order'), web_app=types.WebAppInfo(url=current_trip_url()))],
+        [
+            KeyboardButton(text=_message(lang, 'btn_profile', _t(lang, 'btn_mini_profile')), web_app=types.WebAppInfo(url=profile_url('bot-menu'))),
+            KeyboardButton(text=_message(lang, 'btn_wallet', _t(lang, 'btn_mini_wallet')), web_app=types.WebAppInfo(url=wallet_url())),
+        ],
         [KeyboardButton(text=_t(lang, 'btn_feedback'))],
     ]
 
@@ -415,7 +426,6 @@ def intercity_request_view_kb(lang):
     builder = InlineKeyboardBuilder()
     builder.button(text=_t(lang, 'btn_back_inline'), callback_data='interhub_cancel')
     return builder.as_markup()
-
 def intercity_side_kb(lang, callback_prefix: str):
     builder = InlineKeyboardBuilder()
     builder.button(text=_t(lang, 'btn_from_my_city'), callback_data=f'{callback_prefix}_from')
