@@ -4,8 +4,8 @@ from aiogram import Router, types
 from aiogram.fsm.context import FSMContext
 
 import app.database.requests as rq
+import app.keyboards as kb
 from app.handlers.live_city import CityCreateFlow
-from app.hotfix_menu import home_webapp_menu
 from app.miniapp_routes import city_main_url, profile_url
 from app.strings import MESSAGES
 
@@ -109,4 +109,4 @@ async def cancel_live_city_flow(message: types.Message, state: FSMContext):
     user = await rq.get_or_create_user(message.from_user.id, message.from_user.full_name, message.from_user.username)
     lang = user.language or 'ru'
     await state.clear()
-    await message.answer(_cancelled_text(lang), reply_markup=home_webapp_menu(lang, is_driver_mode=_driver_mode(user)))
+    await message.answer(_cancelled_text(lang), reply_markup=kb.main_menu(lang, user_id=user.tg_id, is_driver_mode=_driver_mode(user)))
