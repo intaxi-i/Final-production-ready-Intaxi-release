@@ -26,6 +26,11 @@ const LIVE_ORDER_STATUSES = new Set(['active', 'search', 'accepted']);
 
 type ApiEnvelope<T> = T | { user?: T | null } | { item?: T | null } | { order?: T | null };
 
+type CityCounterofferInput = {
+  price: number;
+  comment?: string | null;
+};
+
 export class ApiError extends Error {
   code: string;
   details: Record<string, unknown>;
@@ -48,6 +53,7 @@ function getStoredSessionToken() { return storageAvailable() ? window.sessionSto
 function setStoredSessionToken(token: string | null) { if (!storageAvailable()) return; if (token) window.sessionStorage.setItem(SESSION_STORAGE_KEY, token); else window.sessionStorage.removeItem(SESSION_STORAGE_KEY); }
 function parseDevTgId() { const parsed = Number(DEV_USER_TOKEN.replace('dev:', '').trim()); return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined; }
 function sleep(ms: number) { return new Promise((resolve) => setTimeout(resolve, ms)); }
+function notAvailable(feature: string): never { throw new ApiError(`${feature} is not available in the current backend contract. Hide this UI or implement the backend route before enabling it.`, 'feature_not_available'); }
 
 async function waitForTelegramInitData() {
   for (let attempt = 0; attempt < 20; attempt += 1) {
@@ -63,7 +69,7 @@ async function parseResponse(response: Response) {
   if (!response.ok) {
     const detail = typeof data?.detail === 'string' ? data.detail : null;
     const err = data?.error || {};
-    throw new ApiError(err.message || detail || 'Request failed', err.code || 'api_error', err.details || {});
+    throw new ApiError(err.message || detail || 'Request failed', err.code || 'api_error', err.details || { status: response.status });
   }
   if (data === null) throw new ApiError('API вернул не JSON. Проверьте, что api.intaxi.best указывает на FastAPI, а не nginx placeholder.', 'invalid_json');
   return data;
@@ -113,15 +119,6 @@ async function request<T>(path: string, init: RequestInit = {}, authenticated = 
     return parseResponse(retryResponse) as Promise<T>;
   }
   return parseResponse(response) as Promise<T>;
-}
-
-async function requestFirst<T>(paths: string[], init: RequestInit = {}, authenticated = true): Promise<T> {
-  let lastError: unknown = null;
-  for (const path of paths) {
-    try { return await request<T>(path, init, authenticated); }
-    catch (err) { lastError = err; if (!(err instanceof ApiError) || err.message !== 'Not Found') throw err; }
-  }
-  throw lastError instanceof Error ? lastError : new ApiError('Request failed');
 }
 
 function countryCurrency(country?: string | null) { const map: Record<string, string> = { uz: 'UZS', kz: 'KZT', tr: 'TRY', sa: 'SAR' }; return map[(country || '').toLowerCase()] || 'USD'; }
@@ -188,8 +185,8 @@ export async function setDriverOnline(input: { is_online: boolean; country_code?
 }
 
 export type DriverPaymentMethodInput = Record<string, unknown>;
-export async function listMyDriverPaymentMethods(): Promise<DriverPaymentMethod[]> { return []; }
-export async function createDriverPaymentMethod(input?: DriverPaymentMethodInput): Promise<DriverPaymentMethod> { void input; return { id: Date.now(), method_type: 'manual', card_number_masked: null, card_holder_name: null, bank_name: null, is_active: true }; }
+export async function listMyDriverPaymentMethods(): Promise<DriverPaymentMethod[]> { notAvailable('Driver payment methods'); }
+export async function createDriverPaymentMethod(input?: DriverPaymentMethodInput): Promise<DriverPaymentMethod> { void input; notAvailable('Driver payment methods'); }
 
 export async function createCityOrder(input: CreateCityOrderInput): Promise<CityOrder> { const data = await request<any>('/city/orders', { method: 'POST', body: JSON.stringify({ role: 'passenger', country: input.country_code, city: '', from_address: input.pickup_address, to_address: input.destination_address, seats: input.seats, price: input.passenger_price, comment: input.comment || '', from_lat: input.pickup_lat ?? null, from_lng: input.pickup_lng ?? null, to_lat: input.destination_lat ?? null, to_lng: input.destination_lng ?? null }) }); return normalizeCityOrder(unwrapItem(data), { mode: input.mode, country_code: input.country_code, pickup_address: input.pickup_address, destination_address: input.destination_address, seats: input.seats, passenger_price: input.passenger_price, currency: countryCurrency(input.country_code) }); }
 export async function listMyCityOrders(): Promise<CityOrder[]> { const data = await request<any>('/history/all'); return unwrapItems<BackendCityOrder>(data?.city_orders || []).map((item) => normalizeCityOrder(item)); }
@@ -198,10 +195,10 @@ export async function cancelCityOrder(orderId: number, reason?: string): Promise
 export async function listAvailableCityOrders(): Promise<CityOrder[]> { const data = await request<any>('/city/orders/available'); return unwrapItems<BackendCityOrder>(data).map((item) => normalizeCityOrder(item)).filter((item) => LIVE_ORDER_STATUSES.has(item.status)); }
 export async function acceptCityOrder(orderId: number): Promise<CityTrip> { const data = await request<any>(`/city/orders/${orderId}/accept`, { method: 'POST' }); const item = unwrapItem<any>(data); return normalizeCityTrip({ ...item, id: item?.id ?? item?.trip_id, order_id: item?.order_id ?? orderId }); }
 
-async function getCurrentTrip() { const data = await requestFirst<any>(['/trip/current', '/trips/current', '/current-trip']); return currentTripItem(data); }
+async function getCurrentTrip() { const data = await request<any>('/trip/current'); return currentTripItem(data); }
 export async function getCurrentCityTrip(): Promise<CityTrip | null> { try { const item = await getCurrentTrip(); if (!item || !isCurrentCityTrip(item)) return null; const trip = normalizeCityTrip(item); return trip && trip.id > 0 && LIVE_CITY_TRIP_STATUSES.has(trip.status) ? trip : null; } catch { return null; } }
-export async function updateCityTripStatus(tripId: number, status: string): Promise<CityTrip> { const data = await requestFirst<any>([`/city/trips/${tripId}/status`, `/trips/city/${tripId}/status`], { method: 'POST', body: JSON.stringify({ status }) }); return normalizeCityTrip(unwrapItem(data)); }
-export async function getDriverPaymentMethodsForTrip(tripId?: number): Promise<DriverPaymentMethod[]> { void tripId; return []; }
+export async function updateCityTripStatus(tripId: number, status: string): Promise<CityTrip> { const data = await request<any>(`/city/trips/${tripId}/status`, { method: 'POST', body: JSON.stringify({ status }) }); return normalizeCityTrip(unwrapItem(data)); }
+export async function getDriverPaymentMethodsForTrip(tripId?: number): Promise<DriverPaymentMethod[]> { void tripId; notAvailable('Driver trip payment methods'); }
 
 export async function createIntercityRequest(input: IntercityRequestInput): Promise<{ id: number; status: string }> { const data = await request<any>('/intercity/requests', { method: 'POST', body: JSON.stringify({ country: input.country_code, from_city: input.from_text, to_city: input.to_text, date: input.date || '', time: input.time || '', seats_needed: input.seats, price_offer: input.passenger_price, comment: input.comment || '' }) }); const item = unwrapItem<any>(data); return { id: Number(item?.id ?? 0), status: item?.status || 'active' }; }
 export async function createIntercityRoute(input: IntercityRouteInput): Promise<{ id: number; status: string }> { const data = await request<any>('/intercity/routes', { method: 'POST', body: JSON.stringify({ country: input.country_code, from_city: input.from_text, to_city: input.to_text, date: input.date || '', time: input.time || '', seats: input.seats_available, price: input.price_per_seat, pickup_mode: input.pickup_mode, comment: input.comment || '' }) }); const item = unwrapItem<any>(data); return { id: Number(item?.id ?? 0), status: item?.status || 'active' }; }
@@ -209,28 +206,31 @@ export async function listIntercityOffers(): Promise<IntercityOffer[]> { const d
 export async function acceptIntercityOffer(kind: string, itemId: number): Promise<IntercityTrip> { const data = await request<any>(`/intercity/offers/${kind}/${itemId}/accept`, { method: 'POST' }); return normalizeIntercityTrip(unwrapItem(data)); }
 export async function getCurrentIntercityTrip(): Promise<IntercityTrip | null> { try { const item = await getCurrentTrip(); if (!item || !isCurrentIntercityTrip(item)) return null; const trip = normalizeIntercityTrip(item); return trip && trip.id > 0 && LIVE_INTERCITY_TRIP_STATUSES.has(trip.status) ? trip : null; } catch { return null; } }
 export async function updateIntercityTripStatus(tripId: number, status: string, sourceType?: string): Promise<IntercityTrip> {
-  const payload = { method: 'POST', body: JSON.stringify({ status }) };
   const normalizedSource = String(sourceType || '').toLowerCase();
-  const paths = normalizedSource.includes('request')
-    ? [`/intercity/requests/${tripId}/status`]
-    : normalizedSource.includes('route')
-      ? [`/intercity/routes/${tripId}/status`]
-      : [`/intercity/routes/${tripId}/status`, `/intercity/requests/${tripId}/status`, `/intercity/trips/${tripId}/status`, `/trips/intercity/${tripId}/status`];
-  const data = await requestFirst<any>(paths, payload);
+  if (!normalizedSource) {
+    throw new ApiError('Intercity source type is required for status update', 'intercity_source_type_required');
+  }
+  const path = normalizedSource.includes('request')
+    ? `/intercity/requests/${tripId}/status`
+    : `/intercity/routes/${tripId}/status`;
+  const data = await request<any>(path, { method: 'POST', body: JSON.stringify({ status }) });
   return normalizeIntercityTrip({ ...unwrapItem(data), id: tripId, source_type: sourceType });
 }
 
-export async function listDonationPaymentSettings(countryCode?: string, currency?: string): Promise<DonationPaymentSetting[]> { void countryCode; void currency; return []; }
-export async function listAdminDonationPaymentSettings(): Promise<DonationPaymentSetting[]> { return []; }
-export async function createAdminDonationPaymentSetting(input?: DonationPaymentSettingInput): Promise<DonationPaymentSetting> { void input; throw new ApiError('Not implemented in current API contract'); }
-export async function updateAdminDonationPaymentSetting(id?: number, input?: Partial<DonationPaymentSettingInput>): Promise<DonationPaymentSetting> { void id; void input; throw new ApiError('Not implemented in current API contract'); }
-export async function listPendingDrivers(): Promise<PendingDriverProfile[]> { return []; }
-export async function approveDriverProfile(id: number): Promise<{ id: number; status: string }> { return { id, status: 'approved' }; }
-export async function rejectDriverProfile(id: number, reason?: string): Promise<{ id: number; status: string }> { void reason; return { id, status: 'rejected' }; }
-export async function approveWomanDriverProfile(id: number): Promise<{ id: number; woman_driver_status: string }> { return { id, woman_driver_status: 'approved' }; }
-export async function listCommissionRules(): Promise<CommissionRule[]> { return []; }
-export async function createCommissionRule(input: { scope_type: string; scope_id: string; commission_percent: number; free_first_rides: number }): Promise<CommissionRule> { return { id: Date.now(), scope_type: input.scope_type, scope_id: input.scope_id, commission_percent: input.commission_percent, free_first_rides: input.free_first_rides, is_active: true }; }
-export async function listPendingPayments(): Promise<PendingPayment[]> { return []; }
-export async function approvePayment(id: number): Promise<{ id: number; status: string }> { return { id, status: 'approved' }; }
-export async function rejectPayment(id: number, reason?: string): Promise<{ id: number; status: string }> { void reason; return { id, status: 'rejected' }; }
-export async function createCityCounteroffer(orderId: number, price: number): Promise<any> { void orderId; void price; throw new ApiError('Контрпредложение цены в Mini App временно недоступно. Используйте принятие заказа или Telegram-бот.', 'counteroffer_not_supported'); }
+export async function listDonationPaymentSettings(countryCode?: string, currency?: string): Promise<DonationPaymentSetting[]> { void countryCode; void currency; notAvailable('Donation payment settings'); }
+export async function listAdminDonationPaymentSettings(): Promise<DonationPaymentSetting[]> { notAvailable('Admin donation payment settings'); }
+export async function createAdminDonationPaymentSetting(input?: DonationPaymentSettingInput): Promise<DonationPaymentSetting> { void input; notAvailable('Admin donation payment settings'); }
+export async function updateAdminDonationPaymentSetting(id?: number, input?: Partial<DonationPaymentSettingInput>): Promise<DonationPaymentSetting> { void id; void input; notAvailable('Admin donation payment settings'); }
+export async function listPendingDrivers(): Promise<PendingDriverProfile[]> { notAvailable('Pending driver moderation'); }
+export async function approveDriverProfile(id: number): Promise<{ id: number; status: string }> { void id; notAvailable('Driver moderation'); }
+export async function rejectDriverProfile(id: number, reason?: string): Promise<{ id: number; status: string }> { void id; void reason; notAvailable('Driver moderation'); }
+export async function approveWomanDriverProfile(id: number): Promise<{ id: number; woman_driver_status: string }> { void id; notAvailable('Woman driver moderation'); }
+export async function listCommissionRules(): Promise<CommissionRule[]> { notAvailable('Commission rules'); }
+export async function createCommissionRule(input: { scope_type: string; scope_id: string; commission_percent: number; free_first_rides: number }): Promise<CommissionRule> { void input; notAvailable('Commission rules'); }
+export async function listPendingPayments(): Promise<PendingPayment[]> { notAvailable('Pending payments'); }
+export async function approvePayment(id: number): Promise<{ id: number; status: string }> { void id; notAvailable('Payment approval'); }
+export async function rejectPayment(id: number, reason?: string): Promise<{ id: number; status: string }> { void id; void reason; notAvailable('Payment approval'); }
+export async function createCityCounteroffer(orderId: number, price: number, comment?: string | null): Promise<any> {
+  const payload: CityCounterofferInput = { price, comment };
+  return request<any>(`/city/orders/${orderId}/counteroffer`, { method: 'POST', body: JSON.stringify(payload) });
+}
