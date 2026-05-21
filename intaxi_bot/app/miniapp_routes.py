@@ -55,14 +55,6 @@ def intercity_route_url() -> str:
     return _build("/intercity/route")
 
 
-def intercity_my_routes_url() -> str:
-    return _build("/intercity/my-routes")
-
-
-def intercity_my_requests_url() -> str:
-    return _build("/intercity/my-requests")
-
-
 def profile_url(entry: str | None = None) -> str:
     return _build("/profile", entry=entry)
 
