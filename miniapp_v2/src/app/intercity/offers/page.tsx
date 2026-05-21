@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { CalendarDays, RefreshCw, Route, Users } from 'lucide-react';
 import { APP_ROUTES } from '@/lib/constants';
 import { acceptIntercityOffer, getMe, listIntercityOffers } from '@/lib/api';
@@ -26,7 +27,12 @@ function routeMatches(item: IntercityOffer, from: string, to: string) {
   return (!fromQuery || itemFrom.includes(fromQuery)) && (!toQuery || itemTo.includes(toQuery));
 }
 
+function parseKind(value: string | null): 'request' | 'route' | null {
+  return value === 'request' || value === 'route' ? value : null;
+}
+
 export default function IntercityOffersPage() {
+  const searchParams = useSearchParams();
   const [items, setItems] = useState<IntercityOffer[]>([]);
   const [me, setMe] = useState<UserMe | null>(null);
   const [driverProfile, setDriverProfile] = useState<DriverProfile | null>(null);
@@ -38,7 +44,8 @@ export default function IntercityOffersPage() {
 
   const lang = me?.language;
   const confirmedDriver = me?.active_role === 'driver' && isConfirmedDriver(driverProfile);
-  const targetKind = confirmedDriver ? 'request' : 'route';
+  const roleBasedKind = confirmedDriver ? 'request' : 'route';
+  const targetKind = parseKind(searchParams.get('kind')) || roleBasedKind;
 
   function kindLabel(kind: string) {
     if (kind === 'request') return t(lang, 'requestKind');
@@ -132,7 +139,7 @@ export default function IntercityOffersPage() {
           <label className="label">{t(lang, 'fromWhere')}<input className="input" value={fromFilter} onChange={(event) => setFromFilter(event.target.value)} placeholder={t(lang, 'exampleFrom')} /></label>
           <label className="label">{t(lang, 'toWhere')}<input className="input" value={toFilter} onChange={(event) => setToFilter(event.target.value)} placeholder={t(lang, 'exampleTo')} /></label>
         </div>
-        <p className="subtitle">{confirmedDriver ? t(lang, 'driverRequestsOnly') : t(lang, 'passengerRoutesOnly')}</p>
+        <p className="subtitle">{targetKind === 'request' ? t(lang, 'driverRequestsOnly') : t(lang, 'passengerRoutesOnly')}</p>
       </section>
 
       {loading ? <section className="card"><p className="subtitle">{t(lang, 'loadingOffers')}</p></section> : null}
