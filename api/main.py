@@ -10,6 +10,7 @@ from sqlalchemy import or_, select
 
 from api.auth import create_session, get_bot_token, get_current_user, validate_telegram_init_data
 from api.config import get_settings
+from api.routers import driver as driver_router
 from api.routers import me as me_router
 from api.schemas import (
     ChatCreatedResponse,
@@ -27,9 +28,6 @@ from api.schemas import (
     CityTripStatusUpdateRequest,
     CurrentTripResponse,
     DevSessionRequest,
-    DriverLocationUpdateRequest,
-    DriverOnlineStateResponse,
-    DriverOnlineUpdateRequest,
     HistoryResponse,
     IntercityAcceptResponse,
     IntercityOfferEnvelope,
@@ -95,6 +93,7 @@ from intaxi_bot.app.database.requests import (
 
 app = FastAPI(title=get_settings().app_name)
 app.include_router(me_router.router)
+app.include_router(driver_router.router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -666,51 +665,6 @@ async def admin_update_tariff(payload: TariffUpdateRequest, current_user: User =
         await session.commit()
         await session.refresh(row)
         return TariffItem(country=row.country, currency=row.currency, price_per_km=row.price_per_km)
-
-
-@app.get('/driver/online', response_model=DriverOnlineStateResponse)
-async def driver_online_state(current_user: User = Depends(get_current_user)) -> DriverOnlineStateResponse:
-    await _require_verified_driver(current_user)
-    async with async_session() as session:
-        row = await _ensure_online_state(session, current_user)
-        await session.commit()
-        await session.refresh(row)
-        return DriverOnlineStateResponse(is_online=row.is_online, lat=row.lat, lng=row.lng, updated_at=_iso(row.updated_at))
-
-
-@app.post('/driver/online', response_model=DriverOnlineStateResponse)
-async def driver_online_update(payload: DriverOnlineUpdateRequest, current_user: User = Depends(get_current_user)) -> DriverOnlineStateResponse:
-    await _require_verified_driver(current_user)
-    async with async_session() as session:
-        row = await _ensure_online_state(session, current_user)
-        row.is_online = payload.is_online
-        row.country = current_user.country
-        row.city = current_user.city
-        row.updated_at = utcnow()
-        await session.commit()
-        await session.refresh(row)
-        return DriverOnlineStateResponse(is_online=row.is_online, lat=row.lat, lng=row.lng, updated_at=_iso(row.updated_at))
-
-
-@app.post('/driver/location')
-async def driver_location_update(payload: DriverLocationUpdateRequest, current_user: User = Depends(get_current_user)) -> dict:
-    await _require_verified_driver(current_user)
-    async with async_session() as session:
-        row = await _ensure_online_state(session, current_user)
-        row.lat = payload.lat
-        row.lng = payload.lng
-        row.country = current_user.country
-        row.city = current_user.city
-        row.is_online = True
-        row.updated_at = utcnow()
-        if payload.trip_id:
-            trip = await session.scalar(select(CityTripV1).where(CityTripV1.id == payload.trip_id))
-            if trip and trip.driver_tg_id == current_user.tg_id:
-                trip.driver_lat = payload.lat
-                trip.driver_lng = payload.lng
-                trip.updated_at = utcnow()
-        await session.commit()
-        return {'status': 'ok', 'updated_at': _iso(row.updated_at)}
 
 
 @app.post('/city/orders', response_model=CityOrderCreateResponse)
