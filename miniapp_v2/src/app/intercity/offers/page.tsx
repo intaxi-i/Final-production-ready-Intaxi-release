@@ -26,10 +26,20 @@ function routeMatches(item: IntercityOffer, from: string, to: string) {
   return (!fromQuery || itemFrom.includes(fromQuery)) && (!toQuery || itemTo.includes(toQuery));
 }
 
+function parseKind(value: string | null): 'request' | 'route' | null {
+  return value === 'request' || value === 'route' ? value : null;
+}
+
+function readKindQuery(): 'request' | 'route' | null {
+  if (typeof window === 'undefined') return null;
+  return parseKind(new URLSearchParams(window.location.search).get('kind'));
+}
+
 export default function IntercityOffersPage() {
   const [items, setItems] = useState<IntercityOffer[]>([]);
   const [me, setMe] = useState<UserMe | null>(null);
   const [driverProfile, setDriverProfile] = useState<DriverProfile | null>(null);
+  const [kindOverride, setKindOverride] = useState<'request' | 'route' | null>(null);
   const [fromFilter, setFromFilter] = useState('');
   const [toFilter, setToFilter] = useState('');
   const [loading, setLoading] = useState(true);
@@ -38,7 +48,8 @@ export default function IntercityOffersPage() {
 
   const lang = me?.language;
   const confirmedDriver = me?.active_role === 'driver' && isConfirmedDriver(driverProfile);
-  const targetKind = confirmedDriver ? 'request' : 'route';
+  const roleBasedKind = confirmedDriver ? 'request' : 'route';
+  const targetKind = kindOverride || roleBasedKind;
 
   function kindLabel(kind: string) {
     if (kind === 'request') return t(lang, 'requestKind');
@@ -102,7 +113,10 @@ export default function IntercityOffersPage() {
     }
   }
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    setKindOverride(readKindQuery());
+    void load();
+  }, []);
 
   const visibleItems = useMemo(() => {
     return items
@@ -132,7 +146,7 @@ export default function IntercityOffersPage() {
           <label className="label">{t(lang, 'fromWhere')}<input className="input" value={fromFilter} onChange={(event) => setFromFilter(event.target.value)} placeholder={t(lang, 'exampleFrom')} /></label>
           <label className="label">{t(lang, 'toWhere')}<input className="input" value={toFilter} onChange={(event) => setToFilter(event.target.value)} placeholder={t(lang, 'exampleTo')} /></label>
         </div>
-        <p className="subtitle">{confirmedDriver ? t(lang, 'driverRequestsOnly') : t(lang, 'passengerRoutesOnly')}</p>
+        <p className="subtitle">{targetKind === 'request' ? t(lang, 'driverRequestsOnly') : t(lang, 'passengerRoutesOnly')}</p>
       </section>
 
       {loading ? <section className="card"><p className="subtitle">{t(lang, 'loadingOffers')}</p></section> : null}
