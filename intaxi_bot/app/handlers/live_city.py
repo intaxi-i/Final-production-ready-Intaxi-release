@@ -11,7 +11,6 @@ from sqlalchemy import select
 import app.database.requests as rq
 import app.keyboards as kb
 from app.database.models import CityOrderV1, CityOrderRuntime, CityTripV1, DriverOnlineState, User, Vehicle, async_session
-from app.hotfix_menu import home_webapp_menu
 from app.miniapp_routes import current_trip_url
 from app.strings import MESSAGES
 
@@ -354,7 +353,7 @@ async def city_comment(message: types.Message, state: FSMContext, bot: Bot):
     comment = '' if (message.text or '').strip() == '-' else (message.text or '').strip()
     order, runtime = await rq.create_city_order_bot(creator_tg_id=user.tg_id, role='passenger', country=data.get('country', user.country or 'uz'), city=data.get('city', user.city or ''), from_address=data.get('from_address', ''), to_address=data.get('to_address', ''), seats=int(data.get('seats', 1)), price=float(data.get('price', 0)), comment=comment, from_lat=data.get('from_lat'), from_lng=data.get('from_lng'), to_lat=data.get('to_lat'), to_lng=data.get('to_lng'))
     await state.clear()
-    await message.answer(_text(lang, 'created'), reply_markup=home_webapp_menu(lang, is_driver_mode=False))
+    await message.answer(_text(lang, 'created'), reply_markup=kb.main_menu(lang, user_id=user.tg_id, is_driver_mode=False))
     await _notify_online_drivers(bot, order, runtime)
 
 
