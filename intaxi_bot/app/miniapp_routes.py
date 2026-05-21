@@ -56,11 +56,13 @@ def intercity_route_url() -> str:
 
 
 def intercity_my_routes_url() -> str:
-    return _build("/intercity/my-routes")
+    """Compatibility helper for old bot imports; use existing offers page until my-routes is implemented."""
+    return intercity_offers_url()
 
 
 def intercity_my_requests_url() -> str:
-    return _build("/intercity/my-requests")
+    """Compatibility helper for old bot imports; use existing offers page until my-requests is implemented."""
+    return intercity_offers_url()
 
 
 def profile_url(entry: str | None = None) -> str:
