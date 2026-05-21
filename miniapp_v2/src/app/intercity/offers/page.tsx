@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
 import { CalendarDays, RefreshCw, Route, Users } from 'lucide-react';
 import { APP_ROUTES } from '@/lib/constants';
 import { acceptIntercityOffer, getMe, listIntercityOffers } from '@/lib/api';
@@ -31,11 +30,16 @@ function parseKind(value: string | null): 'request' | 'route' | null {
   return value === 'request' || value === 'route' ? value : null;
 }
 
+function readKindQuery(): 'request' | 'route' | null {
+  if (typeof window === 'undefined') return null;
+  return parseKind(new URLSearchParams(window.location.search).get('kind'));
+}
+
 export default function IntercityOffersPage() {
-  const searchParams = useSearchParams();
   const [items, setItems] = useState<IntercityOffer[]>([]);
   const [me, setMe] = useState<UserMe | null>(null);
   const [driverProfile, setDriverProfile] = useState<DriverProfile | null>(null);
+  const [kindOverride, setKindOverride] = useState<'request' | 'route' | null>(null);
   const [fromFilter, setFromFilter] = useState('');
   const [toFilter, setToFilter] = useState('');
   const [loading, setLoading] = useState(true);
@@ -45,7 +49,7 @@ export default function IntercityOffersPage() {
   const lang = me?.language;
   const confirmedDriver = me?.active_role === 'driver' && isConfirmedDriver(driverProfile);
   const roleBasedKind = confirmedDriver ? 'request' : 'route';
-  const targetKind = parseKind(searchParams.get('kind')) || roleBasedKind;
+  const targetKind = kindOverride || roleBasedKind;
 
   function kindLabel(kind: string) {
     if (kind === 'request') return t(lang, 'requestKind');
@@ -109,7 +113,10 @@ export default function IntercityOffersPage() {
     }
   }
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    setKindOverride(readKindQuery());
+    void load();
+  }, []);
 
   const visibleItems = useMemo(() => {
     return items
