@@ -43,8 +43,8 @@ def intercity_main_url(role: str | None = None) -> str:
     return _build("/intercity", role=role)
 
 
-def intercity_offers_url() -> str:
-    return _build("/intercity/offers")
+def intercity_offers_url(kind: str | None = None) -> str:
+    return _build("/intercity/offers", kind=kind)
 
 
 def intercity_request_url() -> str:
@@ -57,12 +57,12 @@ def intercity_route_url() -> str:
 
 def intercity_my_routes_url() -> str:
     """Compatibility helper for old bot imports; use existing offers page until my-routes is implemented."""
-    return intercity_offers_url()
+    return intercity_offers_url(kind="route")
 
 
 def intercity_my_requests_url() -> str:
     """Compatibility helper for old bot imports; use existing offers page until my-requests is implemented."""
-    return intercity_offers_url()
+    return intercity_offers_url(kind="request")
 
 
 def profile_url(entry: str | None = None) -> str:
