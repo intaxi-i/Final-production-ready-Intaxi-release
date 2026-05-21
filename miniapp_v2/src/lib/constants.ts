@@ -10,8 +10,6 @@ export const APP_ROUTES = {
   intercityRequest: "/intercity/request",
   intercityRoute: "/intercity/route",
   intercityOffers: "/intercity/offers",
-  myRequests: "/intercity/my-requests",
-  myRoutes: "/intercity/my-routes",
   currentTrip: "/trip/current",
   profile: "/profile",
   wallet: "/wallet",
