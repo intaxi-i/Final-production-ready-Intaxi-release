@@ -15,6 +15,7 @@ from api.schemas import (
     DriverOnlineUpdateRequest,
     HistoryResponse,
 )
+from api.services.lifecycle import find_current_city_order, find_current_city_trip, find_current_intercity_offer, LIVE_CITY_STATUSES
 from intaxi_bot.app.database.models import (
     CityOrderRuntime,
     CityOrderV1,
@@ -28,9 +29,6 @@ from intaxi_bot.app.database.models import (
     async_session,
     utcnow,
 )
-
-LIVE_CITY_STATUSES = {'accepted', 'driver_on_way', 'driver_arrived', 'in_progress'}
-LIVE_INTERCITY_STATUSES = {'active', 'accepted', 'in_progress'}
 
 
 def _iso(value: Any) -> str | None:
@@ -219,14 +217,7 @@ async def safe_city_offers(kind: str = Query('all'), current_user: User = Depend
 
 async def safe_current_trip(current_user: User = Depends(get_current_user)) -> CurrentTripResponse:
     async with async_session() as session:
-        trip = await session.scalar(
-            select(CityTripV1)
-            .where(
-                or_(CityTripV1.passenger_tg_id == current_user.tg_id, CityTripV1.driver_tg_id == current_user.tg_id),
-                CityTripV1.status.in_(list(LIVE_CITY_STATUSES)),
-            )
-            .order_by(CityTripV1.id.desc())
-        )
+        trip = await find_current_city_trip(session, current_user.tg_id)
         if trip:
             passenger = await session.scalar(select(User).where(User.tg_id == trip.passenger_tg_id))
             driver = await session.scalar(select(User).where(User.tg_id == trip.driver_tg_id))
@@ -250,11 +241,7 @@ async def safe_current_trip(current_user: User = Depends(get_current_user)) -> C
                 'map_provider': provider, 'map_embed_url': embed, 'map_action_url': action,
             })
 
-        order = await session.scalar(
-            select(CityOrderV1)
-            .where(CityOrderV1.creator_tg_id == current_user.tg_id, CityOrderV1.status == 'active', CityOrderV1.role == 'passenger')
-            .order_by(CityOrderV1.id.desc())
-        )
+        order = await find_current_city_order(session, current_user.tg_id)
         if order:
             runtime = await session.scalar(select(CityOrderRuntime).where(CityOrderRuntime.order_id == order.id))
             return CurrentTripResponse(item={
@@ -266,43 +253,28 @@ async def safe_current_trip(current_user: User = Depends(get_current_user)) -> C
                 'currency': runtime.currency if runtime else None, 'tariff_hint': runtime.tariff_hint if runtime else None,
             })
 
-        route = await session.scalar(
-            select(IntercityRouteV1)
-            .where(
-                or_(IntercityRouteV1.creator_tg_id == current_user.tg_id, IntercityRouteV1.accepted_by_tg_id == current_user.tg_id),
-                IntercityRouteV1.status.in_(list(LIVE_INTERCITY_STATUSES)),
-            )
-            .order_by(IntercityRouteV1.id.desc())
-        )
-        if route:
-            meta = await session.scalar(select(IntercityRouteMeta).where(IntercityRouteMeta.route_id == route.id))
-            provider, embed, action = _map_urls(route.country, meta.meeting_lat if meta else None, meta.meeting_lng if meta else None)
+        current_intercity = await find_current_intercity_offer(session, current_user.tg_id)
+        if current_intercity:
+            kind, item = current_intercity
+            if kind == 'intercity_route':
+                meta = await session.scalar(select(IntercityRouteMeta).where(IntercityRouteMeta.route_id == item.id))
+                provider, embed, action = _map_urls(item.country, meta.meeting_lat if meta else None, meta.meeting_lng if meta else None)
+                return CurrentTripResponse(item={
+                    'id': item.id, 'trip_type': 'intercity_route', 'status': item.status, 'price': float(item.price or 0),
+                    'country': item.country, 'from_city': item.from_city, 'to_city': item.to_city, 'comment': item.comment,
+                    'pickup_mode': meta.pickup_mode if meta else 'ask_driver', 'map_provider': provider,
+                    'map_embed_url': embed, 'map_action_url': action, 'date': item.departure_date,
+                    'time': item.departure_time, 'seats': item.seats, 'accepted_by_tg_id': item.accepted_by_tg_id,
+                    'creator_tg_id': item.creator_tg_id, 'is_mine': current_user.tg_id == item.creator_tg_id,
+                })
+            provider, embed, action = _map_urls(item.country, None, None)
             return CurrentTripResponse(item={
-                'id': route.id, 'trip_type': 'intercity_route', 'status': route.status, 'price': float(route.price or 0),
-                'country': route.country, 'from_city': route.from_city, 'to_city': route.to_city, 'comment': route.comment,
-                'pickup_mode': meta.pickup_mode if meta else 'ask_driver', 'map_provider': provider,
-                'map_embed_url': embed, 'map_action_url': action, 'date': route.departure_date,
-                'time': route.departure_time, 'seats': route.seats, 'accepted_by_tg_id': route.accepted_by_tg_id,
-                'creator_tg_id': route.creator_tg_id, 'is_mine': current_user.tg_id == route.creator_tg_id,
-            })
-
-        req = await session.scalar(
-            select(IntercityRequestV1)
-            .where(
-                or_(IntercityRequestV1.creator_tg_id == current_user.tg_id, IntercityRequestV1.accepted_by_tg_id == current_user.tg_id),
-                IntercityRequestV1.status.in_(list(LIVE_INTERCITY_STATUSES)),
-            )
-            .order_by(IntercityRequestV1.id.desc())
-        )
-        if req:
-            provider, embed, action = _map_urls(req.country, None, None)
-            return CurrentTripResponse(item={
-                'id': req.id, 'trip_type': 'intercity_request', 'status': req.status,
-                'price': float(req.price_offer or 0), 'country': req.country, 'from_city': req.from_city,
-                'to_city': req.to_city, 'comment': req.comment, 'map_provider': provider,
-                'map_embed_url': embed, 'map_action_url': action, 'date': req.desired_date,
-                'time': req.desired_time, 'seats': req.seats_needed, 'accepted_by_tg_id': req.accepted_by_tg_id,
-                'creator_tg_id': req.creator_tg_id, 'is_mine': current_user.tg_id == req.creator_tg_id,
+                'id': item.id, 'trip_type': 'intercity_request', 'status': item.status,
+                'price': float(item.price_offer or 0), 'country': item.country, 'from_city': item.from_city,
+                'to_city': item.to_city, 'comment': item.comment, 'map_provider': provider,
+                'map_embed_url': embed, 'map_action_url': action, 'date': item.desired_date,
+                'time': item.desired_time, 'seats': item.seats_needed, 'accepted_by_tg_id': item.accepted_by_tg_id,
+                'creator_tg_id': item.creator_tg_id, 'is_mine': current_user.tg_id == item.creator_tg_id,
             })
     return CurrentTripResponse(item=None)
 

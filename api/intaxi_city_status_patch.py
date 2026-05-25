@@ -9,20 +9,7 @@ from sqlalchemy import select
 from api.auth import get_current_user
 from api.schemas import CityTripEnvelope, CityTripResponse, CityTripStatusUpdateRequest, VehicleInfo
 from intaxi_bot.app.database.models import CityOrderRuntime, CityOrderV1, CityTripV1, User, Vehicle, async_session
-
-LIVE_CITY_STATUSES = {'accepted', 'driver_on_way', 'driver_arrived', 'in_progress'}
-FINAL_CITY_STATUSES = {'completed', 'cancelled', 'closed', 'cancelled_by_admin'}
-CITY_STATUS_NEXT = {
-    'accepted': {'driver_on_way', 'driver_arrived', 'cancelled'},
-    'driver_on_way': {'driver_arrived', 'cancelled'},
-    'driver_arrived': {'in_progress', 'cancelled'},
-    'in_progress': {'completed', 'cancelled'},
-}
-
-
-def _now() -> datetime:
-    return datetime.now(timezone.utc)
-
+from api.services.lifecycle import ensure_city_transition_allowed, ensure_supported_city_status, now_utc
 
 def _map_provider(country: str | None) -> str:
     return 'yandex' if country in {'uz', 'tr'} else 'google'
@@ -97,42 +84,31 @@ async def _trip_response(session, trip: CityTripV1) -> CityTripResponse:
 
 async def strict_city_trip_status(trip_id: int, payload: CityTripStatusUpdateRequest, current_user: User = Depends(get_current_user)) -> CityTripEnvelope:
     new_status = payload.status
-    if new_status not in LIVE_CITY_STATUSES | FINAL_CITY_STATUSES:
-        raise HTTPException(status_code=400, detail='Unsupported city trip status')
+    ensure_supported_city_status(new_status)
 
     async with async_session() as session:
         trip = await session.scalar(select(CityTripV1).where(CityTripV1.id == trip_id).with_for_update())
         if not trip:
             raise HTTPException(status_code=404, detail='Trip not found')
-        if trip.status in FINAL_CITY_STATUSES:
-            if new_status == trip.status:
-                return CityTripEnvelope(item=await _trip_response(session, trip))
-            raise HTTPException(status_code=409, detail='Trip is already finished')
-
         is_driver = current_user.tg_id == trip.driver_tg_id
         is_passenger = current_user.tg_id == trip.passenger_tg_id
-        if is_driver:
-            if new_status != trip.status and new_status not in CITY_STATUS_NEXT.get(trip.status, set()):
-                raise HTTPException(status_code=409, detail='Invalid city trip status transition')
-        elif is_passenger:
-            if new_status != 'cancelled':
-                raise HTTPException(status_code=403, detail='Only the driver can update trip progress')
-        else:
-            raise HTTPException(status_code=403, detail='Forbidden')
+        ensure_city_transition_allowed(trip.status, new_status, is_driver=is_driver, is_passenger=is_passenger)
+        if trip.status == new_status:
+            return CityTripEnvelope(item=await _trip_response(session, trip))
 
         trip.status = new_status
-        trip.updated_at = _now()
+        trip.updated_at = now_utc()
         order = await session.scalar(select(CityOrderV1).where(CityOrderV1.id == trip.order_id).with_for_update())
         runtime = await session.scalar(select(CityOrderRuntime).where(CityOrderRuntime.order_id == trip.order_id).with_for_update())
 
         if new_status == 'completed':
-            trip.completed_at = _now()
+            trip.completed_at = now_utc()
             if order:
                 order.status = 'completed'
             if runtime:
                 runtime.active_trip_id = None
         elif new_status in {'cancelled', 'closed', 'cancelled_by_admin'}:
-            trip.cancelled_at = _now()
+            trip.cancelled_at = now_utc()
             if order:
                 order.status = 'cancelled'
             if runtime:

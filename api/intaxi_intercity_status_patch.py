@@ -7,16 +7,8 @@ from sqlalchemy import select
 
 from api.auth import get_current_user
 from api.schemas import IntercityStatusUpdateRequest
+from api.services.lifecycle import TripActors, ensure_intercity_transition_allowed, ensure_participant_or_forbidden
 from intaxi_bot.app.database.models import IntercityRequestV1, IntercityRouteV1, User, async_session
-
-DRIVER_STATUSES = {'in_progress', 'completed', 'cancelled'}
-PASSENGER_STATUSES = {'cancelled', 'closed'}
-OWNER_ACTIVE_STATUSES = {'cancelled', 'closed'}
-FINAL_STATUSES = {'completed', 'cancelled', 'closed'}
-
-
-def _is_final(status: str | None) -> bool:
-    return (status or '') in FINAL_STATUSES
 
 
 async def safe_intercity_route_status(route_id: int, payload: IntercityStatusUpdateRequest, current_user: User = Depends(get_current_user)) -> dict:
@@ -25,24 +17,16 @@ async def safe_intercity_route_status(route_id: int, payload: IntercityStatusUpd
         row = await session.scalar(select(IntercityRouteV1).where(IntercityRouteV1.id == route_id).with_for_update())
         if not row:
             raise HTTPException(status_code=404, detail='Route not found')
-        if current_user.tg_id not in {row.creator_tg_id, row.accepted_by_tg_id}:
-            raise HTTPException(status_code=403, detail='Forbidden')
-        if _is_final(row.status):
-            raise HTTPException(status_code=409, detail='Route is already finished')
-
-        is_driver = current_user.tg_id == row.creator_tg_id
-        is_passenger = current_user.tg_id == row.accepted_by_tg_id
-        if row.status == 'active':
-            if not is_driver or new_status not in OWNER_ACTIVE_STATUSES:
-                raise HTTPException(status_code=403, detail='Unsupported status transition')
-        elif is_driver:
-            if new_status not in DRIVER_STATUSES:
-                raise HTTPException(status_code=403, detail='Unsupported status transition')
-        elif is_passenger:
-            if new_status not in PASSENGER_STATUSES:
-                raise HTTPException(status_code=403, detail='Unsupported status transition')
-        else:
-            raise HTTPException(status_code=403, detail='Forbidden')
+        ensure_participant_or_forbidden(
+            current_user.tg_id,
+            TripActors(creator_tg_id=row.creator_tg_id, accepted_by_tg_id=row.accepted_by_tg_id, passenger_tg_id=None, driver_tg_id=None),
+        )
+        ensure_intercity_transition_allowed(
+            row.status or '',
+            new_status,
+            is_creator=current_user.tg_id == row.creator_tg_id,
+            is_accepted_by=current_user.tg_id == row.accepted_by_tg_id,
+        )
 
         row.status = new_status
         if new_status == 'completed':
@@ -59,24 +43,16 @@ async def safe_intercity_request_status(request_id: int, payload: IntercityStatu
         row = await session.scalar(select(IntercityRequestV1).where(IntercityRequestV1.id == request_id).with_for_update())
         if not row:
             raise HTTPException(status_code=404, detail='Request not found')
-        if current_user.tg_id not in {row.creator_tg_id, row.accepted_by_tg_id}:
-            raise HTTPException(status_code=403, detail='Forbidden')
-        if _is_final(row.status):
-            raise HTTPException(status_code=409, detail='Request is already finished')
-
-        is_passenger = current_user.tg_id == row.creator_tg_id
-        is_driver = current_user.tg_id == row.accepted_by_tg_id
-        if row.status == 'active':
-            if not is_passenger or new_status not in OWNER_ACTIVE_STATUSES:
-                raise HTTPException(status_code=403, detail='Unsupported status transition')
-        elif is_driver:
-            if new_status not in DRIVER_STATUSES:
-                raise HTTPException(status_code=403, detail='Unsupported status transition')
-        elif is_passenger:
-            if new_status not in PASSENGER_STATUSES:
-                raise HTTPException(status_code=403, detail='Unsupported status transition')
-        else:
-            raise HTTPException(status_code=403, detail='Forbidden')
+        ensure_participant_or_forbidden(
+            current_user.tg_id,
+            TripActors(creator_tg_id=row.creator_tg_id, accepted_by_tg_id=row.accepted_by_tg_id, passenger_tg_id=None, driver_tg_id=None),
+        )
+        ensure_intercity_transition_allowed(
+            row.status or '',
+            new_status,
+            is_creator=current_user.tg_id == row.creator_tg_id,
+            is_accepted_by=current_user.tg_id == row.accepted_by_tg_id,
+        )
 
         row.status = new_status
         if new_status == 'completed' and row.accepted_by_tg_id:
