@@ -12,6 +12,7 @@ from api.auth import create_session, get_bot_token, get_current_user, validate_t
 from api.config import get_settings
 from api.routers import driver as driver_router
 from api.routers import me as me_router
+from api.routers import intercity as intercity_router
 from api.schemas import (
     ChatCreatedResponse,
     ChatMessageListResponse,
@@ -94,6 +95,7 @@ from intaxi_bot.app.database.requests import (
 app = FastAPI(title=get_settings().app_name)
 app.include_router(me_router.router)
 app.include_router(driver_router.router)
+app.include_router(intercity_router.router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -935,156 +937,6 @@ async def chat_send(trip_id: int, payload: ChatMessageRequest, trip_type: str = 
         await session.commit()
         await session.refresh(row)
         return ChatCreatedResponse(id=row.id, status='sent')
-
-
-@app.post('/intercity/chat-access/{kind}/{item_id}')
-async def intercity_chat_access(kind: str, item_id: int, current_user: User = Depends(get_current_user)) -> dict:
-    trip_type = f'intercity_{kind}'
-    async with async_session() as session:
-        await _grant_intercity_chat_access(session, trip_type=trip_type, trip_id=item_id, current_user=current_user)
-        await session.commit()
-    return {'status': 'granted', 'trip_type': trip_type, 'trip_id': item_id}
-
-
-@app.post('/intercity/routes')
-async def create_intercity_route(payload: IntercityRouteCreateRequest, current_user: User = Depends(get_current_user)) -> dict:
-    await _require_verified_driver(current_user, detail='Only verified drivers can create intercity routes')
-    async with async_session() as session:
-        row = IntercityRouteV1(
-            creator_tg_id=current_user.tg_id, country=payload.country, from_city=payload.from_city, to_city=payload.to_city,
-            departure_date=payload.date, departure_time=payload.time, seats=payload.seats, price=payload.price, comment=payload.comment, status='active'
-        )
-        session.add(row)
-        await session.flush()
-        session.add(IntercityRouteMeta(route_id=row.id, pickup_mode=payload.pickup_mode or 'ask_driver'))
-        await session.commit()
-        return {'id': row.id, 'status': row.status}
-
-
-@app.post('/intercity/requests')
-async def create_intercity_request(payload: IntercityRequestCreateRequest, current_user: User = Depends(get_current_user)) -> dict:
-    async with async_session() as session:
-        row = IntercityRequestV1(
-            creator_tg_id=current_user.tg_id, country=payload.country, from_city=payload.from_city, to_city=payload.to_city,
-            desired_date=payload.date, desired_time=payload.time, seats_needed=payload.seats_needed, price_offer=payload.price_offer, comment=payload.comment, status='active'
-        )
-        session.add(row)
-        await session.commit()
-        await session.refresh(row)
-        return {'id': row.id, 'status': row.status}
-
-
-@app.get('/intercity/offers', response_model=IntercityOfferListResponse)
-async def intercity_offers(current_user: User = Depends(get_current_user)) -> IntercityOfferListResponse:
-    async with async_session() as session:
-        routes = (await session.scalars(select(IntercityRouteV1).order_by(IntercityRouteV1.id.desc()))).all()
-        requests = (await session.scalars(select(IntercityRequestV1).order_by(IntercityRequestV1.id.desc()))).all()
-    items = [await _intercity_offer_from_route(row, current_user) for row in routes] + [await _intercity_offer_from_request(row, current_user) for row in requests]
-    items.sort(key=lambda item: item.id, reverse=True)
-    return IntercityOfferListResponse(items=items)
-
-
-@app.get('/intercity/offers/{kind}/{item_id}', response_model=IntercityOfferEnvelope)
-async def intercity_offer_detail(kind: str, item_id: int, current_user: User = Depends(get_current_user)) -> IntercityOfferEnvelope:
-    async with async_session() as session:
-        if kind == 'route':
-            row = await session.scalar(select(IntercityRouteV1).where(IntercityRouteV1.id == item_id))
-            if not row:
-                raise HTTPException(status_code=404, detail='Route not found')
-            return IntercityOfferEnvelope(item=await _intercity_offer_from_route(row, current_user))
-        row = await session.scalar(select(IntercityRequestV1).where(IntercityRequestV1.id == item_id))
-        if not row:
-            raise HTTPException(status_code=404, detail='Request not found')
-        return IntercityOfferEnvelope(item=await _intercity_offer_from_request(row, current_user))
-
-
-@app.post('/intercity/offers/{kind}/{item_id}/accept', response_model=IntercityAcceptResponse)
-async def intercity_accept(kind: str, item_id: int, current_user: User = Depends(get_current_user)) -> IntercityAcceptResponse:
-    async with async_session() as session:
-        if kind == 'route':
-            row = await session.scalar(select(IntercityRouteV1).where(IntercityRouteV1.id == item_id))
-            if not row:
-                raise HTTPException(status_code=404, detail='Route not found')
-            if current_user.tg_id == row.creator_tg_id:
-                raise HTTPException(status_code=403, detail='Owner cannot accept own route')
-            if row.accepted_by_tg_id and row.accepted_by_tg_id != current_user.tg_id:
-                raise HTTPException(status_code=409, detail='Route already accepted')
-            row.accepted_by_tg_id = current_user.tg_id
-            row.status = 'accepted'
-            await _grant_intercity_chat_access(session, trip_type='intercity_route', trip_id=row.id, current_user=current_user)
-            await session.commit()
-            return IntercityAcceptResponse(trip_id=row.id, trip_type='intercity_route', status=row.status)
-        if kind == 'request':
-            await _require_verified_driver(current_user, detail='Only verified drivers can accept passenger intercity requests')
-            row = await session.scalar(select(IntercityRequestV1).where(IntercityRequestV1.id == item_id))
-            if not row:
-                raise HTTPException(status_code=404, detail='Request not found')
-            if current_user.tg_id == row.creator_tg_id:
-                raise HTTPException(status_code=403, detail='Owner cannot accept own request')
-            if row.accepted_by_tg_id and row.accepted_by_tg_id != current_user.tg_id:
-                raise HTTPException(status_code=409, detail='Request already accepted')
-            row.accepted_by_tg_id = current_user.tg_id
-            row.status = 'accepted'
-            await _grant_intercity_chat_access(session, trip_type='intercity_request', trip_id=row.id, current_user=current_user)
-            await session.commit()
-            return IntercityAcceptResponse(trip_id=row.id, trip_type='intercity_request', status=row.status)
-        raise HTTPException(status_code=400, detail='Unsupported intercity kind')
-
-
-@app.get('/intercity/my-routes', response_model=IntercityOwnRouteListResponse)
-async def intercity_my_routes(current_user: User = Depends(get_current_user)) -> IntercityOwnRouteListResponse:
-    async with async_session() as session:
-        rows = (await session.scalars(select(IntercityRouteV1).where(IntercityRouteV1.creator_tg_id == current_user.tg_id).order_by(IntercityRouteV1.id.desc()))).all()
-        items = []
-        for row in rows:
-            meta = await session.scalar(select(IntercityRouteMeta).where(IntercityRouteMeta.route_id == row.id))
-            items.append(IntercityOwnRouteResponse(id=row.id, country=row.country, from_city=row.from_city, to_city=row.to_city, date=row.departure_date, time=row.departure_time, seats=row.seats, price=row.price, comment=row.comment, status=row.status, created_at=_iso(row.created_at), pickup_mode=meta.pickup_mode if meta else 'ask_driver'))
-        return IntercityOwnRouteListResponse(items=items)
-
-
-@app.get('/intercity/my-requests', response_model=IntercityOwnRequestListResponse)
-async def intercity_my_requests(current_user: User = Depends(get_current_user)) -> IntercityOwnRequestListResponse:
-    async with async_session() as session:
-        rows = (await session.scalars(select(IntercityRequestV1).where(IntercityRequestV1.creator_tg_id == current_user.tg_id).order_by(IntercityRequestV1.id.desc()))).all()
-        items = [IntercityOwnRequestResponse(id=row.id, country=row.country, from_city=row.from_city, to_city=row.to_city, date=row.desired_date, time=row.desired_time, seats_needed=row.seats_needed, price_offer=row.price_offer, comment=row.comment, status=row.status, created_at=_iso(row.created_at)) for row in rows]
-        return IntercityOwnRequestListResponse(items=items)
-
-
-
-@app.post('/intercity/routes/{route_id}/status')
-async def intercity_route_status(route_id: int, payload: IntercityStatusUpdateRequest, current_user: User = Depends(get_current_user)) -> dict:
-    allowed = {'active', 'accepted', 'in_progress', 'completed', 'cancelled', 'closed'}
-    if payload.status not in allowed:
-        raise HTTPException(status_code=400, detail='Unsupported status')
-    async with async_session() as session:
-        row = await session.scalar(select(IntercityRouteV1).where(IntercityRouteV1.id == route_id))
-        if not row:
-            raise HTTPException(status_code=404, detail='Route not found')
-        if current_user.tg_id not in {row.creator_tg_id, row.accepted_by_tg_id}:
-            raise HTTPException(status_code=403, detail='Forbidden')
-        row.status = payload.status
-        if payload.status == 'completed':
-            driver = await session.scalar(select(User).where(User.tg_id == row.creator_tg_id))
-            if driver and driver.is_verified:
-                driver.commission_due = 0.0
-        await session.commit()
-        return {'id': row.id, 'status': row.status}
-
-
-@app.post('/intercity/requests/{request_id}/status')
-async def intercity_request_status(request_id: int, payload: IntercityStatusUpdateRequest, current_user: User = Depends(get_current_user)) -> dict:
-    allowed = {'active', 'accepted', 'in_progress', 'completed', 'cancelled', 'closed'}
-    if payload.status not in allowed:
-        raise HTTPException(status_code=400, detail='Unsupported status')
-    async with async_session() as session:
-        row = await session.scalar(select(IntercityRequestV1).where(IntercityRequestV1.id == request_id))
-        if not row:
-            raise HTTPException(status_code=404, detail='Request not found')
-        if current_user.tg_id not in {row.creator_tg_id, row.accepted_by_tg_id}:
-            raise HTTPException(status_code=403, detail='Forbidden')
-        row.status = payload.status
-        await session.commit()
-        return {'id': row.id, 'status': row.status}
 
 
 @app.get('/history/all', response_model=HistoryResponse)
