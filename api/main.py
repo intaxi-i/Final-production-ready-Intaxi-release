@@ -10,6 +10,7 @@ from sqlalchemy import or_, select
 
 from api.auth import create_session, get_bot_token, get_current_user, validate_telegram_init_data
 from api.config import get_settings
+from api.services.city_service import (_city_order_to_schema, _city_trip_to_schema, _currency_hint, _dispatch_stage_and_seen, _get_tariff, _recommended_price)
 from api.schemas import (
     ChatCreatedResponse,
     ChatMessageListResponse,
